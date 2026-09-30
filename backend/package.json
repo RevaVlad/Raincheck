@@ -1,0 +1,36 @@
+{
+  "name": "backend",
+  "version": "0.1.0",
+  "private": true,
+  "engines": { "node": ">=22.22.3" },
+  "scripts": {
+    "dev": "node --conditions=development --env-file-if-exists=.env --import tsx --watch src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node --env-file-if-exists=.env dist/server.js",
+    "test": "node --conditions=development --import tsx --test src/app.test.ts src/config/config.test.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "db:migrate": "node --conditions=development --env-file-if-exists=.env --import tsx src/db/migrate.ts",
+    "db:migrate:status": "node --conditions=development --env-file-if-exists=.env --import tsx src/db/migrate.ts --status"
+  },
+  "type": "module",
+  "imports": {
+    "#config/*": {
+      "development": "./src/config/*.ts",
+      "default": "./dist/config/*.js"
+    },
+    "#db/*": {
+      "development": "./src/db/*.ts",
+      "default": "./dist/db/*.js"
+    }
+  },
+  "dependencies": {
+    "fastify": "^5.12.5",
+    "pg": "^8.23.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.0",
+    "@types/pg": "^8.23.1",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3"
+  }
+}
