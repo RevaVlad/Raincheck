@@ -5,9 +5,8 @@ import { createGroup } from '../domain/group.js';
 import { createParticipant } from '../domain/participant.js';
 import { closePoll, createPoll } from '../domain/poll.js';
 import { createResponse } from '../domain/response.js';
-import { createInterval } from '../domain/interval.js';
 import {
-  insertGroup, insertParticipant, insertPoll, insertResponse, insertInterval,
+  insertGroup, insertParticipant, insertPoll, insertResponse, replaceResponseIntervals,
 } from './entities.repository.js';
 
 const databaseUrl = process.env['DATABASE_URL'];
@@ -35,21 +34,40 @@ const pollInput = {
   meetingDurationMinutes: 60,
 };
 
-test('all five entities persist with their relationships and normalized fields', async () => {
-  await inTransaction(async (client) => {
-    const group = createGroup({ name: 'Team', timezone: 'Asia/Yekaterinburg' });
-    const { participant } = createParticipant(group.id, '  Alice   Smith  ');
-    const poll = createPoll(group.id, 1, pollInput);
-    const response = createResponse(poll.id, participant.id);
-    const interval = createInterval(response.id, poll, {
-      localDate: '2026-10-06', startTime: '18:00', endTime: '20:00', kind: 'PREFERRED',
-    });
+async function withPersistedResponse(
+  run: (fixture: { groupId: string; pollId: string; responseId: string }) => Promise<void>,
+): Promise<void> {
+  const group = createGroup({ name: 'Team', timezone: 'UTC' });
+  const { participant } = createParticipant(group.id, 'Alice');
+  const poll = createPoll(group.id, 1, pollInput);
+  const response = createResponse(poll.id, participant.id);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
     await insertGroup(client, group);
     await insertParticipant(client, participant);
     await insertPoll(client, poll);
     await insertResponse(client, response);
-    await insertInterval(client, interval);
-    const result = await client.query<{
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+  try {
+    await run({ groupId: group.id, pollId: poll.id, responseId: response.id });
+  } finally {
+    await pool.query('DELETE FROM groups WHERE id = $1', [group.id]);
+  }
+}
+
+test('all five entities persist with their relationships and normalized fields', async () => {
+  await withPersistedResponse(async ({ responseId }) => {
+    const [interval] = await replaceResponseIntervals(pool, responseId, [{
+      localDate: '2026-10-06', startTime: '18:00', endTime: '20:00', kind: 'PREFERRED',
+    }]);
+    const result = await pool.query<{
       group_name: string; poll_title: string; display_name_normalized: string;
       state: string; preference_direction: string;
     }>(`SELECT g.name AS group_name, poll.title AS poll_title,
@@ -59,10 +77,10 @@ test('all five entities persist with their relationships and normalized fields',
         JOIN participants p ON p.id = r.participant_id
         JOIN polls poll ON poll.id = r.poll_id
         JOIN groups g ON g.id = poll.group_id
-        WHERE i.id = $1`, [interval.id]);
+        WHERE i.id = $1`, [interval!.id]);
     assert.deepEqual(result.rows[0], {
       group_name: 'Team', poll_title: 'Team meeting',
-      display_name_normalized: 'alice smith', state: 'DRAFT', preference_direction: 'FLAT',
+      display_name_normalized: 'alice', state: 'DRAFT', preference_direction: 'FLAT',
     });
   });
 });
@@ -92,6 +110,22 @@ test('database rejects a previous poll from another group', async () => {
       () => insertPoll(client, nextPoll),
       (error: { code?: string }) => error.code === '23503',
     );
+  });
+});
+
+test('deleting a previous poll clears the reference without changing the group', async () => {
+  await inTransaction(async (client) => {
+    const group = createGroup({ name: 'Team', timezone: 'UTC' });
+    await insertGroup(client, group);
+    const previous = closePoll(createPoll(group.id, 1, pollInput));
+    await insertPoll(client, previous);
+    const current = createPoll(group.id, 2, pollInput, previous.id);
+    await insertPoll(client, current);
+    await client.query('DELETE FROM polls WHERE id = $1', [previous.id]);
+    const result = await client.query<{ group_id: string; based_on_poll_id: string | null }>(
+      'SELECT group_id, based_on_poll_id FROM polls WHERE id = $1', [current.id],
+    );
+    assert.deepEqual(result.rows[0], { group_id: group.id, based_on_poll_id: null });
   });
 });
 
@@ -139,20 +173,63 @@ test('response repository rejects writes to a closed poll', async () => {
   });
 });
 
-test('interval repository rejects writes after its poll closes', async () => {
-  await inTransaction(async (client) => {
-    const group = createGroup({ name: 'Team', timezone: 'UTC' });
-    await insertGroup(client, group);
-    const { participant } = createParticipant(group.id, 'Alice');
-    const poll = createPoll(group.id, 1, pollInput);
-    const response = createResponse(poll.id, participant.id);
-    await insertParticipant(client, participant);
-    await insertPoll(client, poll);
-    await insertResponse(client, response);
-    await client.query('UPDATE polls SET status = $1, closed_at = now() WHERE id = $2', ['CLOSED', poll.id]);
-    const interval = createInterval(response.id, poll, {
+test('replacing intervals demotes a confirmed response and removes its old intervals', async () => {
+  await withPersistedResponse(async ({ responseId }) => {
+    await replaceResponseIntervals(pool, responseId, [{
       localDate: '2026-10-06', startTime: '18:00', endTime: '19:00', kind: 'PREFERRED',
-    });
-    await assert.rejects(() => insertInterval(client, interval), /open poll/i);
+    }]);
+    await pool.query(`UPDATE poll_responses SET state = 'CONFIRMED', confirmed_at = now()
+      WHERE id = $1`, [responseId]);
+    await replaceResponseIntervals(pool, responseId, [{
+      localDate: '2026-10-06', startTime: '20:00', endTime: '21:00', kind: 'UNAVAILABLE',
+    }]);
+    const result = await pool.query<{ state: string; confirmed_at: Date | null; start_time: string }>(
+      `SELECT r.state, r.confirmed_at, i.start_time FROM poll_responses r
+       JOIN availability_intervals i ON i.response_id = r.id WHERE r.id = $1`, [responseId],
+    );
+    assert.equal(result.rows.length, 1);
+    assert.equal(result.rows[0]?.state, 'DRAFT');
+    assert.equal(result.rows[0]?.confirmed_at, null);
+    assert.equal(result.rows[0]?.start_time, '20:00:00');
+  });
+});
+
+test('invalid replacement leaves the previous confirmed answer untouched', async () => {
+  await withPersistedResponse(async ({ responseId }) => {
+    await replaceResponseIntervals(pool, responseId, [{
+      localDate: '2026-10-06', startTime: '18:00', endTime: '19:00', kind: 'PREFERRED',
+    }]);
+    await pool.query(`UPDATE poll_responses SET state = 'CONFIRMED', confirmed_at = now()
+      WHERE id = $1`, [responseId]);
+    await assert.rejects(() => replaceResponseIntervals(pool, responseId, [
+      { localDate: '2026-10-06', startTime: '18:00', endTime: '19:00', kind: 'PREFERRED' },
+      { localDate: '2026-10-06', startTime: '18:30', endTime: '19:30', kind: 'IF_NEEDED' },
+    ]), /overlap/i);
+    await assert.rejects(() => replaceResponseIntervals(pool, responseId, [{
+      localDate: '2026-10-13', startTime: '18:00', endTime: '19:00', kind: 'PREFERRED',
+    }]), /date/i);
+    await assert.rejects(() => replaceResponseIntervals(pool, responseId, [{
+      localDate: '2026-10-06', startTime: '15:30', endTime: '16:30', kind: 'PREFERRED',
+    }]), /daily window/i);
+    await assert.rejects(() => replaceResponseIntervals(pool, responseId, [{
+      localDate: '2026-10-06', startTime: '18:15', endTime: '19:00', kind: 'PREFERRED',
+    }]), /slot/i);
+    const result = await pool.query<{ state: string; confirmed_at: Date | null; start_time: string }>(
+      `SELECT r.state, r.confirmed_at, i.start_time FROM poll_responses r
+       JOIN availability_intervals i ON i.response_id = r.id WHERE r.id = $1`, [responseId],
+    );
+    assert.equal(result.rows.length, 1);
+    assert.equal(result.rows[0]?.state, 'CONFIRMED');
+    assert.ok(result.rows[0]?.confirmed_at);
+    assert.equal(result.rows[0]?.start_time, '18:00:00');
+  });
+});
+
+test('interval replacement rejects writes after its poll closes', async () => {
+  await withPersistedResponse(async ({ pollId, responseId }) => {
+    await pool.query('UPDATE polls SET status = $1, closed_at = now() WHERE id = $2', ['CLOSED', pollId]);
+    await assert.rejects(() => replaceResponseIntervals(pool, responseId, [{
+      localDate: '2026-10-06', startTime: '18:00', endTime: '19:00', kind: 'PREFERRED',
+    }]), /open poll/i);
   });
 });

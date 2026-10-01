@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { calendarDate, timeMinutes, type Poll } from './poll.js';
 
+export type PollWindow = Pick<Poll, 'startsOn' | 'endsOn' | 'dayStart' | 'dayEnd' | 'slotMinutes'>;
+
 export type IntervalKind = 'UNAVAILABLE' | 'IF_NEEDED' | 'PREFERRED';
 export type PreferenceDirection = 'EARLIER' | 'FLAT' | 'LATER';
 
@@ -27,7 +29,7 @@ export interface IntervalInput {
   preferenceDirection?: PreferenceDirection | null;
 }
 
-function validateInterval(input: IntervalInput, poll: Poll): PreferenceDirection | null {
+function validateInterval(input: IntervalInput, poll: PollWindow): PreferenceDirection | null {
   const localDate = calendarDate(input.localDate);
   if (localDate < calendarDate(poll.startsOn) || localDate > calendarDate(poll.endsOn)) {
     throw new RangeError('Interval date is outside the poll');
@@ -63,7 +65,7 @@ function validateInterval(input: IntervalInput, poll: Poll): PreferenceDirection
 
 export function createInterval(
   responseId: string,
-  poll: Poll,
+  poll: PollWindow,
   input: IntervalInput,
   now = new Date(),
 ): AvailabilityInterval {
@@ -79,7 +81,7 @@ export function createInterval(
   return { ...fields, kind: input.kind, preferenceDirection: null };
 }
 
-export function validateIntervalSet(intervals: readonly AvailabilityInterval[], poll: Poll): void {
+export function validateIntervalSet(intervals: readonly AvailabilityInterval[], poll: PollWindow): void {
   const sorted = [...intervals].sort((a, b) =>
     a.localDate.localeCompare(b.localDate) || a.startTime.localeCompare(b.startTime));
   for (const [index, interval] of sorted.entries()) {

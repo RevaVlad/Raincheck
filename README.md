@@ -40,7 +40,7 @@ npm run db:migrate:status
 
 ## Backend entities
 
-The backend models Group, Participant, Poll, PollResponse, and AvailabilityInterval in `backend/src/domain/`. Constructors validate names, timezones, poll windows, and interval bounds. Participant creation returns the raw edit token once and stores only its SHA-256 hash in the entity. `backend/src/db/entities.repository.ts` contains parameterized inserts for these records.
+The backend models Group, Participant, Poll, PollResponse, and AvailabilityInterval in `backend/src/domain/`. Constructors validate names, timezones, poll windows, and interval bounds. Participant creation returns the raw edit token once and stores only its SHA-256 hash in the entity. `backend/src/db/entities.repository.ts` contains parameterized inserts and an atomic whole-response interval replacement. Replacement validates against the stored poll and returns a confirmed response to draft.
 
 After starting PostgreSQL and running migrations, verify the database rules with:
 

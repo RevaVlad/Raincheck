@@ -1,9 +1,9 @@
-import type { PoolClient } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 import type { Group } from '../domain/group.js';
 import type { Participant } from '../domain/participant.js';
 import type { Poll } from '../domain/poll.js';
 import type { PollResponse } from '../domain/response.js';
-import type { AvailabilityInterval } from '../domain/interval.js';
+import { createInterval, validateIntervalSet, type AvailabilityInterval, type IntervalInput, type PollWindow } from '../domain/interval.js';
 
 export async function insertGroup(db: PoolClient, group: Group): Promise<void> {
   await db.query(
@@ -54,21 +54,58 @@ export async function insertResponse(db: PoolClient, response: PollResponse): Pr
   }
 }
 
-export async function insertInterval(db: PoolClient, interval: AvailabilityInterval): Promise<void> {
-  const result = await db.query(
-    `INSERT INTO availability_intervals
-       (id, response_id, local_date, start_time, end_time, kind, preference_direction,
-        created_at, updated_at)
-     SELECT $1, response.id, $3, $4, $5, $6, $7, $8, $9
-       FROM poll_responses AS response
-       JOIN polls AS poll ON poll.id = response.poll_id
-      WHERE response.id = $2 AND poll.status = 'OPEN'
-      FOR SHARE OF poll`,
-    [interval.id, interval.responseId, interval.localDate, interval.startTime,
-      interval.endTime, interval.kind, interval.preferenceDirection,
-      interval.createdAt, interval.updatedAt],
-  );
-  if (result.rowCount !== 1) {
-    throw new Error('Interval requires an open poll response');
+export async function replaceResponseIntervals(
+  pool: Pool,
+  responseId: string,
+  inputs: readonly IntervalInput[],
+  now = new Date(),
+): Promise<AvailabilityInterval[]> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await client.query<{
+      status: string; starts_on: string; ends_on: string;
+      day_start: string; day_end: string; slot_minutes: 30 | 60;
+    }>(`SELECT poll.status, poll.starts_on::text, poll.ends_on::text,
+               poll.day_start::text, poll.day_end::text, poll.slot_minutes
+          FROM poll_responses AS response
+          JOIN polls AS poll ON poll.id = response.poll_id
+         WHERE response.id = $1
+         FOR UPDATE OF response, poll`, [responseId]);
+    const row = result.rows[0];
+    if (!row) throw new Error('Response not found');
+    if (row.status !== 'OPEN') throw new Error('Response requires an open poll');
+    const pollWindow: PollWindow = {
+      startsOn: row.starts_on,
+      endsOn: row.ends_on,
+      dayStart: row.day_start.slice(0, 5),
+      dayEnd: row.day_end.slice(0, 5),
+      slotMinutes: row.slot_minutes,
+    };
+    const intervals = inputs.map((input) => createInterval(responseId, pollWindow, input, now));
+    validateIntervalSet(intervals, pollWindow);
+    await client.query('DELETE FROM availability_intervals WHERE response_id = $1', [responseId]);
+    for (const interval of intervals) {
+      await client.query(
+        `INSERT INTO availability_intervals
+           (id, response_id, local_date, start_time, end_time, kind, preference_direction,
+            created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [interval.id, interval.responseId, interval.localDate, interval.startTime,
+          interval.endTime, interval.kind, interval.preferenceDirection,
+          interval.createdAt, interval.updatedAt],
+      );
+    }
+    await client.query(
+      `UPDATE poll_responses SET state = 'DRAFT', confirmed_at = NULL, updated_at = $2
+        WHERE id = $1`, [responseId, now],
+    );
+    await client.query('COMMIT');
+    return intervals;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
   }
 }
