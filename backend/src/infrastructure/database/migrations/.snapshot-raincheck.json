@@ -1,0 +1,1145 @@
+{
+  "name": "public",
+  "namespaces": [
+    "public"
+  ],
+  "tables": [
+    {
+      "name": "availability_intervals",
+      "schema": "public",
+      "columns": {
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "end_time": {
+          "name": "end_time",
+          "type": "time(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "time"
+        },
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [
+            "UNAVAILABLE",
+            "IF_NEEDED",
+            "PREFERRED"
+          ],
+          "mappedType": "enum"
+        },
+        "local_date": {
+          "name": "local_date",
+          "type": "date",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "date"
+        },
+        "preference_direction": {
+          "name": "preference_direction",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [
+            "EARLIER",
+            "FLAT",
+            "LATER"
+          ],
+          "mappedType": "enum"
+        },
+        "response_id": {
+          "name": "response_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "start_time": {
+          "name": "start_time",
+          "type": "time(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "time"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        }
+      },
+      "indexes": [
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": true,
+          "keyName": "availability_intervals_pkey",
+          "primary": true,
+          "unique": true
+        },
+        {
+          "columnNames": [
+            "response_id",
+            "local_date",
+            "start_time"
+          ],
+          "composite": true,
+          "constraint": false,
+          "keyName": "availability_intervals_response_date_time_idx",
+          "primary": false,
+          "unique": false
+        }
+      ],
+      "checks": [
+        {
+          "name": "availability_interval_direction_valid",
+          "expression": "((kind = 'PREFERRED'::text) AND (preference_direction IS NOT NULL) AND (preference_direction = ANY (ARRAY['EARLIER'::text, 'FLAT'::text, 'LATER'::text]))) OR ((kind <> 'PREFERRED'::text) AND (preference_direction IS NULL))",
+          "definition": "CHECK ((((kind = 'PREFERRED'::text) AND (preference_direction IS NOT NULL) AND (preference_direction = ANY (ARRAY['EARLIER'::text, 'FLAT'::text, 'LATER'::text]))) OR ((kind <> 'PREFERRED'::text) AND (preference_direction IS NULL))))",
+          "columnName": "kind"
+        },
+        {
+          "name": "availability_interval_kind_valid",
+          "expression": "\"kind\" in ('UNAVAILABLE', 'IF_NEEDED', 'PREFERRED')",
+          "definition": "check (\"kind\" in ('UNAVAILABLE', 'IF_NEEDED', 'PREFERRED'))",
+          "columnName": "kind"
+        },
+        {
+          "name": "availability_interval_time_valid",
+          "expression": "start_time < end_time",
+          "definition": "CHECK ((start_time < end_time))",
+          "columnName": "end_time"
+        },
+        {
+          "name": "availability_intervals_kind_check",
+          "expression": "\"kind\" in ('UNAVAILABLE', 'IF_NEEDED', 'PREFERRED')",
+          "definition": "check (\"kind\" in ('UNAVAILABLE', 'IF_NEEDED', 'PREFERRED'))",
+          "columnName": "kind"
+        },
+        {
+          "name": "availability_intervals_preference_direction_check",
+          "expression": "\"preference_direction\" in ('EARLIER', 'FLAT', 'LATER')",
+          "definition": "check (\"preference_direction\" in ('EARLIER', 'FLAT', 'LATER'))",
+          "columnName": "preference_direction"
+        }
+      ],
+      "triggers": [],
+      "foreignKeys": {
+        "availability_intervals_response_id_foreign": {
+          "columnNames": [
+            "response_id"
+          ],
+          "constraintName": "availability_intervals_response_id_foreign",
+          "localTableName": "public.availability_intervals",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.poll_responses",
+          "deleteRule": "cascade"
+        }
+      },
+      "comment": null
+    },
+    {
+      "name": "groups",
+      "schema": "public",
+      "columns": {
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "invite_code": {
+          "name": "invite_code",
+          "type": "varchar(64)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": true,
+          "length": 64,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(120)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 120,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "timezone": {
+          "name": "timezone",
+          "type": "varchar(64)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [
+            "UTC"
+          ],
+          "mappedType": "enum"
+        }
+      },
+      "indexes": [
+        {
+          "columnNames": [
+            "invite_code"
+          ],
+          "composite": false,
+          "constraint": true,
+          "keyName": "groups_invite_code_unique",
+          "primary": false,
+          "unique": true
+        },
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": true,
+          "keyName": "groups_pkey",
+          "primary": true,
+          "unique": true
+        }
+      ],
+      "checks": [
+        {
+          "name": "groups_name_not_blank",
+          "expression": "(char_length(btrim(name)) >= 1) AND (char_length(btrim(name)) <= 120)",
+          "definition": "CHECK (((char_length(btrim((name)::text)) >= 1) AND (char_length(btrim((name)::text)) <= 120)))",
+          "columnName": "name"
+        },
+        {
+          "name": "groups_timezone_utc",
+          "expression": "\"timezone\" in ('UTC')",
+          "definition": "check (\"timezone\" in ('UTC'))",
+          "columnName": "timezone"
+        }
+      ],
+      "triggers": [],
+      "foreignKeys": {},
+      "comment": null
+    },
+    {
+      "name": "participants",
+      "schema": "public",
+      "columns": {
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "display_name": {
+          "name": "display_name",
+          "type": "varchar(80)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 80,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "display_name_normalized": {
+          "name": "display_name_normalized",
+          "type": "varchar(80)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 80,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "edit_token_hash": {
+          "name": "edit_token_hash",
+          "type": "char(64)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": true,
+          "length": 64,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "character"
+        },
+        "group_id": {
+          "name": "group_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": true,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        }
+      },
+      "indexes": [
+        {
+          "columnNames": [
+            "edit_token_hash"
+          ],
+          "composite": false,
+          "constraint": true,
+          "keyName": "participants_edit_token_hash_unique",
+          "primary": false,
+          "unique": true
+        },
+        {
+          "columnNames": [
+            "group_id",
+            "display_name_normalized"
+          ],
+          "composite": true,
+          "constraint": true,
+          "keyName": "participants_group_name_unique",
+          "primary": false,
+          "unique": true
+        },
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": true,
+          "keyName": "participants_pkey",
+          "primary": true,
+          "unique": true
+        }
+      ],
+      "checks": [
+        {
+          "name": "participants_name_not_blank",
+          "expression": "(char_length(btrim(display_name)) >= 1) AND (char_length(btrim(display_name)) <= 80)",
+          "definition": "CHECK (((char_length(btrim((display_name)::text)) >= 1) AND (char_length(btrim((display_name)::text)) <= 80)))",
+          "columnName": "display_name"
+        }
+      ],
+      "triggers": [],
+      "foreignKeys": {
+        "participants_group_id_foreign": {
+          "columnNames": [
+            "group_id"
+          ],
+          "constraintName": "participants_group_id_foreign",
+          "localTableName": "public.participants",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.groups",
+          "deleteRule": "cascade"
+        }
+      },
+      "comment": null
+    },
+    {
+      "name": "poll_responses",
+      "schema": "public",
+      "columns": {
+        "confirmed_at": {
+          "name": "confirmed_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "participant_id": {
+          "name": "participant_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "poll_id": {
+          "name": "poll_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": true,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "state": {
+          "name": "state",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [
+            "DRAFT",
+            "CONFIRMED"
+          ],
+          "mappedType": "enum"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        }
+      },
+      "indexes": [
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": true,
+          "keyName": "poll_responses_pkey",
+          "primary": true,
+          "unique": true
+        },
+        {
+          "columnNames": [
+            "poll_id",
+            "participant_id"
+          ],
+          "composite": true,
+          "constraint": true,
+          "keyName": "poll_responses_poll_participant_unique",
+          "primary": false,
+          "unique": true
+        },
+        {
+          "columnNames": [
+            "poll_id",
+            "state"
+          ],
+          "composite": true,
+          "constraint": false,
+          "keyName": "poll_responses_poll_state_idx",
+          "primary": false,
+          "unique": false
+        }
+      ],
+      "checks": [
+        {
+          "name": "poll_responses_confirmation_consistent",
+          "expression": "((state = 'DRAFT'::text) AND (confirmed_at IS NULL)) OR ((state = 'CONFIRMED'::text) AND (confirmed_at IS NOT NULL))",
+          "definition": "CHECK ((((state = 'DRAFT'::text) AND (confirmed_at IS NULL)) OR ((state = 'CONFIRMED'::text) AND (confirmed_at IS NOT NULL))))",
+          "columnName": "confirmed_at"
+        },
+        {
+          "name": "poll_responses_state_check",
+          "expression": "\"state\" in ('DRAFT', 'CONFIRMED')",
+          "definition": "check (\"state\" in ('DRAFT', 'CONFIRMED'))",
+          "columnName": "state"
+        },
+        {
+          "name": "poll_responses_state_valid",
+          "expression": "\"state\" in ('DRAFT', 'CONFIRMED')",
+          "definition": "check (\"state\" in ('DRAFT', 'CONFIRMED'))",
+          "columnName": "state"
+        }
+      ],
+      "triggers": [],
+      "foreignKeys": {
+        "poll_responses_participant_id_foreign": {
+          "columnNames": [
+            "participant_id"
+          ],
+          "constraintName": "poll_responses_participant_id_foreign",
+          "localTableName": "public.poll_responses",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.participants",
+          "deleteRule": "cascade"
+        },
+        "poll_responses_poll_id_foreign": {
+          "columnNames": [
+            "poll_id"
+          ],
+          "constraintName": "poll_responses_poll_id_foreign",
+          "localTableName": "public.poll_responses",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.polls",
+          "deleteRule": "cascade"
+        }
+      },
+      "comment": null
+    },
+    {
+      "name": "polls",
+      "schema": "public",
+      "columns": {
+        "based_on_poll_id": {
+          "name": "based_on_poll_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "closed_at": {
+          "name": "closed_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "day_end": {
+          "name": "day_end",
+          "type": "time(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "time"
+        },
+        "day_start": {
+          "name": "day_start",
+          "type": "time(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "time"
+        },
+        "ends_on": {
+          "name": "ends_on",
+          "type": "date",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "date"
+        },
+        "group_id": {
+          "name": "group_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": true,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": true,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "meeting_duration_minutes": {
+          "name": "meeting_duration_minutes",
+          "type": "smallint",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "smallint"
+        },
+        "sequence_no": {
+          "name": "sequence_no",
+          "type": "int",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "slot_minutes": {
+          "name": "slot_minutes",
+          "type": "smallint",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "smallint"
+        },
+        "starts_on": {
+          "name": "starts_on",
+          "type": "date",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "date"
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [
+            "OPEN",
+            "CLOSED"
+          ],
+          "mappedType": "enum"
+        },
+        "title": {
+          "name": "title",
+          "type": "varchar(160)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 160,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        }
+      },
+      "indexes": [
+        {
+          "columnNames": [
+            "group_id",
+            "created_at"
+          ],
+          "composite": true,
+          "constraint": false,
+          "keyName": "polls_group_created_idx",
+          "primary": false,
+          "unique": false
+        },
+        {
+          "columnNames": [
+            "group_id",
+            "sequence_no"
+          ],
+          "composite": true,
+          "constraint": true,
+          "keyName": "polls_group_sequence_unique",
+          "primary": false,
+          "unique": true
+        },
+        {
+          "columnNames": [
+            "id",
+            "group_id"
+          ],
+          "composite": true,
+          "constraint": true,
+          "keyName": "polls_id_group_unique",
+          "primary": false,
+          "unique": true
+        },
+        {
+          "columnNames": [
+            "group_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "polls_one_open_per_group_idx",
+          "primary": false,
+          "unique": true,
+          "where": "status = 'OPEN'::text"
+        },
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": true,
+          "keyName": "polls_pkey",
+          "primary": true,
+          "unique": true
+        }
+      ],
+      "checks": [
+        {
+          "name": "polls_closed_at_consistent",
+          "expression": "((status = 'OPEN'::text) AND (closed_at IS NULL)) OR ((status = 'CLOSED'::text) AND (closed_at IS NOT NULL))",
+          "definition": "CHECK ((((status = 'OPEN'::text) AND (closed_at IS NULL)) OR ((status = 'CLOSED'::text) AND (closed_at IS NOT NULL))))",
+          "columnName": "closed_at"
+        },
+        {
+          "name": "polls_dates_valid",
+          "expression": "(starts_on <= ends_on) AND (((ends_on - starts_on) >= 0) AND ((ends_on - starts_on) <= 6))",
+          "definition": "CHECK (((starts_on <= ends_on) AND (((ends_on - starts_on) >= 0) AND ((ends_on - starts_on) <= 6))))",
+          "columnName": "ends_on"
+        },
+        {
+          "name": "polls_day_window_valid",
+          "expression": "day_start < day_end",
+          "definition": "CHECK ((day_start < day_end))",
+          "columnName": "day_end"
+        },
+        {
+          "name": "polls_meeting_duration_valid",
+          "expression": "((meeting_duration_minutes >= 30) AND (meeting_duration_minutes <= 240)) AND ((meeting_duration_minutes % slot_minutes) = 0)",
+          "definition": "CHECK ((((meeting_duration_minutes >= 30) AND (meeting_duration_minutes <= 240)) AND ((meeting_duration_minutes % slot_minutes) = 0)))",
+          "columnName": "meeting_duration_minutes"
+        },
+        {
+          "name": "polls_meeting_fits_day_window",
+          "expression": "meeting_duration_minutes <= (EXTRACT(epoch FROM (day_end - day_start)) / 60)",
+          "definition": "CHECK (((meeting_duration_minutes)::numeric <= (EXTRACT(epoch FROM (day_end - day_start)) / (60)::numeric)))",
+          "columnName": "day_end"
+        },
+        {
+          "name": "polls_sequence_positive",
+          "expression": "sequence_no > 0",
+          "definition": "CHECK ((sequence_no > 0))",
+          "columnName": "sequence_no"
+        },
+        {
+          "name": "polls_slot_minutes_valid",
+          "expression": "slot_minutes = ANY (ARRAY[30, 60])",
+          "definition": "CHECK ((slot_minutes = ANY (ARRAY[30, 60])))",
+          "columnName": "slot_minutes"
+        },
+        {
+          "name": "polls_status_check",
+          "expression": "\"status\" in ('OPEN', 'CLOSED')",
+          "definition": "check (\"status\" in ('OPEN', 'CLOSED'))",
+          "columnName": "status"
+        },
+        {
+          "name": "polls_status_valid",
+          "expression": "\"status\" in ('OPEN', 'CLOSED')",
+          "definition": "check (\"status\" in ('OPEN', 'CLOSED'))",
+          "columnName": "status"
+        }
+      ],
+      "triggers": [],
+      "foreignKeys": {
+        "polls_based_on_same_group_fk": {
+          "columnNames": [
+            "based_on_poll_id",
+            "group_id"
+          ],
+          "constraintName": "polls_based_on_same_group_fk",
+          "localTableName": "public.polls",
+          "referencedColumnNames": [
+            "id",
+            "group_id"
+          ],
+          "referencedTableName": "public.polls",
+          "deleteRule": "set null (based_on_poll_id)"
+        },
+        "polls_group_id_foreign": {
+          "columnNames": [
+            "group_id"
+          ],
+          "constraintName": "polls_group_id_foreign",
+          "localTableName": "public.polls",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.groups",
+          "deleteRule": "cascade"
+        }
+      },
+      "comment": null
+    }
+  ],
+  "views": [],
+  "nativeEnums": {}
+}

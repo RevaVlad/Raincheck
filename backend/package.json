@@ -2,18 +2,22 @@
   "name": "backend",
   "version": "0.1.0",
   "private": true,
-  "engines": { "node": ">=22.22.3" },
+  "engines": {
+    "node": ">=22.22.3"
+  },
   "scripts": {
     "dev": "node --conditions=development --env-file-if-exists=.env --import tsx --watch src/server.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node --env-file-if-exists=.env dist/server.js",
     "test": "npm run test:unit && npm run test:services",
-    "test:unit": "node --conditions=development --import tsx --test \"tests/*.test.ts\" \"tests/shared/**/*.test.ts\"",
+    "test:unit": "node --conditions=development --import tsx --test \"tests/*.test.ts\" \"tests/domain/**/*.test.ts\" \"tests/shared/**/*.test.ts\"",
     "test:services": "node --conditions=development --env-file-if-exists=.env --import tsx --test \"tests/services/**/*.test.ts\"",
     "test:db": "npm run test:services",
     "typecheck": "tsc -p tsconfig.test.json --noEmit",
-    "db:migrate": "node --conditions=development --env-file-if-exists=.env --import tsx src/db/migrate.ts",
-    "db:migrate:status": "node --conditions=development --env-file-if-exists=.env --import tsx src/db/migrate.ts --status"
+    "db:migration:create": "mikro-orm migration:create",
+    "db:migrate": "mikro-orm migration:up",
+    "db:migrate:down": "mikro-orm migration:down",
+    "db:migrate:status": "mikro-orm migration:list"
   },
   "type": "module",
   "imports": {
@@ -29,6 +33,14 @@
       "development": "./src/entities/*.ts",
       "default": "./dist/entities/*.js"
     },
+    "#domain/*": {
+      "development": "./src/domain/*.ts",
+      "default": "./dist/domain/*.js"
+    },
+    "#infrastructure/*": {
+      "development": "./src/infrastructure/*.ts",
+      "default": "./dist/infrastructure/*.js"
+    },
     "#services/*": {
       "development": "./src/services/*.ts",
       "default": "./dist/services/*.js"
@@ -38,11 +50,18 @@
       "default": "./dist/shared/*.js"
     }
   },
+  "mikro-orm": {
+    "configPaths": ["./src/infrastructure/database/orm.config.ts"]
+  },
   "dependencies": {
+    "@mikro-orm/core": "^7.2.3",
+    "@mikro-orm/migrations": "^7.2.3",
+    "@mikro-orm/postgresql": "^7.2.3",
     "fastify": "^5.12.5",
     "pg": "^8.23.1"
   },
   "devDependencies": {
+    "@mikro-orm/cli": "^7.2.3",
     "@types/node": "^24.19.0",
     "@types/pg": "^8.23.1",
     "tsx": "^4.23.15",
