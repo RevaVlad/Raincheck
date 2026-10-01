@@ -141,6 +141,25 @@ test('database rejects a second open poll in one group', async () => {
   });
 });
 
+test('database rejects a preferred interval without a direction', async () => {
+  await inTransaction(async (client) => {
+    const group = createGroup({ name: 'Team', timezone: 'UTC' });
+    const { participant } = createParticipant(group.id, 'Alice');
+    const poll = createPoll(group.id, 1, pollInput);
+    const response = createResponse(poll.id, participant.id);
+    await insertGroup(client, group);
+    await insertParticipant(client, participant);
+    await insertPoll(client, poll);
+    await insertResponse(client, response);
+    await assert.rejects(
+      () => client.query(`INSERT INTO availability_intervals
+        (id, response_id, local_date, start_time, end_time, kind, preference_direction)
+        VALUES (gen_random_uuid(), $1, '2026-10-06', '18:00', '19:00', 'PREFERRED', NULL)`, [response.id]),
+      (error: { code?: string }) => error.code === '23514',
+    );
+  });
+});
+
 test('response repository rejects a participant from another group', async () => {
   await inTransaction(async (client) => {
     const pollGroup = createGroup({ name: 'Poll group', timezone: 'UTC' });
@@ -194,7 +213,41 @@ test('replacing intervals demotes a confirmed response and removes its old inter
   });
 });
 
-test('invalid replacement leaves the previous confirmed answer untouched', async () => {
+test('repeating an unchanged replacement preserves interval IDs and timestamps', async () => {
+  await withPersistedResponse(async ({ responseId }) => {
+    const input = [{
+      localDate: '2026-10-06', startTime: '18:00', endTime: '19:00', kind: 'PREFERRED' as const,
+    }];
+    const first = await replaceResponseIntervals(pool, responseId, input, new Date('2026-10-01T12:00:00Z'));
+    const second = await replaceResponseIntervals(pool, responseId, input, new Date('2026-10-02T12:00:00Z'));
+    const response = await pool.query<{ updated_at: Date }>(
+      'SELECT updated_at FROM poll_responses WHERE id = $1', [responseId],
+    );
+    assert.equal(second[0]?.id, first[0]?.id);
+    assert.equal(second[0]?.createdAt.toISOString(), first[0]?.createdAt.toISOString());
+    assert.equal(response.rows[0]?.updated_at.toISOString(), '2026-10-01T12:00:00.000Z');
+  });
+});
+
+test('an unchanged replacement still returns a confirmed response to draft', async () => {
+  await withPersistedResponse(async ({ responseId }) => {
+    const input = [{
+      localDate: '2026-10-06', startTime: '18:00', endTime: '19:00', kind: 'PREFERRED' as const,
+    }];
+    const [first] = await replaceResponseIntervals(pool, responseId, input);
+    await pool.query(`UPDATE poll_responses SET state = 'CONFIRMED', confirmed_at = now()
+      WHERE id = $1`, [responseId]);
+    const [second] = await replaceResponseIntervals(pool, responseId, input);
+    const response = await pool.query<{ state: string; confirmed_at: Date | null }>(
+      'SELECT state, confirmed_at FROM poll_responses WHERE id = $1', [responseId],
+    );
+    assert.equal(response.rows[0]?.state, 'DRAFT');
+    assert.equal(response.rows[0]?.confirmed_at, null);
+    assert.equal(second?.id, first?.id);
+  });
+});
+
+test('invalid input leaves the previous confirmed answer untouched', async () => {
   await withPersistedResponse(async ({ responseId }) => {
     await replaceResponseIntervals(pool, responseId, [{
       localDate: '2026-10-06', startTime: '18:00', endTime: '19:00', kind: 'PREFERRED',
