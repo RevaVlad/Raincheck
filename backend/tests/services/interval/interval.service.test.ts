@@ -1,58 +1,57 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { createInterval } from '#services/interval/interval.service';
-import { validateIntervalSet } from '#entities/interval.validation';
-import { pollInput } from '../../support/database.js';
+import { IntervalEntity } from '#infrastructure/database/entities/interval.entity';
+import { ResponseEntity } from '#infrastructure/database/entities/response.entity';
+import { inTransaction, persistedResponse } from '../../support/database.js';
 
-const now = new Date('2026-10-01T12:00:00.000Z');
-const responseId = '9b4eebbb-8a31-4381-8c6c-a11198bb16dc';
+const firstInterval = {
+  localDate: '2026-10-06', startTime: '18:00', endTime: '19:00', kind: 'PREFERRED' as const,
+};
 
-test('preferred interval defaults to FLAT and nonpreferred interval has no direction', () => {
-  const poll = pollInput;
-  const preferred = createInterval(responseId, poll, {
-    localDate: '2026-10-06', startTime: '18:00', endTime: '20:00', kind: 'PREFERRED',
-  }, now);
-  const unavailable = createInterval(responseId, poll, {
-    localDate: '2026-10-06', startTime: '20:00', endTime: '21:00', kind: 'UNAVAILABLE',
-  }, now);
-  assert.equal(preferred.preferenceDirection, 'FLAT');
-  assert.equal(unavailable.preferenceDirection, null);
-  assert.throws(() => createInterval(responseId, poll, {
-    localDate: '2026-10-06', startTime: '20:00', endTime: '21:00', kind: 'UNAVAILABLE', preferenceDirection: 'LATER',
-  }), /direction/i);
+test('replaces intervals and returns a confirmed response to draft', async () => {
+  await inTransaction(async (context) => {
+    const { response } = await persistedResponse(context);
+    await context.intervals.replace(response.id, [firstInterval]);
+    await context.responses.confirm(response.id);
+    await context.intervals.replace(response.id, [{ ...firstInterval, kind: 'UNAVAILABLE' }]);
+    context.em.clear();
+    const saved = await context.em.findOneOrFail(ResponseEntity, response.id);
+    assert.equal(saved.state, 'DRAFT');
+    assert.equal(saved.confirmedAt, null);
+  });
 });
 
-test('interval rejects dates, times, and boundaries outside the poll grid', () => {
-  const poll = pollInput;
-  const base = { localDate: '2026-10-06', startTime: '18:00', endTime: '19:00', kind: 'IF_NEEDED' as const };
-  assert.throws(() => createInterval(responseId, poll, { ...base, localDate: '2026-10-13' }), /date/i);
-  assert.throws(() => createInterval(responseId, poll, { ...base, startTime: '15:30' }), /daily window/i);
-  assert.throws(() => createInterval(responseId, poll, { ...base, startTime: '18:15' }), /slot/i);
-  assert.throws(() => createInterval(responseId, poll, { ...base, endTime: '18:00' }), /start.*end/i);
+test('preserves stored intervals when a replacement is unchanged', async () => {
+  await inTransaction(async (context) => {
+    const { response } = await persistedResponse(context);
+    const [first] = await context.intervals.replace(response.id, [firstInterval]);
+    const [second] = await context.intervals.replace(response.id, [firstInterval]);
+    assert.equal(second?.id, first?.id);
+    assert.equal(second?.createdAt.toISOString(), first?.createdAt.toISOString());
+  });
 });
 
-test('interval set rejects overlaps but permits adjacent ranges', () => {
-  const poll = pollInput;
-  const first = createInterval(responseId, poll, {
-    localDate: '2026-10-06', startTime: '18:00', endTime: '19:00', kind: 'PREFERRED',
+test('rolls back an invalid interval replacement', async () => {
+  await inTransaction(async (context) => {
+    const { response } = await persistedResponse(context);
+    await context.intervals.replace(response.id, [firstInterval]);
+    await context.responses.confirm(response.id);
+    await assert.rejects(() => context.intervals.replace(response.id, [
+      firstInterval, { ...firstInterval, startTime: '18:30', endTime: '19:30' },
+    ]), /overlap/i);
+    context.em.clear();
+    const saved = await context.em.findOneOrFail(ResponseEntity, response.id);
+    const intervals = await context.em.find(IntervalEntity, { response: response.id });
+    assert.equal(saved.state, 'CONFIRMED');
+    assert.equal(intervals.length, 1);
+    assert.equal(intervals[0]?.startTime.slice(0, 5), '18:00');
   });
-  const adjacent = createInterval(responseId, poll, {
-    localDate: '2026-10-06', startTime: '19:00', endTime: '20:00', kind: 'UNAVAILABLE',
-  });
-  assert.doesNotThrow(() => validateIntervalSet([first, adjacent], poll));
-  const overlapping = createInterval(responseId, poll, {
-    localDate: '2026-10-06', startTime: '18:30', endTime: '19:30', kind: 'IF_NEEDED',
-  });
-  assert.throws(() => validateIntervalSet([first, overlapping], poll), /overlap/i);
 });
 
-test('interval set cannot mix intervals from different responses', () => {
-  const poll = pollInput;
-  const first = createInterval(responseId, poll, {
-    localDate: '2026-10-06', startTime: '18:00', endTime: '19:00', kind: 'PREFERRED',
+test('rejects interval changes after a poll closes', async () => {
+  await inTransaction(async (context) => {
+    const { poll, response } = await persistedResponse(context);
+    await context.polls.close(poll.id);
+    await assert.rejects(() => context.intervals.replace(response.id, [firstInterval]), /open poll/i);
   });
-  const another = createInterval('another-response', poll, {
-    localDate: '2026-10-06', startTime: '19:00', endTime: '20:00', kind: 'PREFERRED',
-  });
-  assert.throws(() => validateIntervalSet([first, another], poll), /same response/i);
 });

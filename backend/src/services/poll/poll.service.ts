@@ -1,44 +1,78 @@
 import { randomUUID } from 'node:crypto';
-import type { PoolClient } from 'pg';
-import type { Poll, PollInput } from '#entities/poll';
-import { ensurePollOpen, validatePoll } from '#entities/poll.validation';
+import { LockMode, type EntityManager } from '@mikro-orm/postgresql';
+import type { Poll, PollInput } from '#domain/poll/poll';
+import { ensurePollOpen, validatePoll } from '#domain/poll/poll.validation';
+import { GroupEntity } from '#infrastructure/database/entities/group.entity';
+import { PollEntity } from '#infrastructure/database/entities/poll.entity';
 import { POLL_STATUS } from '#shared/constants';
 
-export async function createPoll(
-  db: PoolClient,
-  groupId: string,
-  sequenceNo: number,
-  input: PollInput,
-  basedOnPollId: string | null = null,
-  now = new Date(),
-): Promise<Poll> {
-  const title = validatePoll(sequenceNo, input);
-  const poll: Poll = {
-    id: randomUUID(), groupId, sequenceNo, title,
-    startsOn: input.startsOn, endsOn: input.endsOn,
-    dayStart: input.dayStart, dayEnd: input.dayEnd,
-    slotMinutes: input.slotMinutes,
-    meetingDurationMinutes: input.meetingDurationMinutes,
-    status: POLL_STATUS.OPEN, basedOnPollId, createdAt: now, closedAt: null,
-  };
-  await db.query(
-    `INSERT INTO polls
-       (id, group_id, sequence_no, title, starts_on, ends_on, day_start, day_end,
-        slot_minutes, meeting_duration_minutes, status, based_on_poll_id, created_at, closed_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
-    [poll.id, poll.groupId, poll.sequenceNo, poll.title, poll.startsOn, poll.endsOn,
-      poll.dayStart, poll.dayEnd, poll.slotMinutes, poll.meetingDurationMinutes,
-      poll.status, poll.basedOnPollId, poll.createdAt, poll.closedAt],
-  );
-  return poll;
+export interface PollService {
+  create(
+    groupId: string,
+    sequenceNo: number,
+    input: PollInput,
+    basedOnPollId?: string | null,
+    now?: Date,
+  ): Promise<Poll>;
+  close(pollId: string, now?: Date): Promise<Poll>;
 }
 
-export async function closePoll(db: PoolClient, poll: Poll, now = new Date()): Promise<Poll> {
-  ensurePollOpen(poll.status);
-  const result = await db.query(
-    `UPDATE polls SET status = $2, closed_at = $3 WHERE id = $1 AND status = $4`,
-    [poll.id, POLL_STATUS.CLOSED, now, POLL_STATUS.OPEN],
-  );
-  if (result.rowCount !== 1) throw new Error('Poll is already closed');
-  return { ...poll, status: POLL_STATUS.CLOSED, closedAt: now };
+export class MikroPollService implements PollService {
+  constructor(private readonly em: EntityManager) {}
+
+  async create(
+    groupId: string,
+    sequenceNo: number,
+    input: PollInput,
+    basedOnPollId: string | null = null,
+    now = new Date(),
+  ): Promise<Poll> {
+    const valid = validatePoll(sequenceNo, input);
+    const poll = this.em.create(PollEntity, {
+      id: randomUUID(),
+      group: this.em.getReference(GroupEntity, groupId),
+      sequenceNo,
+      ...valid,
+      status: POLL_STATUS.OPEN,
+      basedOnPoll: basedOnPollId ? this.em.getReference(PollEntity, basedOnPollId) : null,
+      createdAt: now,
+      closedAt: null,
+    });
+    this.em.persist(poll);
+    await this.em.flush();
+    return toPoll(poll);
+  }
+
+  async close(pollId: string, now = new Date()): Promise<Poll> {
+    return this.em.transactional(async (em) => {
+      const poll = await em.findOneOrFail(PollEntity, pollId, { lockMode: LockMode.PESSIMISTIC_WRITE });
+      ensurePollOpen(poll.status);
+      poll.status = POLL_STATUS.CLOSED;
+      poll.closedAt = now;
+      await em.flush();
+      return toPoll(poll);
+    });
+  }
+}
+
+export function toPoll(entity: PollEntity): Poll {
+  const fields = {
+    id: entity.id,
+    groupId: entity.group.id,
+    sequenceNo: entity.sequenceNo,
+    title: entity.title ?? null,
+    startsOn: entity.startsOn,
+    endsOn: entity.endsOn,
+    dayStart: entity.dayStart.slice(0, 5),
+    dayEnd: entity.dayEnd.slice(0, 5),
+    slotMinutes: entity.slotMinutes as 30 | 60,
+    meetingDurationMinutes: entity.meetingDurationMinutes,
+    basedOnPollId: entity.basedOnPoll?.id ?? null,
+    createdAt: entity.createdAt,
+  };
+  if (entity.status === POLL_STATUS.CLOSED) {
+    if (!entity.closedAt) throw new Error('Stored closed poll has no close time');
+    return { ...fields, status: POLL_STATUS.CLOSED, closedAt: entity.closedAt };
+  }
+  return { ...fields, status: POLL_STATUS.OPEN, closedAt: null };
 }

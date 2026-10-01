@@ -1,14 +1,15 @@
 import { after } from 'node:test';
-import { Pool, type PoolClient } from 'pg';
-import { createGroup } from '#services/group/group.service';
-import { createParticipant } from '#services/participant/participant.service';
-import { createPoll } from '#services/poll/poll.service';
-import { createResponse } from '#services/response/response.service';
+import type { EntityManager } from '@mikro-orm/postgresql';
+import { loadConfig } from '#config/config';
+import { createOrm } from '#infrastructure/database/create-orm';
+import { MikroGroupService } from '#services/group/group.service';
+import { MikroIntervalService } from '#services/interval/interval.service';
+import { MikroParticipantService } from '#services/participant/participant.service';
+import { MikroPollService } from '#services/poll/poll.service';
+import { MikroResponseService } from '#services/response/response.service';
 
-const databaseUrl = process.env['DATABASE_URL'];
-if (!databaseUrl) throw new Error('DATABASE_URL is required for database integration tests');
-export const pool = new Pool({ connectionString: databaseUrl });
-after(async () => pool.end());
+const orm = await createOrm(loadConfig());
+after(async () => orm.close(true));
 
 export const pollInput = {
   title: 'Team meeting', startsOn: '2026-10-06', endsOn: '2026-10-12',
@@ -16,42 +17,32 @@ export const pollInput = {
   meetingDurationMinutes: 60,
 };
 
-export async function inTransaction(run: (client: PoolClient) => Promise<void>): Promise<void> {
-  const client = await pool.connect();
+export function services(em: EntityManager) {
+  return {
+    groups: new MikroGroupService(em),
+    intervals: new MikroIntervalService(em),
+    participants: new MikroParticipantService(em),
+    polls: new MikroPollService(em),
+    responses: new MikroResponseService(em),
+  };
+}
+
+export async function inTransaction(
+  run: (context: ReturnType<typeof services> & { em: EntityManager }) => Promise<void>,
+): Promise<void> {
+  const em = orm.em.fork();
+  await em.begin();
   try {
-    await client.query('BEGIN');
-    await run(client);
+    await run({ em, ...services(em) });
   } finally {
-    try {
-      await client.query('ROLLBACK');
-    } finally {
-      client.release();
-    }
+    await em.rollback();
   }
 }
 
-export async function withPersistedResponse(
-  run: (fixture: { groupId: string; pollId: string; responseId: string }) => Promise<void>,
-): Promise<void> {
-  let fixture: { groupId: string; pollId: string; responseId: string };
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    const group = await createGroup(client, { name: 'Team' });
-    const { participant } = await createParticipant(client, group.id, 'Alice');
-    const poll = await createPoll(client, group.id, 1, pollInput);
-    const response = await createResponse(client, poll.id, participant.id);
-    fixture = { groupId: group.id, pollId: poll.id, responseId: response.id };
-    await client.query('COMMIT');
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
-  }
-  try {
-    await run(fixture);
-  } finally {
-    await pool.query('DELETE FROM groups WHERE id = $1', [fixture.groupId]);
-  }
+export async function persistedResponse(context: ReturnType<typeof services>) {
+  const group = await context.groups.create({ name: 'Team' });
+  const { participant } = await context.participants.create(group.id, 'Alice');
+  const poll = await context.polls.create(group.id, 1, pollInput);
+  const response = await context.responses.create(poll.id, participant.id);
+  return { group, participant, poll, response };
 }
