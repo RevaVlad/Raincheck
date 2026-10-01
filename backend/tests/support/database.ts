@@ -1,10 +1,9 @@
 import { after } from 'node:test';
 import { Pool, type PoolClient } from 'pg';
-import { createGroup } from '../../domain/group.js';
-import { createParticipant } from '../../domain/participant.js';
-import { createPoll } from '../../domain/poll.js';
-import { createResponse } from '../../domain/response.js';
-import { insertGroup, insertParticipant, insertPoll, insertResponse } from '../insert.js';
+import { createGroup } from '#services/group/group.service';
+import { createParticipant } from '#services/participant/participant.service';
+import { createPoll } from '#services/poll/poll.service';
+import { createResponse } from '#services/response/response.service';
 
 const databaseUrl = process.env['DATABASE_URL'];
 if (!databaseUrl) throw new Error('DATABASE_URL is required for database integration tests');
@@ -34,17 +33,15 @@ export async function inTransaction(run: (client: PoolClient) => Promise<void>):
 export async function withPersistedResponse(
   run: (fixture: { groupId: string; pollId: string; responseId: string }) => Promise<void>,
 ): Promise<void> {
-  const group = createGroup({ name: 'Team', timezone: 'UTC' });
-  const { participant } = createParticipant(group.id, 'Alice');
-  const poll = createPoll(group.id, 1, pollInput);
-  const response = createResponse(poll.id, participant.id);
+  let fixture: { groupId: string; pollId: string; responseId: string };
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    await insertGroup(client, group);
-    await insertParticipant(client, participant);
-    await insertPoll(client, poll);
-    await insertResponse(client, response);
+    const group = await createGroup(client, { name: 'Team' });
+    const { participant } = await createParticipant(client, group.id, 'Alice');
+    const poll = await createPoll(client, group.id, 1, pollInput);
+    const response = await createResponse(client, poll.id, participant.id);
+    fixture = { groupId: group.id, pollId: poll.id, responseId: response.id };
     await client.query('COMMIT');
   } catch (error) {
     await client.query('ROLLBACK');
@@ -53,8 +50,8 @@ export async function withPersistedResponse(
     client.release();
   }
   try {
-    await run({ groupId: group.id, pollId: poll.id, responseId: response.id });
+    await run(fixture);
   } finally {
-    await pool.query('DELETE FROM groups WHERE id = $1', [group.id]);
+    await pool.query('DELETE FROM groups WHERE id = $1', [fixture.groupId]);
   }
 }

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { loadConfig } from './config.js';
+import { loadConfig } from '#config/config';
 
 test('requires a PostgreSQL connection URL', () => {
   assert.throws(() => loadConfig({}), /DATABASE_URL is required/);

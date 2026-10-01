@@ -1,24 +1,14 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
-import { createPoll } from './poll.js';
-import { createInterval, validateIntervalSet } from './interval.js';
+import { test } from 'node:test';
+import { createInterval } from '#services/interval/interval.service';
+import { validateIntervalSet } from '#entities/interval.validation';
+import { pollInput } from '../../support/database.js';
 
 const now = new Date('2026-10-01T12:00:00.000Z');
-const groupId = '0e7c988a-a7ae-4b47-96a0-9ff7a0bf4ea1';
 const responseId = '9b4eebbb-8a31-4381-8c6c-a11198bb16dc';
 
-const pollInput = {
-  title: 'Team meeting',
-  startsOn: '2026-10-06',
-  endsOn: '2026-10-12',
-  dayStart: '16:00',
-  dayEnd: '23:00',
-  slotMinutes: 30 as const,
-  meetingDurationMinutes: 60,
-};
-
 test('preferred interval defaults to FLAT and nonpreferred interval has no direction', () => {
-  const poll = createPoll(groupId, 1, pollInput);
+  const poll = pollInput;
   const preferred = createInterval(responseId, poll, {
     localDate: '2026-10-06', startTime: '18:00', endTime: '20:00', kind: 'PREFERRED',
   }, now);
@@ -33,7 +23,7 @@ test('preferred interval defaults to FLAT and nonpreferred interval has no direc
 });
 
 test('interval rejects dates, times, and boundaries outside the poll grid', () => {
-  const poll = createPoll(groupId, 1, pollInput);
+  const poll = pollInput;
   const base = { localDate: '2026-10-06', startTime: '18:00', endTime: '19:00', kind: 'IF_NEEDED' as const };
   assert.throws(() => createInterval(responseId, poll, { ...base, localDate: '2026-10-13' }), /date/i);
   assert.throws(() => createInterval(responseId, poll, { ...base, startTime: '15:30' }), /daily window/i);
@@ -42,7 +32,7 @@ test('interval rejects dates, times, and boundaries outside the poll grid', () =
 });
 
 test('interval set rejects overlaps but permits adjacent ranges', () => {
-  const poll = createPoll(groupId, 1, pollInput);
+  const poll = pollInput;
   const first = createInterval(responseId, poll, {
     localDate: '2026-10-06', startTime: '18:00', endTime: '19:00', kind: 'PREFERRED',
   });
@@ -57,7 +47,7 @@ test('interval set rejects overlaps but permits adjacent ranges', () => {
 });
 
 test('interval set cannot mix intervals from different responses', () => {
-  const poll = createPoll(groupId, 1, pollInput);
+  const poll = pollInput;
   const first = createInterval(responseId, poll, {
     localDate: '2026-10-06', startTime: '18:00', endTime: '19:00', kind: 'PREFERRED',
   });

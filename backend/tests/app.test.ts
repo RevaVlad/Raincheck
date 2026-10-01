@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { Pool } from 'pg';
-import { buildApp } from './app.js';
-import type { Config } from './config/config.js';
+import { buildApp } from '../src/app.js';
+import type { Config } from '#config/config';
 
 const config: Config = {
   nodeEnv: 'test',

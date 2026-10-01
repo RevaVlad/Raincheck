@@ -40,9 +40,9 @@ npm run db:migrate:status
 
 ## Backend entities
 
-The backend models Group, Participant, Poll, PollResponse, and AvailabilityInterval in `backend/src/domain/`. Constructors validate names, timezones, poll windows, and interval bounds. Participant creation returns the raw edit token once and stores only its SHA-256 hash in the entity. `backend/src/db/insert.ts` contains parameterized inserts; `backend/src/db/replace-response-intervals.ts` handles atomic whole-response replacement. Replacement validates against the stored poll and returns a confirmed response to draft.
+The backend keeps entity types and validation in `backend/src/entities/`. Each entity has its own service under `backend/src/services/`; shared date and time helpers live in `backend/src/shared/`. PostgreSQL writes use parameterized SQL, and whole-response interval replacement runs in one transaction. Group timezone, poll dates and daily windows, and availability intervals all use UTC. Service tests live under `backend/tests/services/`.
 
-After starting PostgreSQL and running migrations, verify the database rules with:
+`npm test` runs backend unit and database-backed service tests, then frontend tests. After starting PostgreSQL and running migrations, run only the backend service suites with:
 
 ```sh
 npm --prefix backend run test:db

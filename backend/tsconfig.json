@@ -12,6 +12,5 @@
     "esModuleInterop": true,
     "types": ["node"]
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["src/**/*.test.ts", "src/db/test/**"]
+  "include": ["src/**/*.ts"]
 }

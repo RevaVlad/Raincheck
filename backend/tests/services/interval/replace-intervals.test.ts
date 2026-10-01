@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { replaceResponseIntervals } from './replace-response-intervals.js';
-import { pool, withPersistedResponse } from './test/fixture.js';
+import { replaceResponseIntervals } from '#services/interval/replace-intervals';
+import { confirmResponse } from '#services/response/response.service';
+import { pool, withPersistedResponse } from '../../support/database.js';
 
 test('database rejects a preferred interval without a direction', async () => {
   await withPersistedResponse(async ({ responseId }) => {
@@ -19,8 +20,7 @@ test('replacing intervals demotes a confirmed response and removes its old inter
     await replaceResponseIntervals(pool, responseId, [{
       localDate: '2026-10-06', startTime: '18:00', endTime: '19:00', kind: 'PREFERRED',
     }]);
-    await pool.query(`UPDATE poll_responses SET state = 'CONFIRMED', confirmed_at = now()
-      WHERE id = $1`, [responseId]);
+    await confirmResponse(pool, responseId);
     await replaceResponseIntervals(pool, responseId, [{
       localDate: '2026-10-06', startTime: '20:00', endTime: '21:00', kind: 'UNAVAILABLE',
     }]);
@@ -57,8 +57,7 @@ test('an unchanged replacement still returns a confirmed response to draft', asy
       localDate: '2026-10-06', startTime: '18:00', endTime: '19:00', kind: 'PREFERRED' as const,
     }];
     const [first] = await replaceResponseIntervals(pool, responseId, input);
-    await pool.query(`UPDATE poll_responses SET state = 'CONFIRMED', confirmed_at = now()
-      WHERE id = $1`, [responseId]);
+    await confirmResponse(pool, responseId);
     const [second] = await replaceResponseIntervals(pool, responseId, input);
     const response = await pool.query<{ state: string; confirmed_at: Date | null }>(
       'SELECT state, confirmed_at FROM poll_responses WHERE id = $1', [responseId],
@@ -74,8 +73,7 @@ test('invalid input leaves the previous confirmed answer untouched', async () =>
     await replaceResponseIntervals(pool, responseId, [{
       localDate: '2026-10-06', startTime: '18:00', endTime: '19:00', kind: 'PREFERRED',
     }]);
-    await pool.query(`UPDATE poll_responses SET state = 'CONFIRMED', confirmed_at = now()
-      WHERE id = $1`, [responseId]);
+    await confirmResponse(pool, responseId);
     await assert.rejects(() => replaceResponseIntervals(pool, responseId, [
       { localDate: '2026-10-06', startTime: '18:00', endTime: '19:00', kind: 'PREFERRED' },
       { localDate: '2026-10-06', startTime: '18:30', endTime: '19:30', kind: 'IF_NEEDED' },
