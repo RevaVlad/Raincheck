@@ -1,0 +1,18 @@
+@import '@angular/material/prebuilt-themes/azure-blue.css';
+@import 'tailwindcss';
+
+:root {
+  font-family: system-ui, sans-serif;
+  color-scheme: light;
+  --surface-page: #f7f8f8;
+  --surface-panel: #fff;
+  --border-subtle: #e3e6e5;
+  --text-primary: #1d2929;
+  --text-secondary: #596767;
+}
+
+body {
+  margin: 0;
+  background: var(--surface-page);
+  color: var(--text-primary);
+}
