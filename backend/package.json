@@ -26,10 +26,6 @@
       "development": "./src/config/*.ts",
       "default": "./dist/config/*.js"
     },
-    "#db/*": {
-      "development": "./src/db/*.ts",
-      "default": "./dist/db/*.js"
-    },
     "#domain/*": {
       "development": "./src/domain/*.ts",
       "default": "./dist/domain/*.js"
@@ -48,19 +44,19 @@
     }
   },
   "mikro-orm": {
-    "configPaths": ["./src/infrastructure/database/orm.config.ts"]
+    "configPaths": [
+      "./src/infrastructure/database/orm.config.ts"
+    ]
   },
   "dependencies": {
     "@mikro-orm/core": "^7.2.3",
     "@mikro-orm/migrations": "^7.2.3",
     "@mikro-orm/postgresql": "^7.2.3",
-    "fastify": "^5.12.5",
-    "pg": "^8.23.1"
+    "fastify": "^5.12.5"
   },
   "devDependencies": {
     "@mikro-orm/cli": "^7.2.3",
     "@types/node": "^24.19.0",
-    "@types/pg": "^8.23.1",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3"
   }

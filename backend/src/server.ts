@@ -1,10 +1,11 @@
 import { buildApp } from './app.js';
 import { loadConfig } from '#config/config';
-import { createPool } from '#db/pool';
+import { createOrm } from '#infrastructure/database/create-orm';
+import { MikroDatabaseHealth } from '#infrastructure/database/database-health';
 
 const config = loadConfig();
-const pool = createPool(config);
-const app = buildApp(config, pool);
+const orm = await createOrm(config);
+const app = buildApp(config, new MikroDatabaseHealth(orm));
 
 let shuttingDown = false;
 async function shutdown() {
@@ -12,7 +13,7 @@ async function shutdown() {
   shuttingDown = true;
   try {
     await app.close();
-    await pool.end();
+    await orm.close(true);
   } catch (error) {
     app.log.error(error, 'Shutdown failed');
     process.exitCode = 1;
@@ -26,6 +27,6 @@ try {
   await app.listen({ host: config.host, port: config.port });
 } catch (error) {
   app.log.error(error, 'Startup failed');
-  await pool.end();
+  await orm.close(true);
   process.exitCode = 1;
 }

@@ -1,6 +1,6 @@
 # Raincheck
 
-Raincheck helps a recurring group agree on meeting times. This repository currently contains the project foundation: Angular frontend, Fastify API, and PostgreSQL schema.
+Raincheck helps a recurring group agree on meeting times. This repository currently contains the project foundation: Angular frontend, Fastify API, and a MikroORM-backed PostgreSQL schema.
 
 ## Requirements
 
@@ -16,6 +16,13 @@ npm ci --prefix backend
 docker compose up -d postgres
 cp backend/.env.example backend/.env
 npm run db:migrate
+```
+
+Create or roll back a schema migration with:
+
+```sh
+npm run db:migration:create -- --name describe-change
+npm run db:migrate:down
 ```
 
 Run the frontend and backend in separate terminals:
@@ -38,9 +45,11 @@ npm run db:migrate:status
 
 `npm run db:migrate` is an explicit admin command. Starting the backend never runs migrations. Application code and dependency lockfiles live separately in `frontend/` and `backend/`.
 
-## Backend entities
+## Backend structure
 
-The backend keeps entity types and validation in `backend/src/entities/`. Each entity has its own service under `backend/src/services/`; shared date and time helpers live in `backend/src/shared/`. PostgreSQL writes use parameterized SQL, and whole-response interval replacement runs in one transaction. Group timezone, poll dates and daily windows, and availability intervals all use UTC. Service tests live under `backend/tests/services/`.
+Domain types and named validation steps live under `backend/src/domain/<entity>/`. Each capability has a service interface and MikroORM implementation under `backend/src/services/<entity>/`. Database entities, repositories, configuration, and generated migrations stay under `backend/src/infrastructure/database/`. Shared UTC helpers live under `backend/src/shared/time/`.
+
+Services receive an ORM entity manager once and expose domain methods without database-client parameters. Whole-response interval replacement runs in one transaction. Group timezone, poll dates, daily windows, and availability intervals all use UTC. Tests live under `backend/tests/` and mirror the source responsibility.
 
 `npm test` runs backend unit and database-backed service tests, then frontend tests. After starting PostgreSQL and running migrations, run only the backend service suites with:
 
