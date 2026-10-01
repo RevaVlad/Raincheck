@@ -6,6 +6,22 @@ on:
 jobs:
   checks:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: raincheck
+          POSTGRES_USER: raincheck
+          POSTGRES_PASSWORD: raincheck
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U raincheck -d raincheck"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://raincheck:raincheck@localhost:5432/raincheck
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -21,4 +37,6 @@ jobs:
         working-directory: frontend
       - run: npm run typecheck
       - run: npm test
+      - run: npm run db:migrate
+      - run: npm --prefix backend run test:db
       - run: npm run build

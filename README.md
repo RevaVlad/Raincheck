@@ -37,3 +37,15 @@ npm run db:migrate:status
 ```
 
 `npm run db:migrate` is an explicit admin command. Starting the backend never runs migrations. Application code and dependency lockfiles live separately in `frontend/` and `backend/`.
+
+## Backend entities
+
+The backend models Group, Participant, Poll, PollResponse, and AvailabilityInterval in `backend/src/domain/`. Constructors validate names, timezones, poll windows, and interval bounds. Participant creation returns the raw edit token once and stores only its SHA-256 hash in the entity. `backend/src/db/entities.repository.ts` contains parameterized inserts for these records.
+
+After starting PostgreSQL and running migrations, verify the database rules with:
+
+```sh
+npm --prefix backend run test:db
+```
+
+The database checks relationship constraints and the single-open-poll rule. HTTP workflows for creating groups, joining, and editing responses are separate follow-up work.
