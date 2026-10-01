@@ -10,7 +10,7 @@ export interface Participant {
   updatedAt: Date;
 }
 
-export function normalizeDisplayName(value: string): string {
+function normalizeDisplayName(value: string): string {
   return value.trim().replace(/\s+/gu, ' ');
 }
 

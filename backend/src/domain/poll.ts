@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
 
-export type PollStatus = 'OPEN' | 'CLOSED';
 export type SlotMinutes = 30 | 60;
 
 interface PollFields {
@@ -98,12 +97,6 @@ export function createPoll(
     meetingDurationMinutes: input.meetingDurationMinutes,
     status: 'OPEN', basedOnPollId, createdAt: now, closedAt: null,
   };
-}
-
-export function ensureBasePollBelongsToGroup(groupId: string, basePoll: Pick<Poll, 'groupId'>): void {
-  if (basePoll.groupId !== groupId) {
-    throw new Error('Base poll must belong to the same group');
-  }
 }
 
 export function closePoll(poll: Poll, now = new Date()): Poll {

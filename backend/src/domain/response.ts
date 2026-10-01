@@ -1,7 +1,5 @@
 import { randomUUID } from 'node:crypto';
 
-export type ResponseState = 'DRAFT' | 'CONFIRMED';
-
 interface ResponseFields {
   id: string;
   pollId: string;
@@ -27,13 +25,4 @@ export function confirmResponse(response: PollResponse, now = new Date()): PollR
 
 export function markResponseDraft(response: PollResponse, now = new Date()): PollResponse {
   return { ...response, state: 'DRAFT', confirmedAt: null, updatedAt: now };
-}
-
-export function ensureResponseOwnership(
-  poll: { groupId: string },
-  participant: { groupId: string },
-): void {
-  if (poll.groupId !== participant.groupId) {
-    throw new Error('Poll and participant must belong to the same group');
-  }
 }
