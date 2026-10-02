@@ -1,12 +1,12 @@
-import type { Database } from '#infrastructure/database/database';
-import { IntervalRepository } from '#infrastructure/database/repositories/interval.repository';
-import { ResponseRepository } from '#infrastructure/database/repositories/response.repository';
+import type { PrismaDatabase } from '#infrastructure/database/prisma-database';
+import { dateToPrisma, timeToPrisma, toInterval } from '#infrastructure/database/prisma-records';
 import type { AvailabilityInterval, IntervalInput } from '#domain/interval/interval';
-import { POLL_STATUS } from '#shared/constants';
+import { POLL_STATUS, RESPONSE_STATE } from '#shared/constants';
 import { createIntervals, sameIntervals, toPollWindow } from './interval.operations.js';
+import { lockResponseContext } from './interval.queries.js';
 
 export class IntervalService {
-  constructor(private readonly db: Database) {}
+  constructor(private readonly db: PrismaDatabase) {}
 
   async replace(
     responseId: string,
@@ -14,15 +14,29 @@ export class IntervalService {
     now = new Date(),
   ): Promise<AvailabilityInterval[]> {
     return this.db.transaction(async (transaction) => {
-      const intervals = new IntervalRepository(transaction);
-      const responses = new ResponseRepository(transaction);
-      const context = await intervals.findResponseForUpdate(responseId);
+      const context = await lockResponseContext(transaction, responseId);
       requireOpenPoll(context.poll.status);
       const replacement = createIntervals(responseId, inputs, toPollWindow(context.poll), now);
-      const existing = await intervals.findByResponse(responseId);
+      const existing = (
+        await transaction.client.availabilityInterval.findMany({
+          where: { responseId },
+          orderBy: [{ localDate: 'asc' }, { startTime: 'asc' }, { id: 'asc' }],
+        })
+      ).map(toInterval);
       if (sameIntervals(existing, replacement)) return existing;
-      await intervals.replace(responseId, replacement);
-      await responses.recordAvailabilityChange(responseId, now);
+      await transaction.client.availabilityInterval.deleteMany({ where: { responseId } });
+      await transaction.client.availabilityInterval.createMany({
+        data: replacement.map((interval) => ({
+          ...interval,
+          localDate: dateToPrisma(interval.localDate),
+          startTime: timeToPrisma(interval.startTime),
+          endTime: timeToPrisma(interval.endTime),
+        })),
+      });
+      await transaction.client.pollResponse.update({
+        where: { id: responseId },
+        data: { state: RESPONSE_STATE.DRAFT, confirmedAt: null, updatedAt: now },
+      });
       return replacement;
     });
   }
