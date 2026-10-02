@@ -118,3 +118,28 @@ void test('Prisma readiness returns false for an unreachable database', async ()
     await database.close();
   }
 });
+
+void test('Prisma transactions survive more than 60 seconds of elapsed time', async (t) => {
+  const database = PrismaDatabase.create(loadConfig());
+  const data = groupData();
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout'] });
+  try {
+    await database.transaction(async (transaction) => {
+      await transaction.client.group.create({ data });
+      t.mock.timers.tick(61_000);
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      await transaction.client.group.update({
+        where: { id: data.id },
+        data: { name: 'Completed after 61 seconds' },
+      });
+    });
+    assert.equal(
+      (await database.client.group.findUniqueOrThrow({ where: { id: data.id } })).name,
+      'Completed after 61 seconds',
+    );
+  } finally {
+    t.mock.timers.reset();
+    await database.client.group.deleteMany({ where: { id: data.id } });
+    await database.close();
+  }
+});
