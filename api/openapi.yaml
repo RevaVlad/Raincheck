@@ -1,0 +1,8 @@
+openapi: 3.1.0
+info: { title: Raincheck API, version: 0.1.0 }
+paths:
+  /api/groups: { post: { summary: Create UTC group, responses: { '201': { description: Created } } } }
+  /api/groups/{inviteCode}: { get: { summary: Public group context, responses: { '200': { description: OK } } } }
+  /api/groups/{inviteCode}/workspace: { get: { summary: Workspace, responses: { '200': { description: OK } } } }
+  /api/groups/{inviteCode}/polls: { get: { summary: List polls, responses: { '200': { description: OK } } }, post: { summary: Create next poll, responses: { '201': { description: Created } } } }
+  /api/groups/{inviteCode}/polls/{pollId}/results: { get: { summary: Results, responses: { '200': { description: OK } } } }
