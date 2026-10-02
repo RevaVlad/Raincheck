@@ -41,3 +41,15 @@ void test('rejects a participant for a missing group', async () => {
     );
   });
 });
+
+void test('renames a participant using normalized-name uniqueness', async () => {
+  await inPrismaTransaction(async ({ database }) => {
+    const groups = new GroupService(database);
+    const participants = new ParticipantService(database);
+    const group = await groups.create({ name: 'Team' });
+    const created = await participants.create(group.id, 'Alice');
+    const renamed = await participants.rename(created.participant.id, ' Alice Smith ');
+    assert.equal(renamed.displayName, 'Alice Smith');
+    assert.equal(renamed.displayNameNormalized, 'alice smith');
+  });
+});

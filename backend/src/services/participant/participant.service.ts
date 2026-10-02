@@ -12,6 +12,14 @@ export interface CreatedParticipant {
 export class ParticipantService {
   constructor(private readonly db: PrismaDatabase) {}
 
+  async rename(id: string, displayName: string, now = new Date()): Promise<Participant> {
+    const name = validateParticipant(displayName);
+    return toParticipant(await this.db.client.participant.update({
+      where: { id },
+      data: { ...name, updatedAt: now },
+    }));
+  }
+
   async create(
     groupId: string,
     displayName: string,

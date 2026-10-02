@@ -8,6 +8,11 @@ import { LIMITS, UTC_TIMEZONE } from '#shared/constants';
 export class GroupService {
   constructor(private readonly db: PrismaDatabase) {}
 
+  async findByInviteCode(inviteCode: string): Promise<Group | null> {
+    const record = await this.db.client.group.findUnique({ where: { inviteCode } });
+    return record ? toGroup(record) : null;
+  }
+
   async create(input: GroupInput, now = new Date()): Promise<Group> {
     const { name } = validateGroup(input);
     const record = await this.db.client.group.create({

@@ -30,6 +30,8 @@ export function registerApiErrorHandler(app: FastifyInstance): void {
       (errorRecord !== null && 'statusCode' in errorRecord && errorRecord.statusCode === 400);
     const appError = error instanceof AppError
       ? error
+      : error instanceof RangeError
+        ? new AppError('INVALID_REQUEST', 400, error.message)
       : isValidationError
         ? new AppError('INVALID_REQUEST', 400, 'Invalid request')
         : new AppError('INTERNAL_ERROR', 500, 'Internal server error');

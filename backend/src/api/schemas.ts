@@ -7,6 +7,14 @@ export const participantTokenHeaders = {
   },
 } as const;
 
+export const optionalParticipantTokenHeaders = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    'x-participant-token': { type: 'string', maxLength: 128 },
+  },
+} as const;
+
 export const inviteCodeParams = {
   type: 'object',
   additionalProperties: false,

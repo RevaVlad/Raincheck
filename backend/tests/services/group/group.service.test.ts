@@ -29,3 +29,12 @@ void test('creates a unique invite code for every group', async () => {
     assert.notEqual(first.inviteCode, second.inviteCode);
   });
 });
+
+void test('finds a group by its invite code', async () => {
+  await inPrismaTransaction(async ({ database }) => {
+    const groups = new GroupService(database);
+    const group = await createGroup(groups);
+    assert.deepEqual(await groups.findByInviteCode(group.inviteCode), group);
+    assert.equal(await groups.findByInviteCode('missing'), null);
+  });
+});
