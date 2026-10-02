@@ -1,6 +1,6 @@
 .schedule-grid {
   display: grid;
-  grid-template-columns: 68px repeat(5, minmax(128px, 1fr));
+  grid-template-columns: 68px repeat(7, minmax(128px, 1fr));
 }
 .corner,
 .day {
@@ -31,6 +31,9 @@
   height: 34px;
   border-bottom: 1px solid #f1f5f9;
   border-left: 1px solid #e2e8f0;
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
 }
 .unavailable {
   background: #fbe9e9;

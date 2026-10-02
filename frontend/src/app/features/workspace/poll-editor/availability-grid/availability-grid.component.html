@@ -1,23 +1,34 @@
 <div class="overflow-x-auto bg-white">
-  <div class="schedule-grid min-w-[760px]">
+  <div
+    class="schedule-grid min-w-[760px]"
+    (pointerdown)="onPointerDown($event)"
+    (pointermove)="onPointerMove($event)"
+    (pointerup)="onPointerUp($event)"
+    (pointercancel)="onPointerCancel($event)"
+    (lostpointercapture)="onPointerCancel($event)"
+  >
     <div class="corner"></div>
-    @for (day of days; track day.date) {
+    @for (day of days; track day.localDate) {
       <div class="day">
         <strong>{{ day.weekday }}</strong
         ><span>{{ day.date }}</span>
       </div>
     }
-    @for (slot of slots; track slot.time; let slotIndex = $index) {
+    @for (slot of slots; track slot.time) {
       <div class="time">{{ slot.time }}</div>
-      @for (day of days; track day.date; let dayIndex = $index) {
+      @for (day of days; track day.localDate) {
+        @let kind = state(day.localDate, slot.time);
         <div
           class="cell"
+          [attr.data-date]="day.localDate"
+          [attr.data-time]="slot.time"
+          role="gridcell"
           [attr.aria-label]="
-            day.weekday + ' ' + slot.time + ': ' + (state(dayIndex, slotIndex) ?? 'нейтрально')
+            day.weekday + ' ' + slot.time + ': ' + (kind ?? 'нейтрально')
           "
-          [class.unavailable]="state(dayIndex, slotIndex) === 'UNAVAILABLE'"
-          [class.if-needed]="state(dayIndex, slotIndex) === 'IF_NEEDED'"
-          [class.preferred]="state(dayIndex, slotIndex) === 'PREFERRED'"
+          [class.unavailable]="kind === 'UNAVAILABLE'"
+          [class.if-needed]="kind === 'IF_NEEDED'"
+          [class.preferred]="kind === 'PREFERRED'"
         ></div>
       }
     }
