@@ -1,12 +1,12 @@
 import { randomUUID } from 'node:crypto';
-import type { Database } from '#infrastructure/database/database';
-import { PollRepository } from '#infrastructure/database/repositories/poll.repository';
+import type { PrismaDatabase } from '#infrastructure/database/prisma-database';
+import { dateToPrisma, timeToPrisma, toPoll } from '#infrastructure/database/prisma-records';
 import type { Poll, PollInput } from '#domain/poll/poll';
 import { validatePoll } from '#domain/poll/poll.validation';
 import { POLL_STATUS } from '#shared/constants';
 
 export class PollService {
-  constructor(private readonly db: Database) {}
+  constructor(private readonly db: PrismaDatabase) {}
 
   async create(
     groupId: string,
@@ -16,18 +16,30 @@ export class PollService {
     now = new Date(),
   ): Promise<Poll> {
     const valid = validatePoll(sequenceNo, input);
-    return new PollRepository(this.db).insert({
-      id: randomUUID(),
-      groupId,
-      sequenceNo,
-      ...valid,
-      status: POLL_STATUS.OPEN,
-      basedOnPollId,
-      createdAt: now,
-      closedAt: null,
+    const record = await this.db.client.poll.create({
+      data: {
+        id: randomUUID(),
+        groupId,
+        sequenceNo,
+        ...valid,
+        startsOn: dateToPrisma(valid.startsOn),
+        endsOn: dateToPrisma(valid.endsOn),
+        dayStart: timeToPrisma(valid.dayStart),
+        dayEnd: timeToPrisma(valid.dayEnd),
+        status: POLL_STATUS.OPEN,
+        basedOnPollId,
+        createdAt: now,
+        closedAt: null,
+      },
     });
+    return toPoll(record);
   }
   async close(pollId: string, now = new Date()): Promise<Poll> {
-    return new PollRepository(this.db).close(pollId, now);
+    const [record] = await this.db.client.poll.updateManyAndReturn({
+      where: { id: pollId, status: POLL_STATUS.OPEN },
+      data: { status: POLL_STATUS.CLOSED, closedAt: now },
+    });
+    if (!record) throw new Error('Poll not found');
+    return toPoll(record);
   }
 }
