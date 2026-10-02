@@ -20,7 +20,8 @@
     "prisma:generate": "node --env-file-if-exists=.env node_modules/prisma/build/index.js generate",
     "prisma:validate": "node --env-file-if-exists=.env node_modules/prisma/build/index.js validate",
     "prisma:deploy": "node --env-file-if-exists=.env node_modules/prisma/build/index.js migrate deploy",
-    "prisma:status": "node --env-file-if-exists=.env node_modules/prisma/build/index.js migrate status"
+    "prisma:status": "node --env-file-if-exists=.env node_modules/prisma/build/index.js migrate status",
+    "postinstall": "npm run prisma:generate"
   },
   "type": "module",
   "imports": {

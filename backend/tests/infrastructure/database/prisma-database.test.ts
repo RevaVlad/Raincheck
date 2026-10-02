@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { test } from 'node:test';
 import { loadConfig } from '#config/config';
 import { PrismaDatabase } from '#infrastructure/database/prisma-database';
+import { dateToPrisma, timeToPrisma } from '#infrastructure/database/prisma-records';
 import { inPrismaTransaction, sharedPrismaDatabase } from '../../support/prisma-database.js';
 import { PrismaProbe } from '../../support/prisma-probe.js';
 
@@ -12,6 +13,23 @@ const groupData = () => ({
   inviteCode: randomUUID(),
   timezone: 'UTC',
   createdAt: new Date('2026-10-02T09:12:34.567Z'),
+});
+
+const pollData = (groupId: string, sequenceNo: number, basedOnPollId: string | null) => ({
+  id: randomUUID(),
+  groupId,
+  sequenceNo,
+  title: null,
+  startsOn: dateToPrisma('2026-10-06'),
+  endsOn: dateToPrisma('2026-10-12'),
+  dayStart: timeToPrisma('16:00'),
+  dayEnd: timeToPrisma('23:00'),
+  slotMinutes: 30,
+  meetingDurationMinutes: 60,
+  status: 'CLOSED',
+  basedOnPollId,
+  createdAt: new Date('2026-10-02T09:12:34.567Z'),
+  closedAt: new Date('2026-10-02T10:00:00.000Z'),
 });
 
 void test('Prisma rollback harness rolls back after a successful callback', async () => {
@@ -67,6 +85,26 @@ void test('Prisma transactions commit success and roll back callback failures', 
     await database.client.group.deleteMany({ where: { id: data.id } });
     await database.close();
   }
+});
+
+void test('deleting a poll nulls only based_on_poll_id through the Prisma client', async () => {
+  const data = groupData();
+  await inPrismaTransaction(async ({ database, probe }) => {
+    await database.client.group.create({ data });
+    const previous = await database.client.poll.create({ data: pollData(data.id, 1, null) });
+    const current = await database.client.poll.create({
+      data: pollData(data.id, 2, previous.id),
+    });
+
+    assert.deepEqual(await probe.pollReference(current.id), { basedOnPollId: previous.id });
+
+    await probe.deletePoll(previous.id);
+
+    assert.deepEqual(await probe.pollReference(current.id), { basedOnPollId: null });
+    const survivor = await database.client.poll.findUniqueOrThrow({ where: { id: current.id } });
+    assert.equal(survivor.groupId, data.id);
+    assert.equal(await probe.groupExists(data.id), true);
+  });
 });
 
 void test('Prisma readiness returns false for an unreachable database', async () => {

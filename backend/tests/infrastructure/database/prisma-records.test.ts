@@ -127,6 +127,83 @@ async function assertResponseAndIntervalRecords(database: PrismaDatabase, record
   );
 }
 
+void test('mappers cover the constrained state branches the round trip cannot reach', () => {
+  const { toPoll, toResponse, toInterval } = mappers;
+  const closedAt = new Date('2026-10-03T09:00:00.000Z');
+
+  const closed = toPoll(pollRecord({ status: 'CLOSED', closedAt }));
+  assert.equal(closed.status, 'CLOSED');
+  assert.deepEqual(closed.closedAt, closedAt);
+  assert.throws(
+    () => toPoll(pollRecord({ status: 'CLOSED', closedAt: null })),
+    /Closed poll is missing closed_at/,
+  );
+
+  assert.equal(toResponse(responseRecord({ state: 'DRAFT', confirmedAt: null })).confirmedAt, null);
+  assert.deepEqual(
+    toResponse(responseRecord({ state: 'CONFIRMED', confirmedAt: closedAt })).confirmedAt,
+    closedAt,
+  );
+  assert.throws(
+    () => toResponse(responseRecord({ state: 'CONFIRMED', confirmedAt: null })),
+    /Confirmed response is missing confirmed_at/,
+  );
+
+  for (const kind of ['UNAVAILABLE', 'IF_NEEDED'] as const) {
+    assert.deepEqual(toInterval(intervalRecord({ kind, preferenceDirection: null })), {
+      ...interval,
+      kind,
+      preferenceDirection: null,
+    });
+  }
+  assert.equal(
+    toInterval(intervalRecord({ kind: 'IF_NEEDED', preferenceDirection: 'EARLIER' }))
+      .preferenceDirection,
+    null,
+  );
+  assert.throws(
+    () => toInterval(intervalRecord({ kind: 'PREFERRED', preferenceDirection: null })),
+    /Preferred interval is missing a direction/,
+  );
+});
+
+function pollRecord(overrides: {
+  status: string;
+  closedAt: Date | null;
+}): Parameters<typeof mappers.toPoll>[0] {
+  return {
+    ...poll,
+    status: overrides.status,
+    startsOn: mappers.dateToPrisma(poll.startsOn),
+    endsOn: mappers.dateToPrisma(poll.endsOn),
+    dayStart: mappers.timeToPrisma(poll.dayStart),
+    dayEnd: mappers.timeToPrisma(poll.dayEnd),
+    basedOnPollId: null,
+    closedAt: overrides.closedAt,
+  };
+}
+
+function responseRecord(overrides: {
+  state: string;
+  confirmedAt: Date | null;
+}): Parameters<typeof mappers.toResponse>[0] {
+  return { ...response, state: overrides.state, confirmedAt: overrides.confirmedAt };
+}
+
+function intervalRecord(overrides: {
+  kind: string;
+  preferenceDirection: string | null;
+}): Parameters<typeof mappers.toInterval>[0] {
+  return {
+    ...interval,
+    kind: overrides.kind,
+    preferenceDirection: overrides.preferenceDirection,
+    localDate: mappers.dateToPrisma(interval.localDate),
+    startTime: mappers.timeToPrisma(interval.startTime),
+    endTime: mappers.timeToPrisma(interval.endTime),
+  };
+}
+
 void test('UTC conversions preserve midnight, late times, and leap-day dates', () => {
   const { dateToPrisma, timeToPrisma, dateFromPrisma, timeFromPrisma } = mappers;
   assert.equal(dateToPrisma('2028-02-29').toISOString(), '2028-02-29T00:00:00.000Z');
