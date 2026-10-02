@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { PrismaDatabase } from '#infrastructure/database/prisma-database';
 import type { PollResponse } from '#domain/response/response';
 import { changeStateForOpenPoll, insertForOpenPoll } from './response.queries.js';
+import { toResponse } from '#infrastructure/database/prisma-records';
 
 export class ResponseService {
   constructor(private readonly db: PrismaDatabase) {}
@@ -34,5 +35,16 @@ export class ResponseService {
 
   markDraft(responseId: string, now = new Date()): Promise<PollResponse> {
     return changeStateForOpenPoll(this.db.client, responseId, 'DRAFT', now);
+  }
+
+  async findForParticipant(pollId: string, participantId: string): Promise<PollResponse | null> {
+    const record = await this.db.client.pollResponse.findUnique({ where: { pollId_participantId: { pollId, participantId } } });
+    return record ? toResponse(record) : null;
+  }
+
+  async deleteForOpenPoll(pollId: string, participantId: string): Promise<boolean> {
+    const poll = await this.db.client.poll.findUnique({ where: { id: pollId }, select: { status: true } });
+    if (!poll || poll.status !== 'OPEN') throw new Error('Response requires an open poll');
+    return (await this.db.client.pollResponse.deleteMany({ where: { pollId, participantId } })).count > 0;
   }
 }
