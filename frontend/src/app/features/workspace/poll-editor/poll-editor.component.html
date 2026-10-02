@@ -1,0 +1,8 @@
+<mat-card class="overflow-hidden">
+  <app-availability-toolbar [selectedKind]="editor.selectedKind()" (selectKind)="select($event)" />
+  <app-availability-grid [selectedKind]="editor.selectedKind()" />
+  <div class="flex items-center border-t border-slate-200 px-4 py-3">
+    <span class="text-sm text-slate-500">Выбрано: {{ editor.label() }}</span>
+    <span class="ml-auto text-sm text-slate-500">Сохранение появится после интеграции API</span>
+  </div>
+</mat-card>
