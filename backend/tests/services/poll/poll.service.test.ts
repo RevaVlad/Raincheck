@@ -16,6 +16,22 @@ const pollInput = {
 
 const now = new Date('2026-10-01T12:00:00.000Z');
 
+void test('ignores extra input metadata when creating a poll', async () => {
+  await inPrismaTransaction(async ({ database }) => {
+    const groups = new GroupService(database);
+    const polls = new PollService(database);
+    const group = await groups.create({ name: 'Team' });
+    const input = { ...pollInput, title: '  Team meeting  ', uiState: 'expanded' };
+    const poll = await polls.create(group.id, 1, input, null, now);
+    const saved = await database.client.poll.findUniqueOrThrow({ where: { id: poll.id } });
+    assert.equal(poll.title, 'Team meeting');
+    assert.equal(saved.title, 'Team meeting');
+    assert.equal(poll.slotMinutes, 30);
+    assert.equal(poll.meetingDurationMinutes, 60);
+    assert.equal('uiState' in poll, false);
+  });
+});
+
 void test('creates and closes a poll through its service contract', async () => {
   await inPrismaTransaction(async ({ database }) => {
     const groups = new GroupService(database);
