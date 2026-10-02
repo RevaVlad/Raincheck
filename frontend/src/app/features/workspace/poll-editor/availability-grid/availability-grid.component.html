@@ -1,0 +1,25 @@
+<div class="overflow-x-auto bg-white">
+  <div class="schedule-grid min-w-[760px]">
+    <div class="corner"></div>
+    @for (day of days; track day.date) {
+      <div class="day">
+        <strong>{{ day.weekday }}</strong
+        ><span>{{ day.date }}</span>
+      </div>
+    }
+    @for (slot of slots; track slot.time; let slotIndex = $index) {
+      <div class="time">{{ slot.time }}</div>
+      @for (day of days; track day.date; let dayIndex = $index) {
+        <div
+          class="cell"
+          [attr.aria-label]="
+            day.weekday + ' ' + slot.time + ': ' + (state(dayIndex, slotIndex) ?? 'нейтрально')
+          "
+          [class.unavailable]="state(dayIndex, slotIndex) === 'UNAVAILABLE'"
+          [class.if-needed]="state(dayIndex, slotIndex) === 'IF_NEEDED'"
+          [class.preferred]="state(dayIndex, slotIndex) === 'PREFERRED'"
+        ></div>
+      }
+    }
+  </div>
+</div>
