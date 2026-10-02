@@ -1,0 +1,12 @@
+**/node_modules/
+backend/src/generated/prisma/
+**/dist/
+**/coverage/
+**/.angular/
+.worktrees/
+.superpowers/
+.playwright-cli/
+output/
+**/playwright-report/
+**/test-results/
+**/*.tsbuildinfo

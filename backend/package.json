@@ -2,15 +2,26 @@
   "name": "backend",
   "version": "0.1.0",
   "private": true,
-  "engines": { "node": ">=22.22.3" },
+  "engines": {
+    "node": ">=22.22.3"
+  },
   "scripts": {
     "dev": "node --conditions=development --env-file-if-exists=.env --import tsx --watch src/server.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node --env-file-if-exists=.env dist/server.js",
-    "test": "node --conditions=development --import tsx --test src/app.test.ts src/config/config.test.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "db:migrate": "node --conditions=development --env-file-if-exists=.env --import tsx src/db/migrate.ts",
-    "db:migrate:status": "node --conditions=development --env-file-if-exists=.env --import tsx src/db/migrate.ts --status"
+    "test": "npm run test:unit && npm run test:integration",
+    "test:unit": "node --conditions=development --import tsx --test \"tests/*.test.ts\" \"tests/domain/**/*.test.ts\" \"tests/shared/**/*.test.ts\"",
+    "test:integration": "node --conditions=development --env-file-if-exists=.env --import tsx --test \"tests/infrastructure/**/*.test.ts\" \"tests/services/**/*.test.ts\"",
+    "test:services": "node --conditions=development --env-file-if-exists=.env --import tsx --test \"tests/services/**/*.test.ts\"",
+    "test:db": "npm run test:integration",
+    "typecheck": "tsc -p tsconfig.test.json --noEmit",
+    "db:migrate": "npm run prisma:deploy",
+    "db:migrate:status": "npm run prisma:status",
+    "prisma:generate": "node --env-file-if-exists=.env node_modules/prisma/build/index.js generate",
+    "prisma:validate": "node --env-file-if-exists=.env node_modules/prisma/build/index.js validate",
+    "prisma:deploy": "node --env-file-if-exists=.env node_modules/prisma/build/index.js migrate deploy",
+    "prisma:status": "node --env-file-if-exists=.env node_modules/prisma/build/index.js migrate status",
+    "postinstall": "npm run prisma:generate"
   },
   "type": "module",
   "imports": {
@@ -18,18 +29,33 @@
       "development": "./src/config/*.ts",
       "default": "./dist/config/*.js"
     },
-    "#db/*": {
-      "development": "./src/db/*.ts",
-      "default": "./dist/db/*.js"
+    "#domain/*": {
+      "development": "./src/domain/*.ts",
+      "default": "./dist/domain/*.js"
+    },
+    "#infrastructure/*": {
+      "development": "./src/infrastructure/*.ts",
+      "default": "./dist/infrastructure/*.js"
+    },
+    "#services/*": {
+      "development": "./src/services/*.ts",
+      "default": "./dist/services/*.js"
+    },
+    "#shared/*": {
+      "development": "./src/shared/*.ts",
+      "default": "./dist/shared/*.js"
     }
   },
   "dependencies": {
+    "@prisma/adapter-pg": "7.10.0",
+    "@prisma/client": "7.10.0",
     "fastify": "^5.12.5",
     "pg": "^8.23.1"
   },
   "devDependencies": {
     "@types/node": "^24.19.0",
     "@types/pg": "^8.23.1",
+    "prisma": "7.10.0",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3"
   }

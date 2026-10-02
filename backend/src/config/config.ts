@@ -6,18 +6,28 @@ export interface Config {
   logLevel: 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'silent';
 }
 
-export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
-  const nodeEnv = env['NODE_ENV'] ?? 'development';
-  if (!['development', 'test', 'production'].includes(nodeEnv)) {
-    throw new Error('NODE_ENV must be development, test, or production');
-  }
+const NODE_ENVS = ['development', 'test', 'production'] as const;
+const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'] as const;
 
-  const port = Number(env['PORT'] ?? '3000');
+export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
+  return {
+    nodeEnv: parseNodeEnv(env['NODE_ENV']),
+    host: env['HOST'] ?? '127.0.0.1',
+    port: parsePort(env['PORT']),
+    databaseUrl: parseDatabaseUrl(env['DATABASE_URL']),
+    logLevel: parseLogLevel(env['LOG_LEVEL']),
+  };
+}
+
+function parsePort(value: string | undefined): number {
+  const port = Number(value ?? '3000');
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     throw new Error('PORT must be an integer between 1 and 65535');
   }
+  return port;
+}
 
-  const databaseUrl = env['DATABASE_URL'];
+function parseDatabaseUrl(databaseUrl: string | undefined): string {
   if (!databaseUrl) {
     throw new Error('DATABASE_URL is required');
   }
@@ -30,17 +40,19 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   if (!['postgres:', 'postgresql:'].includes(parsedUrl.protocol)) {
     throw new Error('DATABASE_URL must be a PostgreSQL URL');
   }
+  return databaseUrl;
+}
 
-  const logLevel = env['LOG_LEVEL'] ?? 'info';
-  if (!['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'].includes(logLevel)) {
-    throw new Error('LOG_LEVEL is invalid');
+function parseNodeEnv(value: string | undefined): Config['nodeEnv'] {
+  const nodeEnv = value ?? 'development';
+  if (NODE_ENVS.includes(nodeEnv as Config['nodeEnv'])) {
+    return nodeEnv as Config['nodeEnv'];
   }
+  throw new Error('NODE_ENV must be development, test, or production');
+}
 
-  return {
-    nodeEnv: nodeEnv as Config['nodeEnv'],
-    host: env['HOST'] ?? '127.0.0.1',
-    port,
-    databaseUrl,
-    logLevel: logLevel as Config['logLevel'],
-  };
+function parseLogLevel(value: string | undefined): Config['logLevel'] {
+  const logLevel = value ?? 'info';
+  if (LOG_LEVELS.includes(logLevel as Config['logLevel'])) return logLevel as Config['logLevel'];
+  throw new Error('LOG_LEVEL is invalid');
 }

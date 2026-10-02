@@ -6,6 +6,8 @@ describe('App', () => {
     await TestBed.configureTestingModule({ imports: [App] }).compileComponents();
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('h1')?.textContent).toContain('Find a time together');
+    expect(fixture.nativeElement.querySelector('h1')?.textContent).toContain(
+      'Find a time together',
+    );
   });
 });

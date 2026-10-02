@@ -1,0 +1,97 @@
+generator client {
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["partialIndexes"]
+  moduleFormat    = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Group {
+  id           String        @id @db.Uuid
+  name         String        @db.VarChar(120)
+  inviteCode   String        @unique(map: "groups_invite_code_key") @map("invite_code") @db.VarChar(64)
+  timezone     String        @db.VarChar(64)
+  createdAt    DateTime      @map("created_at") @db.Timestamptz(6)
+  participants Participant[]
+  polls        Poll[]
+
+  @@map("groups")
+}
+
+model Participant {
+  id                    String         @id @db.Uuid
+  groupId               String         @map("group_id") @db.Uuid
+  displayName           String         @map("display_name") @db.VarChar(80)
+  displayNameNormalized String         @map("display_name_normalized") @db.VarChar(80)
+  editTokenHash         String         @unique(map: "participants_edit_token_hash_key") @map("edit_token_hash") @db.Char(64)
+  createdAt             DateTime       @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime       @map("updated_at") @db.Timestamptz(6)
+  group                 Group          @relation(fields: [groupId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "participants_group_id_fkey")
+  responses             PollResponse[]
+
+  @@unique([groupId, displayNameNormalized], map: "participants_group_name_unique")
+  @@map("participants")
+}
+
+model Poll {
+  id                     String         @id @db.Uuid
+  groupId                String         @map("group_id") @db.Uuid
+  sequenceNo             Int            @map("sequence_no") @db.Integer
+  title                  String?        @db.VarChar(160)
+  startsOn               DateTime       @map("starts_on") @db.Date
+  endsOn                 DateTime       @map("ends_on") @db.Date
+  dayStart               DateTime       @map("day_start") @db.Time(6)
+  dayEnd                 DateTime       @map("day_end") @db.Time(6)
+  slotMinutes            Int            @map("slot_minutes") @db.SmallInt
+  meetingDurationMinutes Int            @map("meeting_duration_minutes") @db.SmallInt
+  status                 String         @db.Text
+  basedOnPollId          String?        @map("based_on_poll_id") @db.Uuid
+  createdAt              DateTime       @map("created_at") @db.Timestamptz(6)
+  closedAt               DateTime?      @map("closed_at") @db.Timestamptz(6)
+  group                  Group          @relation(fields: [groupId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "polls_group_id_fkey")
+  // Prisma cannot express SET NULL on only based_on_poll_id; reviewed SQL is authoritative.
+  basedOnPoll            Poll?          @relation("BasedOnPoll", fields: [basedOnPollId, groupId], references: [id, groupId], onDelete: SetNull, onUpdate: NoAction, map: "polls_based_on_same_group_fk")
+  derivedPolls           Poll[]         @relation("BasedOnPoll")
+  responses              PollResponse[]
+
+  @@unique([groupId, sequenceNo], map: "polls_group_id_sequence_no_key")
+  @@unique([id, groupId], map: "polls_id_group_id_key")
+  @@unique([groupId], map: "polls_one_open_per_group_idx", where: { status: "OPEN" })
+  @@index([groupId, createdAt], map: "polls_group_created_idx")
+  @@map("polls")
+}
+
+model PollResponse {
+  id            String                 @id @db.Uuid
+  pollId        String                 @map("poll_id") @db.Uuid
+  participantId String                 @map("participant_id") @db.Uuid
+  state         String                 @db.Text
+  confirmedAt   DateTime?              @map("confirmed_at") @db.Timestamptz(6)
+  updatedAt     DateTime               @map("updated_at") @db.Timestamptz(6)
+  poll          Poll                   @relation(fields: [pollId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "poll_responses_poll_id_fkey")
+  participant   Participant            @relation(fields: [participantId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "poll_responses_participant_id_fkey")
+  intervals     AvailabilityInterval[]
+
+  @@unique([pollId, participantId], map: "poll_responses_poll_participant_unique")
+  @@index([pollId, state], map: "poll_responses_poll_state_idx")
+  @@map("poll_responses")
+}
+
+model AvailabilityInterval {
+  id                  String       @id @db.Uuid
+  responseId          String       @map("response_id") @db.Uuid
+  localDate           DateTime     @map("local_date") @db.Date
+  startTime           DateTime     @map("start_time") @db.Time(6)
+  endTime             DateTime     @map("end_time") @db.Time(6)
+  kind                String       @db.Text
+  preferenceDirection String?      @map("preference_direction") @db.Text
+  createdAt           DateTime     @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime     @map("updated_at") @db.Timestamptz(6)
+  response            PollResponse @relation(fields: [responseId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "availability_intervals_response_id_fkey")
+
+  @@index([responseId, localDate, startTime], map: "availability_intervals_response_date_time_idx")
+  @@map("availability_intervals")
+}
