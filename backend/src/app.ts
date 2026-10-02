@@ -1,15 +1,14 @@
 import Fastify from 'fastify';
 import type { Config } from '#config/config';
+import type { PrismaDatabase } from '#infrastructure/database/prisma-database';
 
-export interface DatabaseHealth {
-  isAvailable(): Promise<boolean>;
-}
-
-export function buildApp(config: Config, database: DatabaseHealth) {
+export function buildApp(config: Config, database: Pick<PrismaDatabase, 'isAvailable' | 'close'>) {
   const app = Fastify({
     logger: { level: config.logLevel },
     requestIdHeader: false,
   });
+
+  app.addHook('onClose', () => database.close());
 
   app.get('/health/live', async () => ({ status: 'ok' }));
 

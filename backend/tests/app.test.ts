@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildApp, type DatabaseHealth } from '../src/app.js';
+import { buildApp } from '../src/app.js';
 import type { Config } from '#config/config';
 
 const config: Config = {
@@ -12,7 +12,7 @@ const config: Config = {
 };
 
 void test('liveness does not depend on PostgreSQL', async () => {
-  const db: DatabaseHealth = { isAvailable: async () => false };
+  const db = { isAvailable: async () => false, close: async () => {} };
   const app = buildApp(config, db);
   try {
     const response = await app.inject('/health/live');
@@ -24,7 +24,7 @@ void test('liveness does not depend on PostgreSQL', async () => {
 });
 
 void test('readiness reports an unavailable database', async () => {
-  const db: DatabaseHealth = { isAvailable: async () => false };
+  const db = { isAvailable: async () => false, close: async () => {} };
   const app = buildApp(config, db);
   try {
     const response = await app.inject('/health/ready');
@@ -36,7 +36,7 @@ void test('readiness reports an unavailable database', async () => {
 });
 
 void test('readiness reports an available database', async () => {
-  const db: DatabaseHealth = { isAvailable: async () => true };
+  const db = { isAvailable: async () => true, close: async () => {} };
   const app = buildApp(config, db);
   try {
     const response = await app.inject('/health/ready');
@@ -45,4 +45,35 @@ void test('readiness reports an available database', async () => {
   } finally {
     await app.close();
   }
+});
+
+void test('closing the app disconnects its shared readiness database once', async () => {
+  let connections = 1;
+  const database = {
+    isAvailable: async () => connections > 0,
+    close: async () => {
+      connections -= 1;
+    },
+  };
+  const app = buildApp(config, database);
+  assert.equal((await app.inject('/health/ready')).statusCode, 200);
+  await app.close();
+  await app.close();
+  assert.equal(connections, 0);
+});
+
+void test('closing the app after a failed startup disconnects its database', async () => {
+  let connections = 1;
+  const app = buildApp(config, {
+    isAvailable: async () => true,
+    close: async () => {
+      connections -= 1;
+    },
+  });
+  app.addHook('onReady', async () => {
+    throw new Error('startup failed');
+  });
+  await assert.rejects(() => app.listen({ host: config.host, port: 0 }), /startup failed/);
+  await app.close();
+  assert.equal(connections, 0);
 });

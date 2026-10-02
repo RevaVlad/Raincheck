@@ -1,20 +1,14 @@
 import assert from 'node:assert/strict';
-import { after, before, test } from 'node:test';
-import type { QueryResultRow } from 'pg';
-import { loadConfig } from '#config/config';
-import { Database } from '#infrastructure/database/database';
+import { test } from 'node:test';
+import { sharedPrismaDatabase } from '../../support/prisma-database.js';
 
-let database: Database;
-void before(() => {
-  database = Database.create(loadConfig());
-});
-void after(() => database.close());
+const database = sharedPrismaDatabase();
 
-interface IndexRow extends QueryResultRow {
+interface IndexRow {
   indexname: string;
 }
 
-interface ConstraintRow extends QueryResultRow {
+interface ConstraintRow {
   conname: string;
 }
 
@@ -29,7 +23,7 @@ const EXPECTED_CONSTRAINTS = [
   'polls_based_on_same_group_fk',
 ] as const;
 
-void test('database keeps the domain invariants after the baseline migration', async () => {
+void test('database keeps the domain invariants after the Prisma migration', async () => {
   assert.deepEqual(await existingIndexNames(), [
     'participants_group_name_unique',
     'poll_responses_poll_participant_unique',
@@ -43,29 +37,23 @@ void test('database keeps the domain invariants after the baseline migration', a
 });
 
 async function existingIndexNames(): Promise<string[]> {
-  const result = await database.query<IndexRow>(
-    `
+  const result = await database.client.$queryRaw<IndexRow[]>`
       SELECT indexname
       FROM pg_indexes
-      WHERE schemaname = 'public' AND indexname = ANY($1::text[])
+      WHERE schemaname = 'public' AND indexname = ANY(${EXPECTED_INDEXES}::text[])
       ORDER BY indexname
-    `,
-    [EXPECTED_INDEXES],
-  );
-  return result.rows.map(({ indexname }) => indexname);
+    `;
+  return result.map(({ indexname }) => indexname);
 }
 
 async function existingConstraintNames(): Promise<string[]> {
-  const result = await database.query<ConstraintRow>(
-    `
+  const result = await database.client.$queryRaw<ConstraintRow[]>`
       SELECT conname
       FROM pg_constraint
-      WHERE conname = ANY($1::text[])
+      WHERE conname = ANY(${EXPECTED_CONSTRAINTS}::text[])
       ORDER BY conname
-    `,
-    [EXPECTED_CONSTRAINTS],
-  );
-  return result.rows.map(({ conname }) => conname);
+    `;
+  return result.map(({ conname }) => conname);
 }
 
 const CHECK_NAMES = [
@@ -88,20 +76,20 @@ const CHECK_NAMES = [
 ];
 
 void test('Prisma migration installs every named CHECK and index', async () => {
-  const checks = await database.query<{ conname: string }>(`
+  const checks = await database.client.$queryRaw<{ conname: string }[]>`
     SELECT conname FROM pg_constraint
     WHERE connamespace = 'public'::regnamespace AND contype = 'c' ORDER BY conname
-  `);
+  `;
   assert.deepEqual(
-    checks.rows.map(({ conname }) => conname),
+    checks.map(({ conname }) => conname),
     CHECK_NAMES,
   );
-  const indexes = await database.query<{ indexname: string }>(`
+  const indexes = await database.client.$queryRaw<{ indexname: string }[]>`
     SELECT indexname FROM pg_indexes WHERE schemaname = 'public'
       AND tablename <> '_prisma_migrations' ORDER BY indexname
-  `);
+  `;
   assert.deepEqual(
-    indexes.rows.map(({ indexname }) => indexname),
+    indexes.map(({ indexname }) => indexname),
     [
       'availability_intervals_pkey',
       'availability_intervals_response_date_time_idx',
@@ -123,11 +111,11 @@ void test('Prisma migration installs every named CHECK and index', async () => {
 });
 
 void test('Prisma migration keeps cascades and column-subset SET NULL', async () => {
-  const foreignKeys = await database.query<{ conname: string; definition: string }>(`
+  const foreignKeys = await database.client.$queryRaw<{ conname: string; definition: string }[]>`
       SELECT conname, pg_get_constraintdef(oid) AS definition FROM pg_constraint
       WHERE connamespace = 'public'::regnamespace AND contype = 'f' ORDER BY conname
-    `);
-  assert.deepEqual(foreignKeys.rows, [
+    `;
+  assert.deepEqual(foreignKeys, [
     {
       conname: 'availability_intervals_response_id_fkey',
       definition: 'FOREIGN KEY (response_id) REFERENCES poll_responses(id) ON DELETE CASCADE',
@@ -158,37 +146,41 @@ void test('Prisma migration keeps cascades and column-subset SET NULL', async ()
 });
 
 void test('Prisma migration keeps partial uniqueness and uses Prisma tracking', async () => {
-  const index = await database.query<{ indexdef: string }>(`
+  const index = await database.client.$queryRaw<{ indexdef: string }[]>`
       SELECT indexdef FROM pg_indexes WHERE schemaname = 'public'
         AND indexname = 'polls_one_open_per_group_idx'
-    `);
+    `;
   assert.match(
-    index.rows[0]?.indexdef ?? '',
+    index[0]?.indexdef ?? '',
     new RegExp(
       'CREATE UNIQUE INDEX .* ON public.polls USING btree ' +
         "\\(group_id\\) WHERE \\(status = 'OPEN'::text\\)",
     ),
   );
-  const tracking = await database.query<{ old: string | null; current: string | null }>(`
+  const tracking = await database.client.$queryRaw<
+    { old: string | null; current: string | null }[]
+  >`
       SELECT to_regclass('public.schema_migrations')::text AS old,
         to_regclass('public._prisma_migrations')::text AS current
-    `);
-  assert.deepEqual(tracking.rows, [{ old: null, current: '_prisma_migrations' }]);
+    `;
+  assert.deepEqual(tracking, [{ old: null, current: '_prisma_migrations' }]);
 });
 
 void test('Prisma migration preserves native column types without database defaults', async () => {
-  const columns = await database.query<{
-    table_name: string;
-    column_name: string;
-    data_type: string;
-    character_maximum_length: number | null;
-    column_default: string | null;
-  }>(`
+  const columns = await database.client.$queryRaw<
+    {
+      table_name: string;
+      column_name: string;
+      data_type: string;
+      character_maximum_length: number | null;
+      column_default: string | null;
+    }[]
+  >`
     SELECT table_name, column_name, data_type, character_maximum_length, column_default
     FROM information_schema.columns WHERE table_schema = 'public'
       AND table_name <> '_prisma_migrations' ORDER BY table_name, ordinal_position
-  `);
-  const actual = columns.rows.map((row) => {
+  `;
+  const actual = columns.map((row) => {
     assert.equal(row.column_default, null, `${row.table_name}.${row.column_name}`);
     const length = row.character_maximum_length;
     const type = length === null ? row.data_type : `${row.data_type}(${length})`;

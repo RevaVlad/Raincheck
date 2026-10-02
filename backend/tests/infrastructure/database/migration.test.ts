@@ -3,9 +3,9 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
 
-void test('baseline migration preserves named indexes and nullable poll references', async () => {
+void test('Prisma migration preserves named indexes and nullable poll references', async () => {
   const sql = await readFile(
-    resolve(import.meta.dirname, '../../../src/infrastructure/database/migrations/001_initial.sql'),
+    resolve(import.meta.dirname, '../../../prisma/migrations/20261002000000_initial/migration.sql'),
     'utf8',
   );
   assert.match(
@@ -31,20 +31,19 @@ void test('baseline migration preserves named indexes and nullable poll referenc
   assert.match(sql, preferredDirection);
 });
 
-void test('Prisma migration keeps the complete DDL without legacy tracking', async () => {
-  const baseline = await readFile(
-    resolve(import.meta.dirname, '../../../src/infrastructure/database/migrations/001_initial.sql'),
-    'utf8',
-  );
+void test('Prisma migration creates all domain tables without legacy tracking', async () => {
   const prisma = await readFile(
     resolve(import.meta.dirname, '../../../prisma/migrations/20261002000000_initial/migration.sql'),
     'utf8',
   );
-  const normalized = (sql: string) =>
-    sql
-      .replace(/if not exists\s+/gi, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-  assert.equal(normalized(prisma), normalized(baseline));
+  for (const table of [
+    'groups',
+    'participants',
+    'polls',
+    'poll_responses',
+    'availability_intervals',
+  ]) {
+    assert.match(prisma, new RegExp(`create table ${table} \\(`, 'i'));
+  }
   assert.doesNotMatch(prisma, /schema_migrations/i);
 });
