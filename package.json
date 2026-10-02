@@ -13,7 +13,11 @@
     "typecheck": "npm --prefix backend run typecheck && npm --prefix frontend run typecheck",
     "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build",
     "db:migrate": "npm --prefix backend run db:migrate",
-    "db:migrate:status": "npm --prefix backend run db:migrate:status"
+    "db:migrate:status": "npm --prefix backend run db:migrate:status",
+    "prisma:generate": "npm --prefix backend run prisma:generate",
+    "prisma:validate": "npm --prefix backend run prisma:validate",
+    "prisma:deploy": "npm --prefix backend run prisma:deploy",
+    "prisma:status": "npm --prefix backend run prisma:status"
   },
   "devDependencies": {
     "@stylistic/eslint-plugin": "^5.10.0",

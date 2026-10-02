@@ -30,3 +30,21 @@ void test('baseline migration preserves named indexes and nullable poll referenc
   );
   assert.match(sql, preferredDirection);
 });
+
+void test('Prisma migration keeps the complete DDL without legacy tracking', async () => {
+  const baseline = await readFile(
+    resolve(import.meta.dirname, '../../../src/infrastructure/database/migrations/001_initial.sql'),
+    'utf8',
+  );
+  const prisma = await readFile(
+    resolve(import.meta.dirname, '../../../prisma/migrations/20261002000000_initial/migration.sql'),
+    'utf8',
+  );
+  const normalized = (sql: string) =>
+    sql
+      .replace(/if not exists\s+/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  assert.equal(normalized(prisma), normalized(baseline));
+  assert.doesNotMatch(prisma, /schema_migrations/i);
+});

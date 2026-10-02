@@ -4,6 +4,7 @@ import tseslint from 'typescript-eslint';
 export default tseslint.config({
   ignores: [
     '**/node_modules/**',
+    'backend/src/generated/prisma/**',
     '**/dist/**',
     '**/coverage/**',
     '**/.angular/**',
