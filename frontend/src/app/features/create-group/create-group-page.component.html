@@ -1,0 +1,48 @@
+<main class="mx-auto flex min-h-screen max-w-2xl flex-col justify-center px-5 py-10 sm:px-8">
+  <section class="mb-7 text-center">
+    <p class="mb-3 text-sm font-semibold tracking-wide text-emerald-700">Raincheck</p>
+    <h1 class="text-3xl font-semibold tracking-tight">Создать группу</h1>
+    <p class="mt-2 text-slate-600">Новая группа сразу получит ссылку для приглашения.</p>
+  </section>
+
+  <mat-card class="p-5 sm:p-7">
+    <form [formGroup]="form" class="grid gap-x-4 gap-y-2 sm:grid-cols-2">
+      <mat-form-field class="sm:col-span-2">
+        <mat-label>Название группы</mat-label>
+        <input matInput formControlName="groupName" />
+      </mat-form-field>
+      <mat-form-field class="sm:col-span-2">
+        <mat-label>Ваше имя</mat-label>
+        <input matInput formControlName="creatorName" />
+      </mat-form-field>
+      <p class="-mb-1 text-sm font-medium text-slate-700 sm:col-span-2">Первый опрос</p>
+      <mat-form-field>
+        <mat-label>Начало</mat-label>
+        <input matInput type="date" formControlName="startsOn" />
+      </mat-form-field>
+      <mat-form-field>
+        <mat-label>Конец</mat-label>
+        <input matInput type="date" formControlName="endsOn" />
+      </mat-form-field>
+      <p class="-mb-1 text-sm font-medium text-slate-700 sm:col-span-2">Время (UTC)</p>
+      <mat-form-field>
+        <mat-label>Начало дня</mat-label>
+        <input matInput type="time" formControlName="dayStart" />
+      </mat-form-field>
+      <mat-form-field>
+        <mat-label>Конец дня</mat-label>
+        <input matInput type="time" formControlName="dayEnd" />
+      </mat-form-field>
+      <mat-form-field>
+        <mat-label>Шаг сетки</mat-label>
+        <mat-select formControlName="slotMinutes">
+          <mat-option value="30">30 минут</mat-option>
+          <mat-option value="60">60 минут</mat-option>
+        </mat-select>
+      </mat-form-field>
+      <div class="flex items-end justify-end sm:col-start-2">
+        <button mat-flat-button type="button">Создать группу</button>
+      </div>
+    </form>
+  </mat-card>
+</main>

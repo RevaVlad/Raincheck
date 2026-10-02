@@ -1,0 +1,11 @@
+<main class="min-h-screen bg-slate-50 lg:grid lg:grid-cols-[310px_minmax(0,1fr)]">
+  <app-group-sidebar [groupName]="groupName" [inviteLink]="inviteLink" />
+  <section class="min-w-0 p-5 sm:p-8">
+    <header class="mb-6">
+      <p class="text-sm font-medium text-slate-500">Текущий опрос</p>
+      <h1 class="mt-1 text-3xl font-semibold tracking-tight">Встреча команды</h1>
+      <p class="mt-2 text-slate-600">6–12 октября · 16:00–23:00 UTC · шаг 30 минут</p>
+    </header>
+    <app-poll-editor />
+  </section>
+</main>
