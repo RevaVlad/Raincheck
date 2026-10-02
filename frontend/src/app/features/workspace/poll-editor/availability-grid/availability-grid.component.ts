@@ -1,5 +1,6 @@
 import { Component, computed, inject, input } from '@angular/core';
-import { AvailabilityKind, PollEditorService } from '../poll-editor.service';
+import { AvailabilityBrush, AvailabilityKind, PollEditorService } from '../poll-editor.service';
+import { TimezonePreferenceService } from '../../../../core/timezone/timezone-preference.service';
 
 interface Slot {
   time: string;
@@ -11,8 +12,9 @@ interface Slot {
   styleUrl: './availability-grid.component.css',
 })
 export class AvailabilityGridComponent {
-  readonly selectedKind = input.required<AvailabilityKind>();
+  readonly selectedKind = input.required<AvailabilityBrush>();
   private readonly editor = inject(PollEditorService);
+  private readonly timezone = inject(TimezonePreferenceService);
   readonly days = computed(() => {
     const poll = this.editor.poll();
     if (!poll) return [];
@@ -23,14 +25,17 @@ export class AvailabilityGridComponent {
     while (date <= end) {
       const localDate = date.toISOString().slice(0, 10);
       days.push({
-        weekday: new Intl.DateTimeFormat('ru-RU', { weekday: 'short', timeZone: 'UTC' }).format(date),
-        date: new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(date),
+        weekday: new Intl.DateTimeFormat('ru-RU', { weekday: 'short', timeZone: this.timezone.selectedTimeZone() }).format(new Date(`${localDate}T${poll.dayStart}:00Z`)),
+        date: new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', timeZone: this.timezone.selectedTimeZone() }).format(new Date(`${localDate}T${poll.dayStart}:00Z`)),
         localDate,
       });
       date.setUTCDate(date.getUTCDate() + 1);
     }
     return days;
   });
+  displayTime(utcDate: string, utcTime: string): string {
+    return this.timezone.convertUtc(utcDate, utcTime).localTime;
+  }
   readonly slots = computed<Slot[]>(() => {
     const poll = this.editor.poll();
     if (!poll) return [];

@@ -98,6 +98,30 @@ export type components = {
       polls: components['schemas']['Poll'][];
       currentPoll: components['schemas']['Poll'] | null;
     };
+    Results: {
+      participantSummary: { total: number; confirmed: number; pending: number };
+      heatmap: components['schemas']['HeatmapCell'][];
+      bestSlots: components['schemas']['BestSlot'][];
+    };
+    HeatmapCell: {
+      localDate: string;
+      startTime: string;
+      endTime: string;
+      available: number;
+      ifNeeded: number;
+      preferred: number;
+      unavailable: number;
+      averageSoftScore: number;
+    };
+    BestSlot: {
+      localDate: string;
+      startTime: string;
+      endTime: string;
+      available: number;
+      ifNeeded: number;
+      averageSoftScore: number;
+      stars: number;
+    };
   };
 };
 

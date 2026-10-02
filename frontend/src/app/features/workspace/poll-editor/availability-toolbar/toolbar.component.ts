@@ -1,6 +1,6 @@
 import { Component, input, output } from '@angular/core';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
-import { AvailabilityKind } from '../poll-editor.service';
+import { AvailabilityBrush } from '../poll-editor.service';
 
 @Component({
   selector: 'app-availability-toolbar',
@@ -8,6 +8,6 @@ import { AvailabilityKind } from '../poll-editor.service';
   templateUrl: './availability-toolbar.component.html',
 })
 export class AvailabilityToolbarComponent {
-  readonly selectedKind = input.required<AvailabilityKind>();
-  readonly selectKind = output<AvailabilityKind>();
+  readonly selectedKind = input.required<AvailabilityBrush>();
+  readonly selectKind = output<AvailabilityBrush>();
 }

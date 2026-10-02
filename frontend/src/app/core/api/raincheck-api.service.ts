@@ -8,6 +8,7 @@ export type CreateGroupRequest = Schemas['CreateGroupRequest'];
 export type CreateGroupResponse = Schemas['CreateGroupResponse'];
 export type JoinResponse = Schemas['JoinResponse'];
 export type Workspace = Schemas['Workspace'];
+export type PollResults = Schemas['Results'];
 export type Poll = Schemas['Poll'];
 export type Participant = Schemas['Participant'];
 export type WorkspaceParticipant = Schemas['WorkspaceParticipant'];
@@ -27,6 +28,10 @@ export class RaincheckApiService {
     return this.http.get<Workspace>(`${this.groupPath(inviteCode)}/workspace`, {
       headers: token ? this.participantHeaders(token) : undefined,
     });
+  }
+
+  getPollResults(inviteCode: string, pollId: string): Observable<PollResults> {
+    return this.http.get<PollResults>(`${this.groupPath(inviteCode)}/polls/${encodeURIComponent(pollId)}/results`);
   }
 
   joinGroup(inviteCode: string, body: Schemas['ParticipantInput']): Observable<JoinResponse> {

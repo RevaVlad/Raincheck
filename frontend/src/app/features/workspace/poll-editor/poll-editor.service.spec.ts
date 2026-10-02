@@ -179,6 +179,24 @@ describe('PollEditorService', () => {
     expect(editor.responseState()).toBe('CONFIRMED');
   });
 
+  it('clears an existing slot and leaves a no-op clear clean', async () => {
+    api.getMyResponse.mockReturnValue(of({ ...draft, intervals: [{
+      id: 'interval-1', localDate: '2026-10-06', startTime: '09:00', endTime: '09:30',
+      kind: 'PREFERRED', preferenceDirection: 'FLAT',
+    }] }));
+    api.replaceMyResponse.mockReturnValue(of(draft));
+    await editor.load('invite-code', poll, 'secret-token', vi.fn());
+
+    editor.paint('2026-10-06', '09:30', 'CLEAR');
+    expect(editor.saveState()).toBe('IDLE');
+    editor.paint('2026-10-06', '09:00', 'CLEAR');
+    expect(editor.cells()).toEqual({});
+    expect(editor.responseState()).toBe('DRAFT');
+    await vi.advanceTimersByTimeAsync(600);
+    expect(api.replaceMyResponse).toHaveBeenCalledWith('invite-code', 'poll-id', 'secret-token', { intervals: [] });
+    expect(editor.saveState()).toBe('SAVED');
+  });
+
   it('clears participant identity and signals join flow after a participant-only 401', async () => {
     const unauthorized = vi.fn();
     api.getMyResponse.mockReturnValue(

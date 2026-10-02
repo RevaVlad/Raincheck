@@ -2,12 +2,11 @@ import { Clipboard } from '@angular/cdk/clipboard';
 import { Component, inject, input, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
-import { MatIconModule } from '@angular/material/icon';
 import type { WorkspaceParticipant } from '../../../core/api/raincheck-api.service';
 
 @Component({
   selector: 'app-group-sidebar',
-  imports: [MatButtonModule, MatCardModule, MatIconModule],
+  imports: [MatButtonModule, MatCardModule],
   templateUrl: './group-sidebar.component.html',
   styleUrl: './group-sidebar.component.css',
 })

@@ -15,16 +15,17 @@
       </div>
     }
     @for (slot of slots(); track slot.time) {
-      <div class="time">{{ slot.time }}</div>
+      <div class="time">{{ displayTime(days()[0]?.localDate ?? '', slot.time) }}</div>
       @for (day of days(); track day.localDate) {
         @let kind = state(day.localDate, slot.time);
         <div
           class="cell"
           [attr.data-date]="day.localDate"
           [attr.data-time]="slot.time"
+          [attr.title]="displayTime(day.localDate, slot.time)"
           role="gridcell"
           [attr.aria-label]="
-            day.weekday + ' ' + slot.time + ': ' + (kind ?? 'нейтрально')
+            day.weekday + ' ' + displayTime(day.localDate, slot.time) + ': ' + (kind ?? 'нейтрально')
           "
           [class.unavailable]="kind === 'UNAVAILABLE'"
           [class.if-needed]="kind === 'IF_NEEDED'"

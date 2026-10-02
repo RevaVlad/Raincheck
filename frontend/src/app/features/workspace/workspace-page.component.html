@@ -12,7 +12,9 @@
           {{ poll.title || 'Опрос #' + poll.sequenceNo }}
         </h1>
         <p class="mt-2 text-slate-600">
-          {{ poll.startsOn }} — {{ poll.endsOn }} UTC · {{ poll.dayStart }}–{{ poll.dayEnd }} ·
+          {{ localDate(poll.startsOn, poll.dayStart) }} — {{ localDate(poll.endsOn, poll.dayEnd) }}
+          {{ timezone.convertUtc(poll.startsOn, poll.dayStart).offset }} ·
+          {{ timezone.convertUtc(poll.startsOn, poll.dayStart).localTime }}–{{ timezone.convertUtc(poll.endsOn, poll.dayEnd).localTime }} ·
           шаг {{ poll.slotMinutes }} минут
         </p>
       </header>
@@ -20,10 +22,19 @@
     } @else {
       <section class="rounded-2xl border border-slate-200 bg-white p-6">
         <h1 class="text-2xl font-semibold">Сейчас нет активного опроса</h1>
-        <p class="mt-2 text-slate-600">
-          Когда появится новый опрос, участники смогут отметить здесь удобное время.
-        </p>
+        <p class="mt-2 text-slate-600">Когда появится новый опрос, участники смогут отметить удобное время.</p>
       </section>
     }
+    <section class="mt-8">
+      <h2 class="mb-3 text-lg font-semibold">Опросы</h2>
+      <ul class="space-y-2">
+        @for (poll of workspace().polls; track poll.id) {
+          <li class="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4">
+            <span class="min-w-0 truncate">{{ poll.title || 'Опрос #' + poll.sequenceNo }} · {{ poll.status === 'OPEN' ? 'Открыт' : 'Закрыт' }}</span>
+            <a class="shrink-0 text-sm font-medium text-emerald-700 underline" [routerLink]="['/g', inviteCode(), 'polls', poll.id, 'results']">Результаты</a>
+          </li>
+        } @empty { <li class="text-sm text-slate-500">Пока нет опросов.</li> }
+      </ul>
+    </section>
   </section>
 </main>

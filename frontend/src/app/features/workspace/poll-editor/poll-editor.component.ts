@@ -4,7 +4,7 @@ import { MatCardModule } from '@angular/material/card';
 import { AvailabilityGridComponent } from './availability-grid/availability-grid.component';
 import { AvailabilityToolbarComponent } from './availability-toolbar/toolbar.component';
 import { PollEditorService } from './poll-editor.service';
-import type { AvailabilityKind, SaveState } from './poll-editor.service';
+import type { AvailabilityBrush, SaveState } from './poll-editor.service';
 
 @Component({
   selector: 'app-poll-editor',
@@ -14,7 +14,7 @@ import type { AvailabilityKind, SaveState } from './poll-editor.service';
 export class PollEditorComponent {
   readonly editor = inject(PollEditorService);
 
-  select(kind: AvailabilityKind): void {
+  select(kind: AvailabilityBrush): void {
     this.editor.select(kind);
   }
 

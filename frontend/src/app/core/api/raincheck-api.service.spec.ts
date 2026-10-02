@@ -70,6 +70,14 @@ describe('RaincheckApiService', () => {
     call.flush({});
   });
 
+  it('loads public poll results from the analytics endpoint', () => {
+    api.getPollResults('invite-a', 'poll-a').subscribe();
+    const call = http.expectOne('/api/groups/invite-a/polls/poll-a/results');
+    expect(call.request.method).toBe('GET');
+    expect(call.request.headers.has('X-Participant-Token')).toBe(false);
+    call.flush({ participantSummary: { total: 0, confirmed: 0, pending: 0 }, heatmap: [], bestSlots: [] });
+  });
+
   it('scopes response read, create, replace, and confirm calls with the participant token', () => {
     const path = '/api/groups/invite-a/polls/poll-a/responses/me';
     const token = 'secret-participant-token';

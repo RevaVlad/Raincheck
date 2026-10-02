@@ -12,13 +12,14 @@ import {
 } from './availability-grid/availability-intervals';
 
 export type AvailabilityKind = 'UNAVAILABLE' | 'IF_NEEDED' | 'PREFERRED';
+export type AvailabilityBrush = AvailabilityKind | 'CLEAR';
 export type SaveState = 'LOADING' | 'IDLE' | 'DIRTY' | 'SAVING' | 'SAVED' | 'ERROR';
 
 @Injectable()
 export class PollEditorService {
   private readonly api = inject(RaincheckApiService);
   private readonly session = inject(ParticipantSessionService);
-  readonly selectedKind = signal<AvailabilityKind>('PREFERRED');
+  readonly selectedKind = signal<AvailabilityBrush>('PREFERRED');
   readonly cells = signal<AvailabilityCells>({});
   readonly poll = signal<Poll | null>(null);
   readonly responseId = signal<string | null>(null);
@@ -32,7 +33,7 @@ export class PollEditorService {
       IF_NEEDED: 'Если понадобится',
       PREFERRED: 'Удобно',
     };
-    return labels[this.selectedKind()];
+    return this.selectedKind() === 'CLEAR' ? 'Очистить' : labels[this.selectedKind() as AvailabilityKind];
   });
 
   private inviteCode = '';
@@ -89,7 +90,7 @@ export class PollEditorService {
     }
   }
 
-  select(kind: AvailabilityKind): void {
+  select(kind: AvailabilityBrush): void {
     this.selectedKind.set(kind);
   }
 
@@ -99,12 +100,19 @@ export class PollEditorService {
     return this.load(this.inviteCode, poll, this.token, this.onUnauthorized);
   }
 
-  paint(localDate: string, startTime: string, kind: AvailabilityKind): void {
+  paint(localDate: string, startTime: string, kind: AvailabilityBrush): void {
     if (!this.loaded || this.unauthorized) return;
     const key = availabilityCellKey(localDate, startTime);
-    if (this.cells()[key] === kind) return;
-
-    this.cells.update((cells) => ({ ...cells, [key]: kind }));
+    if (kind === 'CLEAR') {
+      if (!(key in this.cells())) return;
+      this.cells.update((cells) => {
+        const { [key]: _removed, ...remaining } = cells;
+        return remaining;
+      });
+    } else {
+      if (this.cells()[key] === kind) return;
+      this.cells.update((cells) => ({ ...cells, [key]: kind }));
+    }
     this.version += 1;
     this.dirty = true;
     if (this.responseState() === 'CONFIRMED') this.responseState.set('DRAFT');
