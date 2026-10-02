@@ -8,15 +8,15 @@
     (lostpointercapture)="onPointerCancel($event)"
   >
     <div class="corner"></div>
-    @for (day of days; track day.localDate) {
+    @for (day of days(); track day.localDate) {
       <div class="day">
         <strong>{{ day.weekday }}</strong
         ><span>{{ day.date }}</span>
       </div>
     }
-    @for (slot of slots; track slot.time) {
+    @for (slot of slots(); track slot.time) {
       <div class="time">{{ slot.time }}</div>
-      @for (day of days; track day.localDate) {
+      @for (day of days(); track day.localDate) {
         @let kind = state(day.localDate, slot.time);
         <div
           class="cell"

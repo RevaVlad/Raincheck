@@ -1,4 +1,4 @@
-import { Component, inject, input } from '@angular/core';
+import { Component, computed, inject, input } from '@angular/core';
 import { AvailabilityKind, PollEditorService } from '../poll-editor.service';
 
 interface Slot {
@@ -13,18 +13,35 @@ interface Slot {
 export class AvailabilityGridComponent {
   readonly selectedKind = input.required<AvailabilityKind>();
   private readonly editor = inject(PollEditorService);
-  readonly days = [
-    { weekday: 'Вт', date: '6 окт', localDate: '2026-10-06' },
-    { weekday: 'Ср', date: '7 окт', localDate: '2026-10-07' },
-    { weekday: 'Чт', date: '8 окт', localDate: '2026-10-08' },
-    { weekday: 'Пт', date: '9 окт', localDate: '2026-10-09' },
-    { weekday: 'Сб', date: '10 окт', localDate: '2026-10-10' },
-    { weekday: 'Вс', date: '11 окт', localDate: '2026-10-11' },
-    { weekday: 'Пн', date: '12 окт', localDate: '2026-10-12' },
-  ];
-  readonly slots: Slot[] = Array.from({ length: 14 }, (_, index) => ({
-    time: `${String(16 + Math.floor(index / 2)).padStart(2, '0')}:${index % 2 ? '30' : '00'}`,
-  }));
+  readonly days = computed(() => {
+    const poll = this.editor.poll();
+    if (!poll) return [];
+
+    const days = [];
+    const date = new Date(`${poll.startsOn}T00:00:00Z`);
+    const end = new Date(`${poll.endsOn}T00:00:00Z`);
+    while (date <= end) {
+      const localDate = date.toISOString().slice(0, 10);
+      days.push({
+        weekday: new Intl.DateTimeFormat('ru-RU', { weekday: 'short', timeZone: 'UTC' }).format(date),
+        date: new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(date),
+        localDate,
+      });
+      date.setUTCDate(date.getUTCDate() + 1);
+    }
+    return days;
+  });
+  readonly slots = computed<Slot[]>(() => {
+    const poll = this.editor.poll();
+    if (!poll) return [];
+    const start = toMinutes(poll.dayStart);
+    const end = toMinutes(poll.dayEnd);
+    const slots: Slot[] = [];
+    for (let minute = start; minute < end; minute += poll.slotMinutes) {
+      slots.push({ time: toTime(minute) });
+    }
+    return slots;
+  });
   private paintingPointerId: number | null = null;
 
   state(localDate: string, startTime: string): AvailabilityKind | null {
@@ -76,4 +93,13 @@ export class AvailabilityGridComponent {
     const grid = event.currentTarget as HTMLElement;
     if (grid.hasPointerCapture(event.pointerId)) grid.releasePointerCapture(event.pointerId);
   }
+}
+
+function toMinutes(time: string): number {
+  const [hours, minutes] = time.split(':').map(Number);
+  return hours * 60 + minutes;
+}
+
+function toTime(minutes: number): string {
+  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
 }

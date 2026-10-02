@@ -3,13 +3,7 @@ import { Component, inject, input, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
-
-interface Participant {
-  initials: string;
-  name: string;
-  status: string;
-  ready: boolean;
-}
+import type { WorkspaceParticipant } from '../../../core/api/raincheck-api.service';
 
 @Component({
   selector: 'app-group-sidebar',
@@ -20,17 +14,29 @@ interface Participant {
 export class GroupSidebarComponent {
   readonly groupName = input.required<string>();
   readonly inviteLink = input.required<string>();
+  readonly participants = input.required<WorkspaceParticipant[]>();
   readonly copied = signal(false);
-  readonly participants: Participant[] = [
-    { initials: 'В', name: 'Влад', status: 'готово', ready: true },
-    { initials: 'М', name: 'Маша', status: 'готово', ready: true },
-    { initials: 'Д', name: 'Дима', status: 'редактирует', ready: false },
-    { initials: 'Н', name: 'Никита', status: 'нет ответа', ready: false },
-  ];
   private readonly clipboard = inject(Clipboard);
 
+  initials(name: string): string {
+    return name
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((part) => part.charAt(0).toLocaleUpperCase())
+      .join('');
+  }
+
+  status(state: WorkspaceParticipant['currentPollState']): string {
+    const labels: Record<WorkspaceParticipant['currentPollState'], string> = {
+      NONE: 'Нет ответа',
+      DRAFT: 'Заполняет',
+      CONFIRMED: 'Готово',
+    };
+    return labels[state];
+  }
+
   copyInvite(): void {
-    this.clipboard.copy(this.inviteLink());
-    this.copied.set(true);
+    if (this.clipboard.copy(this.inviteLink())) this.copied.set(true);
   }
 }
