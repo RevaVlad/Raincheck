@@ -76,6 +76,8 @@ Runtime raw SQL is limited to tagged, parameterized Prisma queries for readiness
 npm --prefix backend run test:db
 ```
 
-The database checks relationship constraints and the single-open-poll rule. HTTP workflows for creating groups, joining, and editing responses are separate follow-up work.
+The database checks relationship constraints and the single-open-poll rule. The HTTP API is documented in [api/openapi.yaml](api/openapi.yaml): participant edit tokens are returned only by successful group creation and join, while all later participant-bound calls use `X-Participant-Token`.
+
+Suggestions are derived only from the caller's confirmed response in the previous poll. They are mapped by ISO weekday, clipped and rounded to the new UTC grid, then reduced by explicit current intervals; they are never stored. Results contain every smallest grid cell and count only confirmed responses. Unmarked confirmed cells are neutral, `IF_NEEDED` stays available but is counted separately, and `UNAVAILABLE` wins. Candidate windows advance by `slotMinutes`; the API returns the first three after ranking availability, if-needed count, soft score, and earliest time.
 
 The current persistence decision is [the Prisma migration plan](docs/superpowers/plans/2026-10-02-prisma-parallel-migration.md). The earlier MikroORM plan (`spec/BACKEND_PERSISTENCE_PLAN.md`) and explicit-`pg` plans ([repositories](docs/superpowers/plans/2026-10-01-postgresql-repositories.md), [readability refactor](docs/superpowers/plans/2026-10-02-postgresql-backend-readability-refactor.md)) are superseded historical records; their implementation instructions and reset procedures no longer apply.

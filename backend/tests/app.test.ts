@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { buildApp } from '../src/app.js';
+import { AppError } from '../src/api/errors.js';
 import type { Config } from '#config/config';
 
 const config: Config = {
@@ -76,4 +77,20 @@ void test('closing the app after a failed startup disconnects its database', asy
   await assert.rejects(() => app.listen({ host: config.host, port: 0 }), /startup failed/);
   await app.close();
   assert.equal(connections, 0);
+});
+
+void test('the app returns stable API errors without changing health behavior', async () => {
+  const db = { isAvailable: async () => true, close: async () => {} };
+  const app = buildApp(config, db);
+  app.get('/api/test-error', async () => {
+    throw new AppError('GROUP_NOT_FOUND', 404, 'Group not found');
+  });
+  try {
+    const response = await app.inject('/api/test-error');
+    assert.equal(response.statusCode, 404);
+    assert.equal(response.json().error.code, 'GROUP_NOT_FOUND');
+    assert.equal(typeof response.json().error.requestId, 'string');
+  } finally {
+    await app.close();
+  }
 });
