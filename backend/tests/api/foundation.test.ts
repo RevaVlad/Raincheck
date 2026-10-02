@@ -56,6 +56,24 @@ void test('maps malformed request validation and unexpected errors without leaki
   }
 });
 
+void test('maps malformed JSON to INVALID_REQUEST', async () => {
+  const app = Fastify({ logger: false });
+  registerApiErrorHandler(app);
+  app.post('/input', async () => ({ ok: true }));
+  try {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/input',
+      headers: { 'content-type': 'application/json' },
+      payload: '{',
+    });
+    assert.equal(response.statusCode, 400);
+    assert.equal(response.json().error.code, 'INVALID_REQUEST');
+  } finally {
+    await app.close();
+  }
+});
+
 void test('requires a participant token and scopes it to the requested group', async () => {
   const token = 'safe-token';
   const participant = { id: 'participant-1', groupId: 'group-1', displayName: 'Masha' };

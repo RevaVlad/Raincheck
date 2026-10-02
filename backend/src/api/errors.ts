@@ -24,8 +24,10 @@ export class AppError extends Error {
 
 export function registerApiErrorHandler(app: FastifyInstance): void {
   app.setErrorHandler((error, request, reply) => {
+    const errorRecord = typeof error === 'object' && error !== null ? error : null;
     const isValidationError =
-      typeof error === 'object' && error !== null && 'validation' in error && Array.isArray(error.validation);
+      (errorRecord !== null && 'validation' in errorRecord && Array.isArray(errorRecord.validation)) ||
+      (errorRecord !== null && 'statusCode' in errorRecord && errorRecord.statusCode === 400);
     const appError = error instanceof AppError
       ? error
       : isValidationError
