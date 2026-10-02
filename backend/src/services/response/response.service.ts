@@ -1,37 +1,38 @@
 import { randomUUID } from 'node:crypto';
-import type { Database } from '#infrastructure/database/database';
-import {
-  ResponseRepository,
-  type ResponseCreationContext,
-} from '#infrastructure/database/repositories/response.repository';
+import type { PrismaDatabase } from '#infrastructure/database/prisma-database';
 import type { PollResponse } from '#domain/response/response';
+import { changeStateForOpenPoll, insertForOpenPoll } from './response.queries.js';
 
 export class ResponseService {
-  constructor(private readonly db: Database) {}
+  constructor(private readonly db: PrismaDatabase) {}
 
   async create(pollId: string, participantId: string, now = new Date()): Promise<PollResponse> {
     return this.db.transaction(async (transaction) => {
-      const responses = new ResponseRepository(transaction);
-      const context = await responses.findCreationContext(pollId, participantId);
-      requireValidCreation(context);
-      return responses.insertForOpenPoll(randomUUID(), pollId, participantId, now);
+      const [poll, participant] = await Promise.all([
+        transaction.client.poll.findUnique({
+          where: { id: pollId },
+          select: { groupId: true, status: true },
+        }),
+        transaction.client.participant.findUnique({
+          where: { id: participantId },
+          select: { groupId: true },
+        }),
+      ]);
+      if (!poll || poll.status !== 'OPEN' || !participant) {
+        throw new Error('Response requires an open poll');
+      }
+      if (poll.groupId !== participant.groupId) {
+        throw new Error('Response participant must belong to the same group as the poll');
+      }
+      return insertForOpenPoll(transaction.client, randomUUID(), pollId, participantId, now);
     });
   }
 
   confirm(responseId: string, now = new Date()): Promise<PollResponse> {
-    return new ResponseRepository(this.db).changeStateForOpenPoll(responseId, 'CONFIRMED', now);
+    return changeStateForOpenPoll(this.db.client, responseId, 'CONFIRMED', now);
   }
 
   markDraft(responseId: string, now = new Date()): Promise<PollResponse> {
-    return new ResponseRepository(this.db).changeStateForOpenPoll(responseId, 'DRAFT', now);
-  }
-}
-
-function requireValidCreation(context: ResponseCreationContext): void {
-  if (context.pollStatus !== 'OPEN' || !context.pollGroupId || !context.participantGroupId) {
-    throw new Error('Response requires an open poll');
-  }
-  if (context.pollGroupId !== context.participantGroupId) {
-    throw new Error('Response participant must belong to the same group as the poll');
+    return changeStateForOpenPoll(this.db.client, responseId, 'DRAFT', now);
   }
 }

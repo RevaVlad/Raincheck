@@ -1,6 +1,5 @@
 import { Client, type QueryResultRow } from 'pg';
 import { loadConfig } from '#config/config';
-import type { Database } from '#infrastructure/database/database';
 
 const RESPONSE_INSERT_LOCK = 908_177;
 const RESPONSE_UPDATE_LOCK = RESPONSE_INSERT_LOCK + 1;
@@ -72,7 +71,7 @@ const BLOCKED_POLL_CLOSE_EXISTS = `
     CROSS JOIN blocked_insert
     WHERE
       close_query.wait_event_type = 'Lock'
-      AND upper(close_query.query) LIKE '%UPDATE POLLS%'
+      AND upper(close_query.query) ~ 'UPDATE ("PUBLIC"[.])?"?POLLS"?'
       AND blocked_insert.pid = ANY(pg_blocking_pids(close_query.pid))
   ) AS blocked
 `;
@@ -144,7 +143,7 @@ const BLOCKED_POLL_CLOSE_AFTER_RESPONSE_UPDATE = `
     CROSS JOIN blocked_update
     WHERE
       close_query.wait_event_type = 'Lock'
-      AND upper(close_query.query) LIKE '%UPDATE POLLS%'
+      AND upper(close_query.query) ~ 'UPDATE ("PUBLIC"[.])?"?POLLS"?'
       AND blocked_update.pid = ANY(pg_blocking_pids(close_query.pid))
   ) AS blocked
 `;
@@ -160,22 +159,17 @@ export interface ResponseInsertBlock {
   dispose(): Promise<void>;
 }
 
-export async function blockResponseInsert(
-  database: Database,
-  participantId: string,
-): Promise<ResponseInsertBlock> {
-  await database.query(INSTALL_RESPONSE_INSERT_BLOCK);
-  await database.query(ENABLE_RESPONSE_INSERT_BLOCK, [participantId, RESPONSE_INSERT_LOCK]);
-
+export async function blockResponseInsert(participantId: string): Promise<ResponseInsertBlock> {
   const client = new Client({ connectionString: loadConfig().databaseUrl });
   await client.connect();
+  await client.query(INSTALL_RESPONSE_INSERT_BLOCK);
+  await client.query(ENABLE_RESPONSE_INSERT_BLOCK, [participantId, RESPONSE_INSERT_LOCK]);
   await client.query('SELECT pg_advisory_lock($1)', [RESPONSE_INSERT_LOCK]);
   let released = false;
 
   async function release(): Promise<void> {
     if (released) return;
     await client.query('SELECT pg_advisory_unlock($1)', [RESPONSE_INSERT_LOCK]);
-    await client.end();
     released = true;
   }
 
@@ -185,27 +179,23 @@ export async function blockResponseInsert(
     release,
     async dispose(): Promise<void> {
       await release();
-      await database.query(REMOVE_RESPONSE_INSERT_BLOCK);
+      await client.query(REMOVE_RESPONSE_INSERT_BLOCK);
+      await client.end();
     },
   };
 }
 
-export async function blockResponseUpdate(
-  database: Database,
-  responseId: string,
-): Promise<ResponseInsertBlock> {
-  await database.query(INSTALL_RESPONSE_UPDATE_BLOCK);
-  await database.query(ENABLE_RESPONSE_UPDATE_BLOCK, [responseId, RESPONSE_UPDATE_LOCK]);
-
+export async function blockResponseUpdate(responseId: string): Promise<ResponseInsertBlock> {
   const client = new Client({ connectionString: loadConfig().databaseUrl });
   await client.connect();
+  await client.query(INSTALL_RESPONSE_UPDATE_BLOCK);
+  await client.query(ENABLE_RESPONSE_UPDATE_BLOCK, [responseId, RESPONSE_UPDATE_LOCK]);
   await client.query('SELECT pg_advisory_lock($1)', [RESPONSE_UPDATE_LOCK]);
   let released = false;
 
   async function release(): Promise<void> {
     if (released) return;
     await client.query('SELECT pg_advisory_unlock($1)', [RESPONSE_UPDATE_LOCK]);
-    await client.end();
     released = true;
   }
 
@@ -216,7 +206,8 @@ export async function blockResponseUpdate(
     release,
     async dispose(): Promise<void> {
       await release();
-      await database.query(REMOVE_RESPONSE_UPDATE_BLOCK);
+      await client.query(REMOVE_RESPONSE_UPDATE_BLOCK);
+      await client.end();
     },
   };
 }
