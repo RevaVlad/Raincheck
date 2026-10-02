@@ -10,7 +10,9 @@ export class Database {
   ) {}
 
   static create(config: Config): Database {
-    return new Database(new Pool({ connectionString: config.databaseUrl }));
+    const pool = new Pool({ connectionString: config.databaseUrl });
+    pool.on('error', (error) => console.error('PostgreSQL pool error:', error.message));
+    return new Database(pool);
   }
 
   private scoped(client: PoolClient): Database {
