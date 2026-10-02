@@ -1,6 +1,6 @@
 import type { RESPONSE_STATE } from '#shared/constants';
 
-export type ResponseState = typeof RESPONSE_STATE[keyof typeof RESPONSE_STATE];
+export type ResponseState = (typeof RESPONSE_STATE)[keyof typeof RESPONSE_STATE];
 
 interface ResponseFields {
   id: string;
@@ -9,7 +9,5 @@ interface ResponseFields {
   updatedAt: Date;
 }
 
-export type PollResponse = ResponseFields & (
-  | { state: 'DRAFT'; confirmedAt: null }
-  | { state: 'CONFIRMED'; confirmedAt: Date }
-);
+export type PollResponse = ResponseFields &
+  ({ state: 'DRAFT'; confirmedAt: null } | { state: 'CONFIRMED'; confirmedAt: Date });

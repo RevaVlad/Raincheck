@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildApp } from '../src/app.js';
+import { buildApp, type DatabaseHealth } from '../src/app.js';
 import type { Config } from '#config/config';
-import type { DatabaseHealth } from '#infrastructure/database/database-health';
 
 const config: Config = {
   nodeEnv: 'test',
@@ -12,7 +11,7 @@ const config: Config = {
   logLevel: 'silent',
 };
 
-test('liveness does not depend on PostgreSQL', async () => {
+void test('liveness does not depend on PostgreSQL', async () => {
   const db: DatabaseHealth = { isAvailable: async () => false };
   const app = buildApp(config, db);
   try {
@@ -24,7 +23,7 @@ test('liveness does not depend on PostgreSQL', async () => {
   }
 });
 
-test('readiness reports an unavailable database', async () => {
+void test('readiness reports an unavailable database', async () => {
   const db: DatabaseHealth = { isAvailable: async () => false };
   const app = buildApp(config, db);
   try {
@@ -36,7 +35,7 @@ test('readiness reports an unavailable database', async () => {
   }
 });
 
-test('readiness reports an available database', async () => {
+void test('readiness reports an available database', async () => {
   const db: DatabaseHealth = { isAvailable: async () => true };
   const app = buildApp(config, db);
   try {

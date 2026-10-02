@@ -1,54 +1,69 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
-import type { MikroORM } from '@mikro-orm/postgresql';
+import type { QueryResultRow } from 'pg';
 import { loadConfig } from '#config/config';
-import { createOrm } from '#infrastructure/database/create-orm';
+import { Database } from '#infrastructure/database/database';
 
-let orm: MikroORM;
+let database: Database;
+void before(() => {
+  database = Database.create(loadConfig());
+});
+void after(() => database.close());
 
-before(async () => {
-  orm = await createOrm(loadConfig());
+interface IndexRow extends QueryResultRow {
+  indexname: string;
+}
+
+interface ConstraintRow extends QueryResultRow {
+  conname: string;
+}
+
+const EXPECTED_INDEXES = [
+  'participants_group_name_unique',
+  'poll_responses_poll_participant_unique',
+  'polls_one_open_per_group_idx',
+] as const;
+const EXPECTED_CONSTRAINTS = [
+  'availability_interval_direction_valid',
+  'groups_timezone_utc',
+  'polls_based_on_same_group_fk',
+] as const;
+
+void test('database keeps the domain invariants after the baseline migration', async () => {
+  assert.deepEqual(await existingIndexNames(), [
+    'participants_group_name_unique',
+    'poll_responses_poll_participant_unique',
+    'polls_one_open_per_group_idx',
+  ]);
+  assert.deepEqual(await existingConstraintNames(), [
+    'availability_interval_direction_valid',
+    'groups_timezone_utc',
+    'polls_based_on_same_group_fk',
+  ]);
 });
 
-after(async () => {
-  await orm.close(true);
-});
-
-test('database keeps the entity invariants after the ORM migration', async () => {
-  const indexes = await orm.em.getConnection().execute<{ indexname: string }[]>(
-    `select indexname from pg_indexes
-      where schemaname = 'public'
-        and indexname in (
-          'polls_one_open_per_group_idx',
-          'participants_group_name_unique',
-          'poll_responses_poll_participant_unique'
-        )`,
+async function existingIndexNames(): Promise<string[]> {
+  const result = await database.query<IndexRow>(
+    `
+      SELECT indexname
+      FROM pg_indexes
+      WHERE schemaname = 'public' AND indexname = ANY($1::text[])
+      ORDER BY indexname
+    `,
+    [EXPECTED_INDEXES],
   );
+  return result.rows.map(({ indexname }) => indexname);
+}
 
-  assert.deepEqual(
-    indexes.map(({ indexname }) => indexname).sort(),
-    [
-      'participants_group_name_unique',
-      'poll_responses_poll_participant_unique',
-      'polls_one_open_per_group_idx',
-    ],
+async function existingConstraintNames(): Promise<string[]> {
+  const result = await database.query<ConstraintRow>(
+    `
+      SELECT conname
+      FROM pg_constraint
+      WHERE conname = ANY($1::text[])
+      ORDER BY conname
+    `,
+    [EXPECTED_CONSTRAINTS],
   );
-
-  const constraints = await orm.em.getConnection().execute<{ conname: string }[]>(
-    `select conname from pg_constraint
-      where conname in (
-        'groups_timezone_utc',
-        'polls_based_on_same_group_fk',
-        'availability_interval_direction_valid'
-      )`,
-  );
-
-  assert.deepEqual(
-    constraints.map(({ conname }) => conname).sort(),
-    [
-      'availability_interval_direction_valid',
-      'groups_timezone_utc',
-      'polls_based_on_same_group_fk',
-    ],
-  );
-});
+  return result.rows.map(({ conname }) => conname);
+}

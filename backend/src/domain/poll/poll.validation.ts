@@ -42,8 +42,11 @@ function validateSlotMinutes(slotMinutes: number): void {
 
 function validateMeetingDuration(input: PollInput, windowMinutes: number): void {
   const duration = input.meetingDurationMinutes;
-  const invalidDuration = !Number.isInteger(duration) || duration < 30 ||
-    duration > LIMITS.MEETING_MINUTES || duration % input.slotMinutes !== 0;
+  const invalidDuration =
+    !Number.isInteger(duration) ||
+    duration < 30 ||
+    duration > LIMITS.MEETING_MINUTES ||
+    duration % input.slotMinutes !== 0;
   if (invalidDuration) {
     throw new RangeError('Meeting duration must be 30 to 240 minutes and a multiple of slot size');
   }

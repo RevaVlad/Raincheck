@@ -18,6 +18,8 @@ function ensureDisplayNameIsPresent(name: string): void {
 
 function ensureDisplayNameFits(name: string): void {
   if (Array.from(name).length > LIMITS.PARTICIPANT_NAME) {
-    throw new RangeError(`Participant display name must contain at most ${LIMITS.PARTICIPANT_NAME} characters`);
+    throw new RangeError(
+      `Participant display name must contain at most ${LIMITS.PARTICIPANT_NAME} characters`,
+    );
   }
 }

@@ -1,8 +1,16 @@
 import { INTERVAL_KIND, PREFERENCE_DIRECTION } from '#shared/constants';
 import { utcCalendarDate, utcTimeMinutes } from '#shared/time/utc';
-import type { AvailabilityInterval, IntervalInput, PollWindow, PreferenceDirection } from './interval.js';
+import type {
+  AvailabilityInterval,
+  IntervalInput,
+  PollWindow,
+  PreferenceDirection,
+} from './interval.js';
 
-export function validateInterval(input: IntervalInput, poll: PollWindow): PreferenceDirection | null {
+export function validateInterval(
+  input: IntervalInput,
+  poll: PollWindow,
+): PreferenceDirection | null {
   validateDate(input.localDate, poll);
   const { start, end, dayStart } = validateTimeRange(input, poll);
   validateSlotAlignment(start, end, dayStart, poll.slotMinutes);
@@ -33,11 +41,17 @@ function validateTimeRange(input: IntervalInput, poll: PollWindow) {
   const dayStart = utcTimeMinutes(poll.dayStart);
   const dayEnd = utcTimeMinutes(poll.dayEnd);
   if (end <= start) throw new RangeError('Interval start must precede end');
-  if (start < dayStart || end > dayEnd) throw new RangeError('Interval is outside the daily window');
+  if (start < dayStart || end > dayEnd)
+    throw new RangeError('Interval is outside the daily window');
   return { start, end, dayStart };
 }
 
-function validateSlotAlignment(start: number, end: number, dayStart: number, slotMinutes: number): void {
+function validateSlotAlignment(
+  start: number,
+  end: number,
+  dayStart: number,
+  slotMinutes: number,
+): void {
   if ((start - dayStart) % slotMinutes !== 0 || (end - dayStart) % slotMinutes !== 0) {
     throw new RangeError('Interval boundaries must align to poll slots');
   }
@@ -64,8 +78,11 @@ function validatePreferenceDirection(input: IntervalInput): PreferenceDirection 
 }
 
 function sortIntervals(intervals: readonly AvailabilityInterval[]): AvailabilityInterval[] {
-  return [...intervals].sort((left, right) =>
-    left.localDate.localeCompare(right.localDate) || left.startTime.localeCompare(right.startTime));
+  return [...intervals].sort(
+    (left, right) =>
+      left.localDate.localeCompare(right.localDate) ||
+      left.startTime.localeCompare(right.startTime),
+  );
 }
 
 function validateResponseOwnership(intervals: readonly AvailabilityInterval[]): void {

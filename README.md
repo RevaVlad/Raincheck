@@ -1,6 +1,6 @@
 # Raincheck
 
-Raincheck helps a recurring group agree on meeting times. This repository currently contains the project foundation: Angular frontend, Fastify API, and a MikroORM-backed PostgreSQL schema.
+Raincheck helps a recurring group agree on meeting times. The repository contains an Angular frontend, Fastify API, and an explicit-SQL PostgreSQL backend.
 
 ## Requirements
 
@@ -11,6 +11,7 @@ Raincheck helps a recurring group agree on meeting times. This repository curren
 ## Local setup
 
 ```sh
+npm ci
 npm ci --prefix frontend
 npm ci --prefix backend
 docker compose up -d postgres
@@ -18,11 +19,11 @@ cp backend/.env.example backend/.env
 npm run db:migrate
 ```
 
-Create or roll back a schema migration with:
+Apply the idempotent baseline migration and inspect migration status with:
 
 ```sh
-npm run db:migration:create -- --name describe-change
-npm run db:migrate:down
+npm run db:migrate
+npm run db:migrate:status
 ```
 
 Run the frontend and backend in separate terminals:
@@ -37,6 +38,8 @@ The frontend is at `http://localhost:4200`. Its `/api` requests proxy to the bac
 ## Checks
 
 ```sh
+npm run format:check
+npm run lint
 npm run typecheck
 npm test
 npm run build
@@ -47,9 +50,9 @@ npm run db:migrate:status
 
 ## Backend structure
 
-Domain types and named validation steps live under `backend/src/domain/<entity>/`. Each capability has a service interface and MikroORM implementation under `backend/src/services/<entity>/`. Database entities, repositories, configuration, and generated migrations stay under `backend/src/infrastructure/database/`. Shared UTC helpers live under `backend/src/shared/time/`.
+Domain types and named validation steps live under `backend/src/domain/<entity>/`. Services use concrete repositories backed by `pg` under `backend/src/infrastructure/database/`; SQL migrations are explicit files under `migrations/`. Shared UTC helpers live under `backend/src/shared/time/`.
 
-Services receive an ORM entity manager once and expose domain methods without database-client parameters. Whole-response interval replacement runs in one transaction. Group timezone, poll dates, daily windows, and availability intervals all use UTC. Tests live under `backend/tests/` and mirror the source responsibility.
+Concrete services receive the shared `Database` once and construct focused repositories internally; callers do not pass database clients through domain methods. Whole-response interval replacement runs in one transaction. Group timezone, poll dates, daily windows, and availability intervals all use UTC. Tests live under `backend/tests/` and mirror the source responsibility.
 
 `npm test` runs backend unit and database-backed service tests, then frontend tests. After starting PostgreSQL and running migrations, run only the backend service suites with:
 

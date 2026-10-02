@@ -15,10 +15,8 @@
     "test:services": "node --conditions=development --env-file-if-exists=.env --import tsx --test \"tests/services/**/*.test.ts\"",
     "test:db": "npm run test:integration",
     "typecheck": "tsc -p tsconfig.test.json --noEmit",
-    "db:migration:create": "mikro-orm migration:create",
-    "db:migrate": "mikro-orm migration:up",
-    "db:migrate:down": "mikro-orm migration:down",
-    "db:migrate:status": "mikro-orm migration:list"
+    "db:migrate": "node --conditions=development --env-file-if-exists=.env --import tsx src/infrastructure/database/migrate.ts",
+    "db:migrate:status": "node --conditions=development --env-file-if-exists=.env --import tsx src/infrastructure/database/migrate.ts --status"
   },
   "type": "module",
   "imports": {
@@ -43,20 +41,13 @@
       "default": "./dist/shared/*.js"
     }
   },
-  "mikro-orm": {
-    "configPaths": [
-      "./src/infrastructure/database/orm.config.ts"
-    ]
-  },
   "dependencies": {
-    "@mikro-orm/core": "^7.2.3",
-    "@mikro-orm/migrations": "^7.2.3",
-    "@mikro-orm/postgresql": "^7.2.3",
-    "fastify": "^5.12.5"
+    "fastify": "^5.12.5",
+    "pg": "^8.23.1"
   },
   "devDependencies": {
-    "@mikro-orm/cli": "^7.2.3",
     "@types/node": "^24.19.0",
+    "@types/pg": "^8.23.1",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3"
   }

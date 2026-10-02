@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { daysInclusive, utcTimeMinutes } from '#shared/utils/time';
+import { daysInclusive, utcTimeMinutes } from '#shared/time/utc';
 
-test('UTC date math stays stable across a daylight-saving change', () => {
+void test('UTC date math stays stable across a daylight-saving change', () => {
   const previousZone = process.env['TZ'];
   try {
     process.env['TZ'] = 'Europe/Berlin';

@@ -1,48 +1,32 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import type { EntityManager } from '@mikro-orm/postgresql';
+import type { Database } from '#infrastructure/database/database';
+import ParticipantRepository from '#infrastructure/database/repositories/participant.repository';
 import type { Participant } from '#domain/participant/participant';
 import { validateParticipant } from '#domain/participant/participant.validation';
-import { GroupEntity } from '#infrastructure/database/entities/group.entity';
-import { ParticipantEntity } from '#infrastructure/database/entities/participant.entity';
 import { LIMITS } from '#shared/constants';
-
 export interface CreatedParticipant {
   participant: Participant;
   editToken: string;
 }
 
-export interface ParticipantService {
-  create(groupId: string, displayName: string, now?: Date): Promise<CreatedParticipant>;
-}
+export class ParticipantService {
+  constructor(private readonly db: Database) {}
 
-export class MikroParticipantService implements ParticipantService {
-  constructor(private readonly em: EntityManager) {}
-
-  async create(groupId: string, nameInput: string, now = new Date()): Promise<CreatedParticipant> {
-    const name = validateParticipant(nameInput);
+  async create(
+    groupId: string,
+    displayName: string,
+    now = new Date(),
+  ): Promise<CreatedParticipant> {
+    const name = validateParticipant(displayName);
     const editToken = randomBytes(LIMITS.TOKEN_BYTES).toString('base64url');
-    const participant = this.em.create(ParticipantEntity, {
+    const participant = await new ParticipantRepository(this.db).insert({
       id: randomUUID(),
-      group: this.em.getReference(GroupEntity, groupId),
+      groupId,
       ...name,
       editTokenHash: createHash('sha256').update(editToken).digest('hex'),
       createdAt: now,
       updatedAt: now,
     });
-    this.em.persist(participant);
-    await this.em.flush();
-    return { participant: toParticipant(participant), editToken };
+    return { participant, editToken };
   }
-}
-
-function toParticipant(entity: ParticipantEntity): Participant {
-  return {
-    id: entity.id,
-    groupId: entity.group.id,
-    displayName: entity.displayName,
-    displayNameNormalized: entity.displayNameNormalized,
-    editTokenHash: entity.editTokenHash,
-    createdAt: entity.createdAt,
-    updatedAt: entity.updatedAt,
-  };
 }

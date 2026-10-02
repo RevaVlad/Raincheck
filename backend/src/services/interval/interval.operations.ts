@@ -1,36 +1,28 @@
 import { randomUUID } from 'node:crypto';
-import type { EntityManager } from '@mikro-orm/postgresql';
 import type { AvailabilityInterval, IntervalInput, PollWindow } from '#domain/interval/interval';
-import { validateInterval } from '#domain/interval/interval.validation';
-import { IntervalEntity } from '#infrastructure/database/entities/interval.entity';
-import { ResponseEntity } from '#infrastructure/database/entities/response.entity';
+import { validateInterval, validateIntervalSet } from '#domain/interval/interval.validation';
+import type { Poll } from '#domain/poll/poll';
 import { INTERVAL_KIND } from '#shared/constants';
 
-export function createInterval(
-  responseId: string,
-  poll: PollWindow,
-  input: IntervalInput,
-  now: Date,
-): AvailabilityInterval {
-  const direction = validateInterval(input, poll);
-  const fields = {
-    id: randomUUID(), responseId,
-    localDate: input.localDate, startTime: input.startTime, endTime: input.endTime,
-    createdAt: now, updatedAt: now,
+export function toPollWindow(poll: Poll): PollWindow {
+  return {
+    startsOn: poll.startsOn,
+    endsOn: poll.endsOn,
+    dayStart: poll.dayStart,
+    dayEnd: poll.dayEnd,
+    slotMinutes: poll.slotMinutes,
   };
-  return input.kind === INTERVAL_KIND.PREFERRED
-    ? { ...fields, kind: INTERVAL_KIND.PREFERRED, preferenceDirection: direction! }
-    : { ...fields, kind: input.kind, preferenceDirection: null };
 }
 
-export function toPollWindow(response: ResponseEntity): PollWindow {
-  return {
-    startsOn: response.poll.startsOn,
-    endsOn: response.poll.endsOn,
-    dayStart: response.poll.dayStart.slice(0, 5),
-    dayEnd: response.poll.dayEnd.slice(0, 5),
-    slotMinutes: response.poll.slotMinutes as 30 | 60,
-  };
+export function createIntervals(
+  responseId: string,
+  inputs: readonly IntervalInput[],
+  window: PollWindow,
+  now: Date,
+): AvailabilityInterval[] {
+  const intervals = inputs.map((input) => createInterval(responseId, input, window, now));
+  validateIntervalSet(intervals, window);
+  return intervals;
 }
 
 export function sameIntervals(
@@ -42,42 +34,35 @@ export function sameIntervals(
   return before.length === after.length && before.every((key, index) => key === after[index]);
 }
 
-export function toEntity(
-  em: EntityManager,
-  response: ResponseEntity,
-  interval: AvailabilityInterval,
-): IntervalEntity {
-  return em.create(IntervalEntity, {
-    id: interval.id,
-    response,
-    localDate: interval.localDate,
-    startTime: interval.startTime,
-    endTime: interval.endTime,
-    kind: interval.kind,
-    preferenceDirection: interval.preferenceDirection,
-    createdAt: interval.createdAt,
-    updatedAt: interval.updatedAt,
-  });
-}
-
-export function toInterval(entity: IntervalEntity): AvailabilityInterval {
+function createInterval(
+  responseId: string,
+  input: IntervalInput,
+  window: PollWindow,
+  now: Date,
+): AvailabilityInterval {
+  const preferenceDirection = validateInterval(input, window);
   const fields = {
-    id: entity.id,
-    responseId: entity.response.id,
-    localDate: entity.localDate,
-    startTime: entity.startTime.slice(0, 5),
-    endTime: entity.endTime.slice(0, 5),
-    createdAt: entity.createdAt,
-    updatedAt: entity.updatedAt,
+    id: randomUUID(),
+    responseId,
+    localDate: input.localDate,
+    startTime: input.startTime,
+    endTime: input.endTime,
+    createdAt: now,
+    updatedAt: now,
   };
-  if (entity.kind === INTERVAL_KIND.PREFERRED) {
-    if (!entity.preferenceDirection) throw new Error('Stored preferred interval has no direction');
-    return { ...fields, kind: INTERVAL_KIND.PREFERRED, preferenceDirection: entity.preferenceDirection };
+  if (input.kind !== INTERVAL_KIND.PREFERRED) {
+    return { ...fields, kind: input.kind, preferenceDirection: null };
   }
-  return { ...fields, kind: entity.kind, preferenceDirection: null };
+  if (!preferenceDirection) throw new Error('Preferred interval is missing a direction');
+  return { ...fields, kind: INTERVAL_KIND.PREFERRED, preferenceDirection };
 }
 
 function intervalKey(interval: AvailabilityInterval): string {
-  return [interval.localDate, interval.startTime, interval.endTime,
-    interval.kind, interval.preferenceDirection ?? ''].join('|');
+  return [
+    interval.localDate,
+    interval.startTime,
+    interval.endTime,
+    interval.kind,
+    interval.preferenceDirection ?? '',
+  ].join('|');
 }

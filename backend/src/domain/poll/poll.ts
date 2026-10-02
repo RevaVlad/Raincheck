@@ -1,7 +1,7 @@
 import type { POLL_STATUS } from '#shared/constants';
 
 export type SlotMinutes = 30 | 60;
-export type PollStatus = typeof POLL_STATUS[keyof typeof POLL_STATUS];
+export type PollStatus = (typeof POLL_STATUS)[keyof typeof POLL_STATUS];
 
 interface PollFields {
   id: string;
@@ -18,10 +18,8 @@ interface PollFields {
   createdAt: Date;
 }
 
-export type Poll = PollFields & (
-  | { status: 'OPEN'; closedAt: null }
-  | { status: 'CLOSED'; closedAt: Date }
-);
+export type Poll = PollFields &
+  ({ status: 'OPEN'; closedAt: null } | { status: 'CLOSED'; closedAt: Date });
 
 export interface PollInput {
   title?: string | null;

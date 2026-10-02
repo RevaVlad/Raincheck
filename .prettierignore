@@ -1,0 +1,11 @@
+**/node_modules/
+**/dist/
+**/coverage/
+**/.angular/
+.worktrees/
+.superpowers/
+.playwright-cli/
+output/
+**/playwright-report/
+**/test-results/
+**/*.tsbuildinfo

@@ -5,12 +5,22 @@
   "scripts": {
     "dev:frontend": "npm --prefix frontend run start",
     "dev:backend": "npm --prefix backend run dev",
+    "format": "prettier --write \"backend/**/*.{ts,sql,json}\" \"frontend/**/*.{ts,html,css,json}\" \"*.{json,mjs}\" \".github/workflows/*.yml\"",
+    "format:check": "prettier --check \"backend/**/*.{ts,sql,json}\" \"frontend/**/*.{ts,html,css,json}\" \"*.{json,mjs}\" \".github/workflows/*.yml\"",
+    "lint": "eslint \"backend/{src,tests}/**/*.ts\" \"frontend/src/**/*.ts\"",
     "build": "npm --prefix backend run build && npm --prefix frontend run build",
     "test": "npm --prefix backend run test && npm --prefix frontend run test",
     "typecheck": "npm --prefix backend run typecheck && npm --prefix frontend run typecheck",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build",
     "db:migrate": "npm --prefix backend run db:migrate",
-    "db:migrate:down": "npm --prefix backend run db:migrate:down",
-    "db:migrate:status": "npm --prefix backend run db:migrate:status",
-    "db:migration:create": "npm --prefix backend run db:migration:create"
+    "db:migrate:status": "npm --prefix backend run db:migrate:status"
+  },
+  "devDependencies": {
+    "@stylistic/eslint-plugin": "^5.10.0",
+    "eslint": "^10.11.0",
+    "prettier": "^3.9.9",
+    "prettier-plugin-sql": "^0.20.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.71.0"
   }
 }

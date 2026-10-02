@@ -1,6 +1,9 @@
 import Fastify from 'fastify';
 import type { Config } from '#config/config';
-import type { DatabaseHealth } from '#infrastructure/database/database-health';
+
+export interface DatabaseHealth {
+  isAvailable(): Promise<boolean>;
+}
 
 export function buildApp(config: Config, database: DatabaseHealth) {
   const app = Fastify({
