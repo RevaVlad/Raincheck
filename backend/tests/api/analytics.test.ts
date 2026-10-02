@@ -34,6 +34,22 @@ async function request(method: 'POST' | 'PUT', url: string, token: string, paylo
   return response.json();
 }
 
+async function submitResponse(
+  url: string,
+  token: string,
+  interval: {
+    localDate: string;
+    startTime: string;
+    endTime: string;
+    kind: string;
+    preferenceDirection: string | null;
+  },
+) {
+  await request('POST', url, token);
+  await request('PUT', url, token, { intervals: [interval] });
+  await request('POST', `${url}/confirm`, token);
+}
+
 async function createScenario() {
   const created = await app.inject({
     method: 'POST',
@@ -43,19 +59,13 @@ async function createScenario() {
   assert.equal(created.statusCode, 201, created.body);
   const { group, currentPoll, participantEditToken: token } = created.json();
   const responseUrl = `/api/groups/${group.inviteCode}/polls/${currentPoll.id}/responses/me`;
-  await request('POST', responseUrl, token);
-  await request('PUT', responseUrl, token, {
-    intervals: [
-      {
-        localDate: '2026-10-06',
-        startTime: '16:00',
-        endTime: '18:00',
-        kind: 'PREFERRED',
-        preferenceDirection: 'FLAT',
-      },
-    ],
+  await submitResponse(responseUrl, token, {
+    localDate: '2026-10-06',
+    startTime: '16:00',
+    endTime: '18:00',
+    kind: 'PREFERRED',
+    preferenceDirection: 'FLAT',
   });
-  await request('POST', `${responseUrl}/confirm`, token);
   const createdNext = await app.inject({
     method: 'POST',
     url: `/api/groups/${group.inviteCode}/polls`,
@@ -65,79 +75,86 @@ async function createScenario() {
   assert.equal(createdNext.statusCode, 201, createdNext.body);
   const poll = createdNext.json().poll;
   const nextResponseUrl = `/api/groups/${group.inviteCode}/polls/${poll.id}/responses/me`;
-  await request('POST', nextResponseUrl, token);
-  await request('PUT', nextResponseUrl, token, {
-    intervals: [
-      {
-        localDate: '2026-10-13',
-        startTime: '16:00',
-        endTime: '17:00',
-        kind: 'UNAVAILABLE',
-        preferenceDirection: null,
-      },
-    ],
+  await submitResponse(nextResponseUrl, token, {
+    localDate: '2026-10-13',
+    startTime: '16:00',
+    endTime: '17:00',
+    kind: 'UNAVAILABLE',
+    preferenceDirection: null,
   });
-  await request('POST', `${nextResponseUrl}/confirm`, token);
   return { group, poll, token };
 }
 
-void test('maps confirmed previous availability to the target weekday and subtracts explicit current intervals', async () => {
-  const { group, poll, token } = await createScenario();
-  const response = await app.inject({
-    method: 'GET',
-    url: `/api/groups/${group.inviteCode}/polls/${poll.id}/suggestions/me`,
-    headers: { 'x-participant-token': token },
-  });
-  assert.equal(response.statusCode, 200, response.body);
-  assert.deepEqual(
-    response
-      .json()
-      .suggestions.map(
-        (suggestion: { localDate: string; startTime: string; endTime: string; kind: string }) => ({
-          localDate: suggestion.localDate,
-          startTime: suggestion.startTime,
-          endTime: suggestion.endTime,
-          kind: suggestion.kind,
-        }),
-      ),
-    [{ localDate: '2026-10-13', startTime: '17:00', endTime: '18:00', kind: 'PREFERRED' }],
-  );
-});
+void test(
+  'maps confirmed previous availability to the target weekday ' +
+    'and subtracts explicit current intervals',
+  async () => {
+    const { group, poll, token } = await createScenario();
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/groups/${group.inviteCode}/polls/${poll.id}/suggestions/me`,
+      headers: { 'x-participant-token': token },
+    });
+    assert.equal(response.statusCode, 200, response.body);
+    assert.deepEqual(
+      response
+        .json()
+        .suggestions.map(
+          (suggestion: {
+            localDate: string;
+            startTime: string;
+            endTime: string;
+            kind: string;
+          }) => ({
+            localDate: suggestion.localDate,
+            startTime: suggestion.startTime,
+            endTime: suggestion.endTime,
+            kind: suggestion.kind,
+          }),
+        ),
+      [{ localDate: '2026-10-13', startTime: '17:00', endTime: '18:00', kind: 'PREFERRED' }],
+    );
+  },
+);
 
-void test('returns every heatmap cell and ranks the best meeting windows from confirmed responses only', async () => {
-  const { group, poll } = await createScenario();
-  const response = await app.inject(`/api/groups/${group.inviteCode}/polls/${poll.id}/results`);
-  assert.equal(response.statusCode, 200, response.body);
-  const body = response.json();
-  assert.deepEqual(body.participantSummary, { total: 1, confirmed: 1, pending: 0 });
-  assert.equal(body.heatmap.length, 56);
-  assert.deepEqual(
-    body.heatmap.find(
-      (cell: { localDate: string; startTime: string }) =>
-        cell.localDate === '2026-10-13' && cell.startTime === '16:00',
-    ),
-    {
-      localDate: '2026-10-13',
+void test(
+  'returns every heatmap cell and ranks the best meeting windows ' +
+    'from confirmed responses only',
+  async () => {
+    const { group, poll } = await createScenario();
+    const response = await app.inject(`/api/groups/${group.inviteCode}/polls/${poll.id}/results`);
+    assert.equal(response.statusCode, 200, response.body);
+    const body = response.json();
+    assert.deepEqual(body.participantSummary, { total: 1, confirmed: 1, pending: 0 });
+    assert.equal(body.heatmap.length, 56);
+    assert.deepEqual(
+      body.heatmap.find(
+        (cell: { localDate: string; startTime: string }) =>
+          cell.localDate === '2026-10-13' && cell.startTime === '16:00',
+      ),
+      {
+        localDate: '2026-10-13',
+        startTime: '16:00',
+        endTime: '16:30',
+        available: 0,
+        ifNeeded: 0,
+        preferred: 0,
+        unavailable: 1,
+        averageSoftScore: 0,
+      },
+    );
+    assert.deepEqual(body.bestSlots[0], {
+      localDate: '2026-10-12',
       startTime: '16:00',
-      endTime: '16:30',
-      available: 0,
+      endTime: '17:00',
+      available: 1,
       ifNeeded: 0,
-      preferred: 0,
-      unavailable: 1,
-      averageSoftScore: 0,
-    },
-  );
-  assert.deepEqual(body.bestSlots[0], {
-    localDate: '2026-10-12',
-    startTime: '16:00',
-    endTime: '17:00',
-    available: 1,
-    ifNeeded: 0,
-    averageSoftScore: 0.5,
-    stars: 3,
-  });
-  assert.equal(body.bestSlots.length, 3);
-});
+      averageSoftScore: 0.5,
+      stars: 3,
+    });
+    assert.equal(body.bestSlots.length, 3);
+  },
+);
 
 void test('considers the final meeting window of the daily range', () => {
   const poll: Poll = {

@@ -19,7 +19,9 @@ export const inviteCodeParams = {
   type: 'object',
   additionalProperties: false,
   required: ['inviteCode'],
-  properties: { inviteCode: { type: 'string', minLength: 32, maxLength: 64, pattern: '^[A-Za-z0-9_-]+$' } },
+  properties: {
+    inviteCode: { type: 'string', minLength: 32, maxLength: 64, pattern: '^[A-Za-z0-9_-]+$' },
+  },
 } as const;
 
 export const apiErrorResponse = {

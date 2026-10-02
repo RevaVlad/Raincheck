@@ -22,19 +22,22 @@ export class AppError extends Error {
   }
 }
 
+function isValidationError(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false;
+  if ('validation' in error && Array.isArray(error.validation)) return true;
+  return 'statusCode' in error && error.statusCode === 400;
+}
+
+function normalizeError(error: unknown): AppError {
+  if (error instanceof AppError) return error;
+  if (error instanceof RangeError) return new AppError('INVALID_REQUEST', 400, error.message);
+  if (isValidationError(error)) return new AppError('INVALID_REQUEST', 400, 'Invalid request');
+  return new AppError('INTERNAL_ERROR', 500, 'Internal server error');
+}
+
 export function registerApiErrorHandler(app: FastifyInstance): void {
   app.setErrorHandler((error, request, reply) => {
-    const errorRecord = typeof error === 'object' && error !== null ? error : null;
-    const isValidationError =
-      (errorRecord !== null && 'validation' in errorRecord && Array.isArray(errorRecord.validation)) ||
-      (errorRecord !== null && 'statusCode' in errorRecord && errorRecord.statusCode === 400);
-    const appError = error instanceof AppError
-      ? error
-      : error instanceof RangeError
-        ? new AppError('INVALID_REQUEST', 400, error.message)
-      : isValidationError
-        ? new AppError('INVALID_REQUEST', 400, 'Invalid request')
-        : new AppError('INTERNAL_ERROR', 500, 'Internal server error');
+    const appError = normalizeError(error);
     if (appError.statusCode >= 500) request.log.error({ err: error }, 'Unhandled API error');
     return reply.code(appError.statusCode).send({
       error: { code: appError.code, message: appError.message, requestId: request.id },

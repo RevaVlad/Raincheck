@@ -38,13 +38,20 @@ export class ResponseService {
   }
 
   async findForParticipant(pollId: string, participantId: string): Promise<PollResponse | null> {
-    const record = await this.db.client.pollResponse.findUnique({ where: { pollId_participantId: { pollId, participantId } } });
+    const record = await this.db.client.pollResponse.findUnique({
+      where: { pollId_participantId: { pollId, participantId } },
+    });
     return record ? toResponse(record) : null;
   }
 
   async deleteForOpenPoll(pollId: string, participantId: string): Promise<boolean> {
-    const poll = await this.db.client.poll.findUnique({ where: { id: pollId }, select: { status: true } });
+    const poll = await this.db.client.poll.findUnique({
+      where: { id: pollId },
+      select: { status: true },
+    });
     if (!poll || poll.status !== 'OPEN') throw new Error('Response requires an open poll');
-    return (await this.db.client.pollResponse.deleteMany({ where: { pollId, participantId } })).count > 0;
+    return (
+      (await this.db.client.pollResponse.deleteMany({ where: { pollId, participantId } })).count > 0
+    );
   }
 }

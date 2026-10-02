@@ -74,20 +74,23 @@ void test('requires a previous poll from the same group', async () => {
   });
 });
 
-void test('rejects closing a poll that is already closed without changing its timestamp', async () => {
-  await inPrismaTransaction(async ({ database }) => {
-    const groups = new GroupService(database);
-    const polls = new PollService(database);
-    const group = await groups.create({ name: 'Team' });
-    const poll = await polls.create(group.id, 1, pollInput);
-    await polls.close(poll.id, now);
-    await assert.rejects(() => polls.close(poll.id, new Date('2026-10-02T12:00:00.000Z')), {
-      message: 'Poll not found',
+void test(
+  'rejects closing a poll that is already closed ' + 'without changing its timestamp',
+  async () => {
+    await inPrismaTransaction(async ({ database }) => {
+      const groups = new GroupService(database);
+      const polls = new PollService(database);
+      const group = await groups.create({ name: 'Team' });
+      const poll = await polls.create(group.id, 1, pollInput);
+      await polls.close(poll.id, now);
+      await assert.rejects(() => polls.close(poll.id, new Date('2026-10-02T12:00:00.000Z')), {
+        message: 'Poll not found',
+      });
+      const saved = await database.client.poll.findUniqueOrThrow({ where: { id: poll.id } });
+      assert.equal(saved.closedAt?.toISOString(), now.toISOString());
     });
-    const saved = await database.client.poll.findUniqueOrThrow({ where: { id: poll.id } });
-    assert.equal(saved.closedAt?.toISOString(), now.toISOString());
-  });
-});
+  },
+);
 
 void test('rejects closing a missing poll with the existing domain error', async () => {
   await inPrismaTransaction(async ({ database }) => {

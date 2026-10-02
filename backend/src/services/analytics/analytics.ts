@@ -266,7 +266,9 @@ function isoWeekday(value: string): number {
   return new Date(utcCalendarDate(value)).getUTCDay() || 7;
 }
 function clock(minutes: number): string {
-  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+  const hours = String(Math.floor(minutes / 60)).padStart(2, '0');
+  const remainder = String(minutes % 60).padStart(2, '0');
+  return `${hours}:${remainder}`;
 }
 function average(values: readonly number[]): number {
   return values.reduce((sum, value) => sum + value, 0) / values.length;

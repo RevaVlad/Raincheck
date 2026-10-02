@@ -2,10 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 import Fastify from 'fastify';
-import {
-  AppError,
-  registerApiErrorHandler,
-} from '../../src/api/errors.js';
+import { AppError, registerApiErrorHandler } from '../../src/api/errors.js';
 import { resolveParticipant } from '../../src/api/participant-identity.js';
 
 void test('serializes application errors with a request ID', async () => {
@@ -25,36 +22,39 @@ void test('serializes application errors with a request ID', async () => {
   }
 });
 
-void test('maps malformed request validation and unexpected errors without leaking internals', async () => {
-  const app = Fastify({ logger: false });
-  registerApiErrorHandler(app);
-  app.post('/input', {
-    schema: {
-      body: {
-        type: 'object',
-        required: ['name'],
-        additionalProperties: false,
-        properties: { name: { type: 'string' } },
+void test(
+  'maps malformed request validation and unexpected errors ' + 'without leaking internals',
+  async () => {
+    const app = Fastify({ logger: false });
+    registerApiErrorHandler(app);
+    app.post('/input', {
+      schema: {
+        body: {
+          type: 'object',
+          required: ['name'],
+          additionalProperties: false,
+          properties: { name: { type: 'string' } },
+        },
       },
-    },
-    handler: async () => {
-      throw new Error('database password should not escape');
-    },
-  });
-  try {
-    const invalid = await app.inject({ method: 'POST', url: '/input', payload: {} });
-    assert.equal(invalid.statusCode, 400);
-    assert.equal(invalid.json().error.code, 'INVALID_REQUEST');
-    assert.equal(typeof invalid.json().error.requestId, 'string');
+      handler: async () => {
+        throw new Error('database password should not escape');
+      },
+    });
+    try {
+      const invalid = await app.inject({ method: 'POST', url: '/input', payload: {} });
+      assert.equal(invalid.statusCode, 400);
+      assert.equal(invalid.json().error.code, 'INVALID_REQUEST');
+      assert.equal(typeof invalid.json().error.requestId, 'string');
 
-    const failed = await app.inject({ method: 'POST', url: '/input', payload: { name: 'A' } });
-    assert.equal(failed.statusCode, 500);
-    assert.deepEqual(failed.json().error.code, 'INTERNAL_ERROR');
-    assert.equal(failed.json().error.message, 'Internal server error');
-  } finally {
-    await app.close();
-  }
-});
+      const failed = await app.inject({ method: 'POST', url: '/input', payload: { name: 'A' } });
+      assert.equal(failed.statusCode, 500);
+      assert.deepEqual(failed.json().error.code, 'INTERNAL_ERROR');
+      assert.equal(failed.json().error.message, 'Internal server error');
+    } finally {
+      await app.close();
+    }
+  },
+);
 
 void test('maps malformed JSON to INVALID_REQUEST', async () => {
   const app = Fastify({ logger: false });
@@ -81,7 +81,9 @@ void test('requires a participant token and scopes it to the requested group', a
     client: {
       participant: {
         findUnique: async ({ where }: { where: { editTokenHash: string } }) =>
-          where.editTokenHash === createHash('sha256').update(token).digest('hex') ? participant : null,
+          where.editTokenHash === createHash('sha256').update(token).digest('hex')
+            ? participant
+            : null,
       },
     },
   };

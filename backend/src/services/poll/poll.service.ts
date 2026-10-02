@@ -46,7 +46,9 @@ export class PollService {
   }
 
   async list(groupId: string): Promise<Poll[]> {
-    return (await this.db.client.poll.findMany({ where: { groupId }, orderBy: { createdAt: 'desc' } })).map(toPoll);
+    return (
+      await this.db.client.poll.findMany({ where: { groupId }, orderBy: { createdAt: 'desc' } })
+    ).map(toPoll);
   }
 
   async findInGroup(groupId: string, pollId: string): Promise<Poll | null> {
@@ -56,13 +58,22 @@ export class PollService {
 
   async createNext(groupId: string, input: PollInput, now = new Date()): Promise<Poll> {
     return this.db.transaction(async (transaction) => {
-      const current = await transaction.client.poll.findFirst({ where: { groupId, status: POLL_STATUS.OPEN } });
+      const current = await transaction.client.poll.findFirst({
+        where: { groupId, status: POLL_STATUS.OPEN },
+      });
       if (!current) throw new Error('Poll state conflict');
       const [closed] = await transaction.client.poll.updateManyAndReturn({
-        where: { id: current.id, status: POLL_STATUS.OPEN }, data: { status: POLL_STATUS.CLOSED, closedAt: now },
+        where: { id: current.id, status: POLL_STATUS.OPEN },
+        data: { status: POLL_STATUS.CLOSED, closedAt: now },
       });
       if (!closed) throw new Error('Poll state conflict');
-      return new PollService(transaction).create(groupId, current.sequenceNo + 1, input, current.id, now);
+      return new PollService(transaction).create(
+        groupId,
+        current.sequenceNo + 1,
+        input,
+        current.id,
+        now,
+      );
     });
   }
 }
