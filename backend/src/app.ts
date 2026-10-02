@@ -1,6 +1,7 @@
 import Fastify from 'fastify';
 import type { Config } from '#config/config';
 import type { PrismaDatabase } from '#infrastructure/database/prisma-database';
+import { registerApiErrorHandler } from './api/errors.js';
 
 export function buildApp(config: Config, database: Pick<PrismaDatabase, 'isAvailable' | 'close'>) {
   const app = Fastify({
@@ -9,6 +10,7 @@ export function buildApp(config: Config, database: Pick<PrismaDatabase, 'isAvail
   });
 
   app.addHook('onClose', () => database.close());
+  registerApiErrorHandler(app);
 
   app.get('/health/live', async () => ({ status: 'ok' }));
 
