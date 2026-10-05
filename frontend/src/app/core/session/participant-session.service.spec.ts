@@ -11,8 +11,12 @@ describe('ParticipantSessionService', () => {
   });
 
   it('stores participant identity separately for each invite code', () => {
-    expect(session.store('group-a', { participantId: 'participant-a', token: 'secret-a' })).toBe(true);
-    expect(session.store('group-b', { participantId: 'participant-b', token: 'secret-b' })).toBe(true);
+    expect(session.store('group-a', { participantId: 'participant-a', token: 'secret-a' })).toBe(
+      true,
+    );
+    expect(session.store('group-b', { participantId: 'participant-b', token: 'secret-b' })).toBe(
+      true,
+    );
 
     expect(session.get('group-a')).toEqual({ participantId: 'participant-a', token: 'secret-a' });
     expect(session.get('group-b')).toEqual({ participantId: 'participant-b', token: 'secret-b' });
@@ -33,6 +37,40 @@ describe('ParticipantSessionService', () => {
 
     expect(session.get('group-a')).toBeNull();
     expect(window.localStorage.getItem('raincheck.identity.group-a')).toBeNull();
+  });
+
+  it('rejects malformed identity fields and removes the stored value', () => {
+    window.localStorage.setItem(
+      'raincheck.identity.group-a',
+      JSON.stringify({ participantId: '', token: 'secret' }),
+    );
+
+    expect(session.get('group-a')).toBeNull();
+    expect(window.localStorage.getItem('raincheck.identity.group-a')).toBeNull();
+  });
+
+  it('returns no identity when reading browser storage fails', () => {
+    const getItem = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('Storage unavailable', 'SecurityError');
+    });
+
+    try {
+      expect(session.get('group-a')).toBeNull();
+    } finally {
+      getItem.mockRestore();
+    }
+  });
+
+  it('lets storage removal errors from clear reach the caller', () => {
+    const removeItem = vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+      throw new DOMException('Storage unavailable', 'SecurityError');
+    });
+
+    try {
+      expect(() => session.clear('group-a')).toThrow('Storage unavailable');
+    } finally {
+      removeItem.mockRestore();
+    }
   });
 
   it('reports when browser storage rejects participant identity', () => {

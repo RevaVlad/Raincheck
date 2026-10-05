@@ -5,32 +5,48 @@ export interface ParticipantIdentity {
   token: string;
 }
 
+function record(value: unknown): Record<string, unknown> | null {
+  return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : null;
+}
+
+function nonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function isParticipantIdentity(value: unknown): value is ParticipantIdentity {
+  const identity = record(value);
+  return (
+    identity !== null &&
+    nonEmptyString(identity['participantId']) &&
+    nonEmptyString(identity['token'])
+  );
+}
+
 @Injectable({ providedIn: 'root' })
 export class ParticipantSessionService {
   get(inviteCode: string): ParticipantIdentity | null {
+    const key = this.key(inviteCode);
+    let stored: string | null;
     try {
-      const stored = localStorage.getItem(this.key(inviteCode));
-      if (!stored) return null;
-      let value: unknown;
-      try {
-        value = JSON.parse(stored);
-      } catch {
-        localStorage.removeItem(this.key(inviteCode));
-        return null;
-      }
-      if (
-        typeof value === 'object' &&
-        value !== null &&
-        'participantId' in value &&
-        typeof value.participantId === 'string' &&
-        'token' in value &&
-        typeof value.token === 'string'
-      ) {
-        return { participantId: value.participantId, token: value.token };
-      }
-      localStorage.removeItem(this.key(inviteCode));
+      stored = localStorage.getItem(key);
     } catch {
       return null;
+    }
+    if (stored === null) return null;
+
+    try {
+      const value: unknown = JSON.parse(stored);
+      if (isParticipantIdentity(value)) {
+        return { participantId: value.participantId, token: value.token };
+      }
+    } catch {
+      // Remove malformed JSON below.
+    }
+
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      // Storage can become unavailable between reading and cleaning it up.
     }
     return null;
   }
@@ -45,11 +61,7 @@ export class ParticipantSessionService {
   }
 
   clear(inviteCode: string): void {
-    try {
-      localStorage.removeItem(this.key(inviteCode));
-    } catch {
-      // Storage may be disabled; there is no durable identity to clear in that case.
-    }
+    localStorage.removeItem(this.key(inviteCode));
   }
 
   private key(inviteCode: string): string {

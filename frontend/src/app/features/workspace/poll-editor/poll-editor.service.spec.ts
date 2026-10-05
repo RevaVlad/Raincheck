@@ -1,8 +1,9 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
-import { of, throwError } from 'rxjs';
-import { RaincheckApiService, type Poll } from '../../../core/api/raincheck-api.service';
+import { Observable, of, Subject, throwError } from 'rxjs';
+import type { Poll } from '../../../core/api/api.types';
 import { ParticipantSessionService } from '../../../core/session/participant-session.service';
+import { PollResponsesApiService } from './poll-responses-api.service';
 import { PollEditorService } from './poll-editor.service';
 
 const poll: Poll = {
@@ -44,7 +45,7 @@ describe('PollEditorService', () => {
     TestBed.configureTestingModule({
       providers: [
         PollEditorService,
-        { provide: RaincheckApiService, useValue: api },
+        { provide: PollResponsesApiService, useValue: api },
         { provide: ParticipantSessionService, useValue: session },
       ],
     });
@@ -158,6 +159,45 @@ describe('PollEditorService', () => {
     expect(editor.saveState()).toBe('SAVED');
   });
 
+  it('saves edits made during an in-flight write as a second serialized snapshot', async () => {
+    const firstSave = new Subject<typeof draft>();
+    api.getMyResponse.mockReturnValue(of(draft));
+    api.replaceMyResponse.mockReturnValueOnce(firstSave).mockReturnValueOnce(of(draft));
+    await editor.load('invite-code', poll, 'secret-token', vi.fn());
+    editor.paint('2026-10-06', '09:00', 'PREFERRED');
+    const saving = editor.saveNow();
+    await Promise.resolve();
+    editor.paint('2026-10-06', '09:30', 'UNAVAILABLE');
+    firstSave.next(draft);
+    await saving;
+
+    expect(api.replaceMyResponse).toHaveBeenCalledTimes(2);
+    expect(api.replaceMyResponse).toHaveBeenLastCalledWith(
+      'invite-code',
+      'poll-id',
+      'secret-token',
+      {
+        intervals: [
+          {
+            localDate: '2026-10-06',
+            startTime: '09:00',
+            endTime: '09:30',
+            kind: 'PREFERRED',
+            preferenceDirection: 'FLAT',
+          },
+          {
+            localDate: '2026-10-06',
+            startTime: '09:30',
+            endTime: '10:00',
+            kind: 'UNAVAILABLE',
+            preferenceDirection: null,
+          },
+        ],
+      },
+    );
+    expect(editor.pendingChanges()).toBe(false);
+  });
+
   it('flushes the latest autosave before confirming', async () => {
     api.getMyResponse.mockReturnValue(of(draft));
     api.replaceMyResponse.mockReturnValue(of(draft));
@@ -221,5 +261,121 @@ describe('PollEditorService', () => {
 
     expect(session.clear).not.toHaveBeenCalled();
     expect(unauthorized).toHaveBeenCalledOnce();
+  });
+
+  it('does not apply a response load after another editor context is selected', async () => {
+    const oldLoad = new Subject<typeof draft>();
+    api.getMyResponse.mockReturnValueOnce(oldLoad).mockReturnValueOnce(of(draft));
+    const oldPoll = { ...poll, id: 'old-poll' };
+    const first = editor.load('old-group', oldPoll, 'old-token', vi.fn());
+    await editor.load('new-group', poll, 'new-token', vi.fn());
+    oldLoad.next({ ...draft, id: 'old-response' });
+    await first;
+
+    expect(editor.poll()?.id).toBe('poll-id');
+    expect(editor.responseId()).toBe('response-id');
+  });
+
+  it('does not send a follow-up save to a new context after old draft creation finishes', async () => {
+    const oldCreate = new Subject<typeof draft>();
+    api.getMyResponse.mockReturnValueOnce(
+      throwError(
+        () =>
+          new HttpErrorResponse({
+            status: 404,
+            error: { error: { code: 'RESPONSE_NOT_FOUND' } },
+          }),
+      ),
+    );
+    api.getMyResponse.mockReturnValueOnce(of(draft));
+    api.createMyResponse.mockReturnValue(oldCreate);
+    await editor.load('old-group', { ...poll, id: 'old-poll' }, 'old-token', vi.fn());
+    editor.paint('2026-10-06', '09:00', 'PREFERRED');
+    const save = editor.saveNow();
+    await Promise.resolve();
+    await editor.load('new-group', poll, 'new-token', vi.fn());
+    oldCreate.next({ ...draft, id: 'old-response' });
+    await save;
+
+    expect(api.createMyResponse).toHaveBeenCalledWith('old-group', 'old-poll', 'old-token');
+    expect(api.replaceMyResponse).not.toHaveBeenCalled();
+    expect(editor.poll()?.id).toBe('poll-id');
+  });
+
+  it('tracks edits and active saves as pending changes', async () => {
+    const saving = new Subject<typeof draft>();
+    api.getMyResponse.mockReturnValue(of(draft));
+    api.replaceMyResponse.mockReturnValue(saving);
+    await editor.load('invite-code', poll, 'secret-token', vi.fn());
+    expect(editor.pendingChanges()).toBe(false);
+    editor.paint('2026-10-06', '09:00', 'PREFERRED');
+    expect(editor.pendingChanges()).toBe(true);
+    const save = editor.saveNow();
+    await Promise.resolve();
+    expect(editor.pendingChanges()).toBe(true);
+    saving.next(draft);
+    await save;
+    expect(editor.pendingChanges()).toBe(false);
+  });
+
+  it('pauses a scheduled autosave during a leave prompt and resumes it on cancellation', async () => {
+    api.getMyResponse.mockReturnValue(of(draft));
+    api.replaceMyResponse.mockReturnValue(of(draft));
+    await editor.load('invite-code', poll, 'secret-token', vi.fn());
+    editor.paint('2026-10-06', '09:00', 'PREFERRED');
+    editor.pauseAutosave();
+    await vi.advanceTimersByTimeAsync(600);
+    expect(api.replaceMyResponse).not.toHaveBeenCalled();
+
+    editor.resumeAutosave();
+    await vi.advanceTimersByTimeAsync(600);
+    expect(api.replaceMyResponse).toHaveBeenCalledOnce();
+  });
+
+  it('preserves the draft and restores autosave after navigation is cancelled', async () => {
+    api.getMyResponse.mockReturnValue(of(draft));
+    api.replaceMyResponse.mockReturnValue(of(draft));
+    await editor.load('invite-code', poll, 'secret-token', vi.fn());
+    editor.paint('2026-10-06', '09:00', 'PREFERRED');
+    editor.beginLeaving();
+    editor.cancelLeaving();
+    expect(editor.cellAt('2026-10-06', '09:00')).toBe('PREFERRED');
+    await vi.advanceTimersByTimeAsync(600);
+
+    expect(api.replaceMyResponse).toHaveBeenCalledOnce();
+  });
+
+  it('invalidates queued writes after accepting navigation away', async () => {
+    api.getMyResponse.mockReturnValue(of(draft));
+    api.replaceMyResponse.mockReturnValue(of(draft));
+    await editor.load('invite-code', poll, 'secret-token', vi.fn());
+    editor.paint('2026-10-06', '09:00', 'PREFERRED');
+    editor.beginLeaving();
+    await vi.advanceTimersByTimeAsync(600);
+
+    expect(api.replaceMyResponse).not.toHaveBeenCalled();
+    expect(editor.pendingChanges()).toBe(true);
+  });
+
+  it('clears pending autosave work on service teardown', async () => {
+    api.getMyResponse.mockReturnValue(of(draft));
+    api.replaceMyResponse.mockReturnValue(of(draft));
+    await editor.load('invite-code', poll, 'secret-token', vi.fn());
+    editor.paint('2026-10-06', '09:00', 'PREFERRED');
+    TestBed.resetTestingModule();
+    await vi.advanceTimersByTimeAsync(600);
+
+    expect(api.replaceMyResponse).not.toHaveBeenCalled();
+  });
+
+  it('cancels an outstanding response read on teardown', async () => {
+    const teardown = vi.fn();
+    api.getMyResponse.mockReturnValue(new Observable(() => () => teardown()));
+    const loading = editor.load('invite-code', poll, 'secret-token', vi.fn());
+    await Promise.resolve();
+    TestBed.resetTestingModule();
+    await loading;
+
+    expect(teardown).toHaveBeenCalledOnce();
   });
 });

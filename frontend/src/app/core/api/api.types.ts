@@ -1,130 +1,126 @@
 // Hand-maintained frontend types for the API contract in api/openapi.yaml.
-export type components = {
-  schemas: {
-    Error: {
-      error: {
-        code:
-          | 'INVALID_REQUEST'
-          | 'UNAUTHORIZED'
-          | 'GROUP_NOT_FOUND'
-          | 'POLL_NOT_FOUND'
-          | 'RESPONSE_NOT_FOUND'
-          | 'PARTICIPANT_NAME_TAKEN'
-          | 'RESPONSE_ALREADY_EXISTS'
-          | 'POLL_STATE_CONFLICT'
-          | 'INVALID_SCHEDULE'
-          | 'INTERNAL_ERROR';
-        message: string;
-        requestId: string;
-      };
-    };
-    Group: { id: string; name: string; inviteCode: string; timezone: 'UTC' };
-    Participant: { id: string; displayName: string };
-    ParticipantInput: { displayName: string };
-    PollInput: {
-      title?: string | null;
-      startsOn: string;
-      endsOn: string;
-      dayStart: string;
-      dayEnd: string;
-      slotMinutes: 30 | 60;
-      meetingDurationMinutes: number;
-    };
-    Poll: {
-      id: string;
-      sequenceNo: number;
-      title?: string | null;
-      startsOn: string;
-      endsOn: string;
-      dayStart: string;
-      dayEnd: string;
-      slotMinutes: 30 | 60;
-      meetingDurationMinutes: number;
-      status: 'OPEN' | 'CLOSED';
-      basedOnPollId: string | null;
-      createdAt: string;
-      closedAt: string | null;
-    };
-    IntervalInput: {
-      localDate: string;
-      startTime: string;
-      endTime: string;
-      kind: 'UNAVAILABLE' | 'IF_NEEDED' | 'PREFERRED';
-      preferenceDirection: 'EARLIER' | 'FLAT' | 'LATER' | null;
-    };
-    Interval: components['schemas']['IntervalInput'] & { id: string };
-    Response: {
-      id: string;
-      state: 'DRAFT' | 'CONFIRMED';
-      confirmedAt: string | null;
-      intervals: components['schemas']['Interval'][];
-    };
-    CreateGroupRequest: {
-      name: string;
-      creatorDisplayName: string;
-      timezone?: 'UTC';
-      firstPoll: components['schemas']['PollInput'];
-    };
-    CreateGroupResponse: {
-      group: components['schemas']['Group'];
-      participant: components['schemas']['Participant'];
-      participantEditToken: string;
-      currentPoll: components['schemas']['Poll'];
-    };
-    JoinResponse: {
-      participant: components['schemas']['Participant'];
-      participantEditToken: string;
-    };
-    PublicGroupDto: { name: string; timezone: 'UTC' };
-    PublicCurrentPollDto: {
-      id: string;
-      sequenceNo: number;
-      startsOn: string;
-      endsOn: string;
-    };
-    PublicGroupResponse: {
-      group: components['schemas']['PublicGroupDto'];
-      currentPoll: components['schemas']['PublicCurrentPollDto'] | null;
-    };
-    WorkspaceParticipant: {
-      id: string;
-      displayName: string;
-      currentPollState: 'NONE' | 'DRAFT' | 'CONFIRMED';
-    };
-    Workspace: {
-      group: components['schemas']['Group'];
-      me: components['schemas']['Participant'] | null;
-      participants: components['schemas']['WorkspaceParticipant'][];
-      polls: components['schemas']['Poll'][];
-      currentPoll: components['schemas']['Poll'] | null;
-    };
-    Results: {
-      participantSummary: { total: number; confirmed: number; pending: number };
-      heatmap: components['schemas']['HeatmapCell'][];
-      bestSlots: components['schemas']['BestSlot'][];
-    };
-    HeatmapCell: {
-      localDate: string;
-      startTime: string;
-      endTime: string;
-      available: number;
-      ifNeeded: number;
-      preferred: number;
-      unavailable: number;
-      averageSoftScore: number;
-    };
-    BestSlot: {
-      localDate: string;
-      startTime: string;
-      endTime: string;
-      available: number;
-      ifNeeded: number;
-      averageSoftScore: number;
-      stars: number;
-    };
-  };
+export type ApiErrorCode =
+  | 'INVALID_REQUEST'
+  | 'UNAUTHORIZED'
+  | 'GROUP_NOT_FOUND'
+  | 'POLL_NOT_FOUND'
+  | 'RESPONSE_NOT_FOUND'
+  | 'PARTICIPANT_NAME_TAKEN'
+  | 'RESPONSE_ALREADY_EXISTS'
+  | 'POLL_STATE_CONFLICT'
+  | 'INVALID_SCHEDULE'
+  | 'INTERNAL_ERROR';
+
+export type ApiErrorResponse = {
+  error: { code: ApiErrorCode; message: string; requestId: string };
 };
 
-export type ReplaceResponseRequest = {
-  intervals: components['schemas']['IntervalInput'][];
+export type Group = { id: string; name: string; inviteCode: string; timezone: 'UTC' };
+export type Participant = { id: string; displayName: string };
+export type ParticipantInput = { displayName: string };
+export type WorkspaceParticipant = {
+  id: string;
+  displayName: string;
+  currentPollState: 'NONE' | 'DRAFT' | 'CONFIRMED';
+};
+
+export type PollInput = {
+  title?: string | null;
+  startsOn: string;
+  endsOn: string;
+  dayStart: string;
+  dayEnd: string;
+  slotMinutes: 30 | 60;
+  meetingDurationMinutes: number;
+};
+
+export type Poll = {
+  id: string;
+  sequenceNo: number;
+  title?: string | null;
+  startsOn: string;
+  endsOn: string;
+  dayStart: string;
+  dayEnd: string;
+  slotMinutes: 30 | 60;
+  meetingDurationMinutes: number;
+  status: 'OPEN' | 'CLOSED';
+  basedOnPollId: string | null;
+  createdAt: string;
+  closedAt: string | null;
+};
+
+export type IntervalInput = {
+  localDate: string;
+  startTime: string;
+  endTime: string;
+  kind: 'UNAVAILABLE' | 'IF_NEEDED' | 'PREFERRED';
+  preferenceDirection: 'EARLIER' | 'FLAT' | 'LATER' | null;
+};
+export type Interval = IntervalInput & { id: string };
+export type ParticipantResponse = {
+  id: string;
+  state: 'DRAFT' | 'CONFIRMED';
+  confirmedAt: string | null;
+  intervals: Interval[];
+};
+export type ReplaceResponseRequest = { intervals: IntervalInput[] };
+
+export type CreateGroupRequest = {
+  name: string;
+  creatorDisplayName: string;
+  timezone?: 'UTC';
+  firstPoll: PollInput;
+};
+export type CreateGroupResponse = {
+  group: Group;
+  participant: Participant;
+  participantEditToken: string;
+  currentPoll: Poll;
+};
+export type JoinResponse = { participant: Participant; participantEditToken: string };
+
+export type PublicGroupDto = { name: string; timezone: 'UTC' };
+export type PublicCurrentPollDto = {
+  id: string;
+  sequenceNo: number;
+  startsOn: string;
+  endsOn: string;
+};
+export type PublicGroupResponse = {
+  group: PublicGroupDto;
+  currentPoll: PublicCurrentPollDto | null;
+};
+
+export type Workspace = {
+  group: Group;
+  me: Participant | null;
+  participants: WorkspaceParticipant[];
+  polls: Poll[];
+  currentPoll: Poll | null;
+};
+
+export type HeatmapCell = {
+  localDate: string;
+  startTime: string;
+  endTime: string;
+  available: number;
+  ifNeeded: number;
+  preferred: number;
+  unavailable: number;
+  averageSoftScore: number;
+};
+export type BestSlot = {
+  localDate: string;
+  startTime: string;
+  endTime: string;
+  available: number;
+  ifNeeded: number;
+  averageSoftScore: number;
+  stars: number;
+};
+export type PollResults = {
+  participantSummary: { total: number; confirmed: number; pending: number };
+  heatmap: HeatmapCell[];
+  bestSlots: BestSlot[];
 };

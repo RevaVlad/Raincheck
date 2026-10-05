@@ -1,12 +1,15 @@
-import { Pipe, PipeTransform, inject } from '@angular/core';
-import { TimezonePreferenceService } from './timezone-preference.service';
+import { Pipe, PipeTransform } from '@angular/core';
+import {
+  convertUtcToLocalSlot,
+  formatLocalDate,
+  formatWeekday,
+  type LocalSlot,
+} from './timezone.utils';
 
 type TimezoneDisplayFormat = 'date' | 'time' | 'offset' | 'weekday' | 'slot';
 
 @Pipe({ name: 'timezoneDisplay' })
 export class TimezoneDisplayPipe implements PipeTransform {
-  private readonly timezone = inject(TimezonePreferenceService);
-
   transform(
     utcDate: string,
     selectedTimeZone: string,
@@ -14,29 +17,34 @@ export class TimezoneDisplayPipe implements PipeTransform {
     startTime = '00:00',
     endTime?: string,
   ): string {
-    const start = this.timezone.convertUtc(utcDate, startTime, selectedTimeZone);
+    const start = convertUtcToLocalSlot(utcDate, startTime, selectedTimeZone);
+    if (format === 'slot') {
+      return this.formatSlot(utcDate, selectedTimeZone, start, endTime);
+    }
     switch (format) {
       case 'date':
-        return this.timezone.formatDate(start.localDate);
+        return formatLocalDate(start.localDate, 'UTC');
       case 'time':
         return start.localTime;
       case 'offset':
         return start.offset;
       case 'weekday':
-        return new Intl.DateTimeFormat('ru-RU', {
-          weekday: 'short',
-          timeZone: 'UTC',
-        }).format(new Date(`${start.localDate}T12:00:00Z`));
-      case 'slot': {
-        if (!endTime) return '';
-        const end = this.timezone.convertUtc(utcDate, endTime, selectedTimeZone);
-        const date =
-          start.localDate === end.localDate
-            ? this.timezone.formatDate(start.localDate)
-            : `${this.timezone.formatDate(start.localDate)} — ${this.timezone.formatDate(end.localDate)}`;
-        const offset = start.offset === end.offset ? start.offset : `${start.offset}–${end.offset}`;
-        return `${date}, ${start.localTime}–${end.localTime} ${offset}`;
-      }
+        return formatWeekday(start.localDate, 'UTC');
     }
+  }
+
+  private formatSlot(
+    utcDate: string,
+    timeZone: string,
+    start: LocalSlot,
+    endTime?: string,
+  ): string {
+    if (!endTime) return '';
+    const end = convertUtcToLocalSlot(utcDate, endTime, timeZone);
+    const startDate = formatLocalDate(start.localDate, 'UTC');
+    const endDate = formatLocalDate(end.localDate, 'UTC');
+    const date = start.localDate === end.localDate ? startDate : `${startDate} — ${endDate}`;
+    const offset = start.offset === end.offset ? start.offset : `${start.offset}–${end.offset}`;
+    return `${date}, ${start.localTime}–${end.localTime} ${offset}`;
   }
 }

@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, ViewChild, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -30,6 +30,11 @@ export class GroupEntryPageComponent {
   readonly facade = inject(GroupFacade);
   readonly timezone = inject(TimezonePreferenceService);
   displayName = '';
+  @ViewChild(WorkspacePageComponent) private workspacePage?: WorkspacePageComponent;
+
+  canLeave(): Promise<boolean> {
+    return this.workspacePage?.canLeave() ?? Promise.resolve(true);
+  }
 
   constructor() {
     void this.timezone.ensureConfirmed();

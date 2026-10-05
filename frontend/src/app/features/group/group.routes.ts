@@ -1,6 +1,17 @@
 import { inject } from '@angular/core';
-import { ActivatedRouteSnapshot, ResolveFn, Routes } from '@angular/router';
+import { ActivatedRouteSnapshot, CanActivateFn, ResolveFn, Routes } from '@angular/router';
 import { GroupFacade } from './group.facade';
+import type { GroupEntryPageComponent } from '../group-entry/group-entry-page.component';
+
+export const confirmGroupSwitch: CanActivateFn = (route) => {
+  const facade = inject(GroupFacade);
+  const nextInviteCode = route.paramMap.get('inviteCode') ?? '';
+  return nextInviteCode === facade.inviteCode() ? true : facade.confirmLeave();
+};
+
+export const confirmGroupEntryLeave: import('@angular/router').CanDeactivateFn<
+  GroupEntryPageComponent
+> = (component) => component.canLeave();
 
 export const resolveGroupInviteCode: ResolveFn<boolean> = (route: ActivatedRouteSnapshot) => {
   inject(GroupFacade).setInviteCode(route.paramMap.get('inviteCode') ?? '');
@@ -11,12 +22,14 @@ export const GROUP_ROUTES: Routes = [
   {
     path: ':inviteCode',
     providers: [GroupFacade],
+    canActivate: [confirmGroupSwitch],
     resolve: { groupLoaded: resolveGroupInviteCode },
     runGuardsAndResolvers: 'paramsChange',
     children: [
       {
         path: '',
         pathMatch: 'full',
+        canDeactivate: [confirmGroupEntryLeave],
         loadComponent: () =>
           import('../group-entry/group-entry-page.component').then(
             (module) => module.GroupEntryPageComponent,

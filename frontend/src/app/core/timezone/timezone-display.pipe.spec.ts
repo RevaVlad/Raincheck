@@ -2,6 +2,7 @@ import { Component, inject } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { TimezonePreferenceService } from './timezone-preference.service';
 import { TimezoneDisplayPipe } from './timezone-display.pipe';
+import { formatLocalDate } from './timezone.utils';
 
 @Component({
   standalone: true,
@@ -23,7 +24,7 @@ describe('TimezoneDisplayPipe', () => {
     const pipe = TestBed.runInInjectionContext(() => new TimezoneDisplayPipe());
 
     expect(pipe.transform('2026-10-03', 'America/Los_Angeles', 'date', '01:00')).toBe(
-      TestBed.inject(TimezonePreferenceService).formatDate('2026-10-02'),
+      formatLocalDate('2026-10-02', 'UTC'),
     );
   });
 
@@ -36,10 +37,8 @@ describe('TimezoneDisplayPipe', () => {
 
   it('shows both local dates when a slot crosses midnight', () => {
     const pipe = TestBed.runInInjectionContext(() => new TimezoneDisplayPipe());
-    const timezone = TestBed.inject(TimezonePreferenceService);
-
     expect(pipe.transform('2026-10-03', 'America/Los_Angeles', 'slot', '06:30', '07:30')).toBe(
-      `${timezone.formatDate('2026-10-02')} — ${timezone.formatDate('2026-10-03')}, 23:30–00:30 UTC-07:00`,
+      `${formatLocalDate('2026-10-02', 'UTC')} — ${formatLocalDate('2026-10-03', 'UTC')}, 23:30–00:30 UTC-07:00`,
     );
   });
 

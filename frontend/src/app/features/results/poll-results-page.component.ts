@@ -1,88 +1,68 @@
-import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { merge, of, Subject } from 'rxjs';
-import { catchError, distinctUntilChanged, map, switchMap, tap } from 'rxjs/operators';
-import { RaincheckApiService, type PollResults } from '../../core/api/raincheck-api.service';
+import { apiErrorMessage } from '../../core/api/api-errors';
 import { TimezoneDisplayPipe } from '../../core/timezone/timezone-display.pipe';
 import { TimezonePreferenceService } from '../../core/timezone/timezone-preference.service';
 import { ErrorStateComponent } from '../../shared/presentation/error-state.component';
 import { LoadingStateComponent } from '../../shared/presentation/loading-state.component';
+import { PollResultsApiService } from './poll-results-api.service';
 
 @Component({
   selector: 'app-poll-results-page',
   imports: [ErrorStateComponent, LoadingStateComponent, RouterLink, TimezoneDisplayPipe],
   templateUrl: './poll-results-page.component.html',
 })
-export class PollResultsPageComponent implements OnInit {
+export class PollResultsPageComponent {
   private readonly route = inject(ActivatedRoute);
-  private readonly api = inject(RaincheckApiService);
-  private readonly destroyRef = inject(DestroyRef);
-  private readonly refresh = new Subject<void>();
+  private readonly api = inject(PollResultsApiService);
+  private readonly routeParams = toSignal(this.route.paramMap, {
+    initialValue: this.route.snapshot.paramMap,
+  });
+  private readonly timezoneConfirmed = signal(false);
+  private readonly refreshVersion = signal(0);
   readonly timezone = inject(TimezonePreferenceService);
-  readonly results = signal<PollResults | null>(null);
-  readonly loading = signal(true);
-  readonly error = signal<string | null>(null);
-  readonly inviteCode = signal('');
-  private readonly pollId = signal('');
+  readonly inviteCode = computed(() => this.routeParams().get('inviteCode') ?? '');
+  private readonly pollId = computed(() => this.routeParams().get('pollId') ?? '');
+  readonly resultsResource = this.api.resultsResource(() => {
+    void this.refreshVersion();
+    const inviteCode = this.inviteCode();
+    const pollId = this.pollId();
+    return this.timezoneConfirmed() && inviteCode && pollId ? { inviteCode, pollId } : undefined;
+  });
+  readonly results = computed(() => {
+    if (
+      this.resultsResource.isLoading() ||
+      this.resultsResource.error() !== undefined ||
+      !this.resultsResource.hasValue()
+    ) {
+      return null;
+    }
+    return this.resultsResource.value() ?? null;
+  });
+  readonly loading = computed(() => {
+    if (!this.timezoneConfirmed()) return true;
+    if (!this.inviteCode() || !this.pollId()) return false;
+    return (
+      this.resultsResource.isLoading() ||
+      (!this.resultsResource.hasValue() && this.resultsResource.error() === undefined)
+    );
+  });
+  readonly error = computed(() => {
+    const error = this.resultsResource.error();
+    return error ? apiErrorMessage(error, 'Не удалось загрузить результаты.') : null;
+  });
 
-  ngOnInit(): void {
-    void this.timezone.ensureConfirmed().then(() => this.watchRoute());
+  constructor() {
+    void this.timezone.ensureConfirmed().then(() => this.timezoneConfirmed.set(true));
   }
 
   reload(): void {
-    this.refresh.next();
+    this.refreshVersion.update((version) => version + 1);
   }
 
   heatColor(available: number, confirmed: number): string {
     const hue = confirmed ? Math.round((available / confirmed) * 120) : 0;
     return `hsl(${hue} 55% 88%)`;
-  }
-
-  private watchRoute(): void {
-    const routeParams = this.route.paramMap.pipe(
-      map((params) => ({
-        inviteCode: params.get('inviteCode') ?? '',
-        pollId: params.get('pollId') ?? '',
-      })),
-      distinctUntilChanged(
-        (previous, current) =>
-          previous.inviteCode === current.inviteCode && previous.pollId === current.pollId,
-      ),
-    );
-    const refreshedParams = this.refresh.pipe(
-      map(() => ({ inviteCode: this.inviteCode(), pollId: this.pollId() })),
-    );
-
-    merge(routeParams, refreshedParams)
-      .pipe(
-        tap(({ inviteCode, pollId }) => {
-          this.inviteCode.set(inviteCode);
-          this.pollId.set(pollId);
-          this.loading.set(true);
-          this.error.set(null);
-          this.results.set(null);
-        }),
-        switchMap(({ inviteCode, pollId }) =>
-          this.api.getPollResults(inviteCode, pollId).pipe(
-            map((results) => ({ kind: 'loaded' as const, results })),
-            catchError((error: unknown) =>
-              of({
-                kind: 'failed' as const,
-                message: RaincheckApiService.errorMessage(
-                  error,
-                  'Не удалось загрузить результаты.',
-                ),
-              }),
-            ),
-          ),
-        ),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe((result) => {
-        if (result.kind === 'loaded') this.results.set(result.results);
-        else this.error.set(result.message);
-        this.loading.set(false);
-      });
   }
 }

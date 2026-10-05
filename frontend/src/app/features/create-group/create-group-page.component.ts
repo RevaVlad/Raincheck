@@ -8,8 +8,9 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { RaincheckApiService } from '../../core/api/raincheck-api.service';
+import { apiErrorMessage } from '../../core/api/api-errors';
 import { ParticipantSessionService } from '../../core/session/participant-session.service';
+import { GroupsApiService } from '../group/groups-api.service';
 
 @Component({
   selector: 'app-create-group-page',
@@ -25,7 +26,7 @@ import { ParticipantSessionService } from '../../core/session/participant-sessio
   styleUrl: './create-group-page.component.css',
 })
 export class CreateGroupPageComponent {
-  private readonly api = inject(RaincheckApiService);
+  private readonly api = inject(GroupsApiService);
   private readonly session = inject(ParticipantSessionService);
   private readonly router = inject(Router);
   readonly submitting = signal(false);
@@ -89,7 +90,7 @@ export class CreateGroupPageComponent {
       }
       await this.router.navigate(['/g', result.group.inviteCode]);
     } catch (error) {
-      this.errorMessage.set(RaincheckApiService.errorMessage(error, 'Could not create the group.'));
+      this.errorMessage.set(apiErrorMessage(error, 'Could not create the group.'));
     } finally {
       this.submitting.set(false);
     }

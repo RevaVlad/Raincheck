@@ -2,7 +2,7 @@ import { Clipboard } from '@angular/cdk/clipboard';
 import { Component, inject, input, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
-import type { WorkspaceParticipant } from '../../../core/api/raincheck-api.service';
+import type { WorkspaceParticipant } from '../../../core/api/api.types';
 
 @Component({
   selector: 'app-group-sidebar',

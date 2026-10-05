@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { of } from 'rxjs';
 import { ParticipantSessionService } from '../../core/session/participant-session.service';
-import { RaincheckApiService } from '../../core/api/raincheck-api.service';
+import { GroupsApiService } from '../group/groups-api.service';
 import { CreateGroupPageComponent } from './create-group-page.component';
 
 describe('CreateGroupPageComponent', () => {
@@ -20,7 +20,7 @@ describe('CreateGroupPageComponent', () => {
       imports: [CreateGroupPageComponent],
       providers: [
         provideRouter([]),
-        { provide: RaincheckApiService, useValue: { createGroup } },
+        { provide: GroupsApiService, useValue: { createGroup } },
         { provide: ParticipantSessionService, useValue: { store } },
       ],
     }).compileComponents();
@@ -75,7 +75,7 @@ describe('CreateGroupPageComponent', () => {
       imports: [CreateGroupPageComponent],
       providers: [
         provideRouter([]),
-        { provide: RaincheckApiService, useValue: { createGroup } },
+        { provide: GroupsApiService, useValue: { createGroup } },
         { provide: ParticipantSessionService, useValue: { store: () => false } },
       ],
     }).compileComponents();
