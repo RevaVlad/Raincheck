@@ -14,3 +14,4 @@ coverage/
 output/playwright/
 .worktrees/
 backend/src/generated/prisma/
+output/
