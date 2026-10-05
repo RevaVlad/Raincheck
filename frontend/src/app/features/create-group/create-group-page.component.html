@@ -1,7 +1,8 @@
-<main class="mx-auto flex min-h-screen max-w-2xl flex-col justify-center px-5 py-10 sm:px-8">
+<main
+  class="mx-auto flex min-h-[calc(100dvh_-_3.5rem)] max-w-2xl flex-col justify-center px-5 py-10 sm:px-8"
+>
   <section class="mb-7 text-center">
-    <p class="mb-3 text-sm font-semibold tracking-wide text-emerald-700">Raincheck</p>
-    <h1 class="text-3xl font-semibold tracking-tight">Создать группу</h1>
+    <h1 class="text-page-title font-semibold tracking-tight">Создать группу</h1>
     <p class="mt-2 text-slate-600">
       У группы будет постоянная ссылка, а опрос можно будет повторить позже.
     </p>
@@ -17,7 +18,7 @@
         <mat-label>Ваше имя</mat-label>
         <input matInput formControlName="creatorName" required maxlength="80" />
       </mat-form-field>
-      <p class="-mb-1 text-sm font-medium text-slate-700 sm:col-span-2">Первый опрос</p>
+      <p class="-mb-1 text-supporting font-medium text-slate-700 sm:col-span-2">Первый опрос</p>
       <mat-form-field>
         <mat-label>Начало</mat-label>
         <input matInput type="date" formControlName="startsOn" required />
@@ -26,7 +27,7 @@
         <mat-label>Конец</mat-label>
         <input matInput type="date" formControlName="endsOn" required />
       </mat-form-field>
-      <p class="-mb-1 text-sm font-medium text-slate-700 sm:col-span-2">Время (UTC)</p>
+      <p class="-mb-1 text-supporting font-medium text-slate-700 sm:col-span-2">Время (UTC)</p>
       <mat-form-field>
         <mat-label>Начало дня</mat-label>
         <input matInput type="time" formControlName="dayStart" required />
@@ -43,7 +44,7 @@
         </mat-select>
       </mat-form-field>
       @if (errorMessage()) {
-        <p class="text-sm text-red-700 sm:col-span-2" role="alert">{{ errorMessage() }}</p>
+        <p class="text-supporting text-red-700 sm:col-span-2" role="alert">{{ errorMessage() }}</p>
       }
       <div class="flex items-end justify-end sm:col-start-2">
         <button mat-flat-button type="submit" [disabled]="submitting() || created()">

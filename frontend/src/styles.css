@@ -1,6 +1,23 @@
 @import '@angular/material/prebuilt-themes/azure-blue.css';
 @import 'tailwindcss';
 
+@theme {
+  --text-page-title: 1.875rem;
+  --text-page-title--line-height: 2.25rem;
+  --text-page-title-compact: 1.5rem;
+  --text-page-title-compact--line-height: 2rem;
+  --text-section-title: 1.25rem;
+  --text-section-title--line-height: 1.75rem;
+  --text-section-title-small: 1.125rem;
+  --text-section-title-small--line-height: 1.75rem;
+  --text-supporting: 0.875rem;
+  --text-supporting--line-height: 1.25rem;
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1rem;
+  --text-metric: 1.5rem;
+  --text-metric--line-height: 2rem;
+}
+
 :root {
   font-family: system-ui, sans-serif;
   color-scheme: light;
@@ -15,4 +32,8 @@ body {
   margin: 0;
   background: var(--surface-page);
   color: var(--text-primary);
+}
+
+mat-card.flex-row {
+  flex-direction: row;
 }

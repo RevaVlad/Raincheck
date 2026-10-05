@@ -12,18 +12,11 @@
 
   <section class="mt-8 min-w-0 overflow-hidden">
     <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-400">Ссылка для команды</h3>
-    <mat-card class="mt-3 flex min-w-0 items-center gap-2 overflow-hidden p-2">
-      <a
-        class="min-w-0 flex-1 truncate px-2 text-xs text-slate-700"
-        [href]="inviteLink()"
-        >{{ inviteLink() }}</a
-      >
-      <button
-        mat-icon-button
-        aria-label="Скопировать ссылку"
-        type="button"
-        (click)="copyInvite()"
-      >
+    <mat-card class="mt-3 flex flex-row min-w-0 items-center gap-2 overflow-hidden p-2">
+      <a class="min-w-0 flex-1 truncate px-2 text-xs text-slate-700" [href]="inviteLink()">{{
+        inviteLink()
+      }}</a>
+      <button mat-icon-button aria-label="Скопировать ссылку" type="button" (click)="copyInvite()">
         <img class="size-5" src="/copy.png" alt="" />
       </button>
     </mat-card>

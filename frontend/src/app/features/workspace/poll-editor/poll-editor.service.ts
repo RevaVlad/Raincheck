@@ -1,8 +1,11 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { RaincheckApiService, type ParticipantResponse, type Poll } from '../../../core/api/raincheck-api.service';
-import { ParticipantSessionService } from '../../../core/session/participant-session.service';
+import {
+  RaincheckApiService,
+  type ParticipantResponse,
+  type Poll,
+} from '../../../core/api/raincheck-api.service';
 import {
   availabilityCellKey,
   compressCellsToIntervals,
@@ -18,7 +21,6 @@ export type SaveState = 'LOADING' | 'IDLE' | 'DIRTY' | 'SAVING' | 'SAVED' | 'ERR
 @Injectable()
 export class PollEditorService {
   private readonly api = inject(RaincheckApiService);
-  private readonly session = inject(ParticipantSessionService);
   readonly selectedKind = signal<AvailabilityBrush>('PREFERRED');
   readonly cells = signal<AvailabilityCells>({});
   readonly poll = signal<Poll | null>(null);
@@ -33,7 +35,9 @@ export class PollEditorService {
       IF_NEEDED: 'Если понадобится',
       PREFERRED: 'Удобно',
     };
-    return this.selectedKind() === 'CLEAR' ? 'Очистить' : labels[this.selectedKind() as AvailabilityKind];
+    return this.selectedKind() === 'CLEAR'
+      ? 'Очистить'
+      : labels[this.selectedKind() as AvailabilityKind];
   });
 
   private inviteCode = '';
@@ -162,7 +166,9 @@ export class PollEditorService {
       this.saveState.set('SAVED');
       this.lastSaveError.set(null);
     } catch (error) {
-      this.lastSaveError.set(RaincheckApiService.errorMessage(error, 'Could not confirm your response.'));
+      this.lastSaveError.set(
+        RaincheckApiService.errorMessage(error, 'Could not confirm your response.'),
+      );
       this.saveState.set('ERROR');
       if (this.isUnauthorized(error)) this.invalidateIdentity();
     }
@@ -188,7 +194,9 @@ export class PollEditorService {
         this.dirty = this.version !== version;
         this.saveState.set(this.dirty ? 'DIRTY' : 'SAVED');
       } catch (error) {
-        this.lastSaveError.set(RaincheckApiService.errorMessage(error, 'Could not save your changes.'));
+        this.lastSaveError.set(
+          RaincheckApiService.errorMessage(error, 'Could not save your changes.'),
+        );
         this.saveState.set('ERROR');
         if (this.isUnauthorized(error)) this.invalidateIdentity();
         throw error;
@@ -211,7 +219,6 @@ export class PollEditorService {
   private invalidateIdentity(): void {
     if (this.unauthorized) return;
     this.unauthorized = true;
-    this.session.clear(this.inviteCode);
     this.onUnauthorized();
   }
 

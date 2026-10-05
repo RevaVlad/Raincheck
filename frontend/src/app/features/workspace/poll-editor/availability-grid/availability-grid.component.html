@@ -10,22 +10,40 @@
     <div class="corner"></div>
     @for (day of days(); track day.localDate) {
       <div class="day">
-        <strong>{{ day.weekday }}</strong
-        ><span>{{ day.date }}</span>
+        <strong>{{
+          day.localDate | timezoneDisplay: timezone.selectedTimeZone() : 'weekday' : day.startTime
+        }}</strong>
+        <span>{{
+          day.localDate | timezoneDisplay: timezone.selectedTimeZone() : 'date' : day.startTime
+        }}</span>
       </div>
     }
     @for (slot of slots(); track slot.time) {
-      <div class="time">{{ displayTime(days()[0]?.localDate ?? '', slot.time) }}</div>
+      <div class="time">{{ slot.time }} UTC</div>
       @for (day of days(); track day.localDate) {
         @let kind = state(day.localDate, slot.time);
         <div
           class="cell"
           [attr.data-date]="day.localDate"
           [attr.data-time]="slot.time"
-          [attr.title]="displayTime(day.localDate, slot.time)"
+          [attr.title]="
+            (day.localDate | timezoneDisplay: timezone.selectedTimeZone() : 'time' : slot.time) +
+            ' ' +
+            (day.localDate | timezoneDisplay: timezone.selectedTimeZone() : 'offset' : slot.time)
+          "
           role="gridcell"
           [attr.aria-label]="
-            day.weekday + ' ' + displayTime(day.localDate, slot.time) + ': ' + (kind ?? 'нейтрально')
+            (day.localDate
+              | timezoneDisplay: timezone.selectedTimeZone() : 'weekday' : day.startTime) +
+            ' ' +
+            (day.localDate
+              | timezoneDisplay: timezone.selectedTimeZone() : 'date' : day.startTime) +
+            ' ' +
+            (day.localDate | timezoneDisplay: timezone.selectedTimeZone() : 'time' : slot.time) +
+            ' ' +
+            (day.localDate | timezoneDisplay: timezone.selectedTimeZone() : 'offset' : slot.time) +
+            ': ' +
+            (kind ?? 'нейтрально')
           "
           [class.unavailable]="kind === 'UNAVAILABLE'"
           [class.if-needed]="kind === 'IF_NEEDED'"

@@ -1,4 +1,4 @@
-<main class="min-h-screen bg-slate-50 lg:grid lg:grid-cols-[310px_minmax(0,1fr)]">
+<main class="min-h-[calc(100dvh_-_3.5rem)] bg-slate-50 lg:grid lg:grid-cols-[310px_minmax(0,1fr)]">
   <app-group-sidebar
     [groupName]="workspace().group.name"
     [inviteLink]="inviteLink()"
@@ -7,33 +7,58 @@
   <section class="min-w-0 p-5 sm:p-8">
     @if (currentPoll(); as poll) {
       <header class="mb-6">
-        <p class="text-sm font-medium text-slate-500">Текущий опрос</p>
-        <h1 class="mt-1 text-3xl font-semibold tracking-tight">
+        @let startOffset =
+          poll.startsOn | timezoneDisplay: timezone.selectedTimeZone() : 'offset' : poll.dayStart;
+        @let endOffset =
+          poll.endsOn | timezoneDisplay: timezone.selectedTimeZone() : 'offset' : poll.dayEnd;
+        <p class="text-supporting font-medium text-slate-500">Текущий опрос</p>
+        <h1 class="mt-1 text-page-title font-semibold tracking-tight">
           {{ poll.title || 'Опрос #' + poll.sequenceNo }}
         </h1>
         <p class="mt-2 text-slate-600">
-          {{ localDate(poll.startsOn, poll.dayStart) }} — {{ localDate(poll.endsOn, poll.dayEnd) }}
-          {{ timezone.convertUtc(poll.startsOn, poll.dayStart).offset }} ·
-          {{ timezone.convertUtc(poll.startsOn, poll.dayStart).localTime }}–{{ timezone.convertUtc(poll.endsOn, poll.dayEnd).localTime }} ·
-          шаг {{ poll.slotMinutes }} минут
+          {{
+            poll.startsOn | timezoneDisplay: timezone.selectedTimeZone() : 'date' : poll.dayStart
+          }}
+          —
+          {{ poll.endsOn | timezoneDisplay: timezone.selectedTimeZone() : 'date' : poll.dayEnd }}
+          {{ startOffset }}{{ startOffset !== endOffset ? '–' + endOffset : '' }} ·
+          {{
+            poll.startsOn | timezoneDisplay: timezone.selectedTimeZone() : 'time' : poll.dayStart
+          }}–{{
+            poll.endsOn | timezoneDisplay: timezone.selectedTimeZone() : 'time' : poll.dayEnd
+          }}
+          · шаг {{ poll.slotMinutes }} минут
         </p>
       </header>
       <app-poll-editor />
     } @else {
       <section class="rounded-2xl border border-slate-200 bg-white p-6">
-        <h1 class="text-2xl font-semibold">Сейчас нет активного опроса</h1>
-        <p class="mt-2 text-slate-600">Когда появится новый опрос, участники смогут отметить удобное время.</p>
+        <h1 class="text-page-title-compact font-semibold">Сейчас нет активного опроса</h1>
+        <p class="mt-2 text-slate-600">
+          Когда появится новый опрос, участники смогут отметить удобное время.
+        </p>
       </section>
     }
     <section class="mt-8">
-      <h2 class="mb-3 text-lg font-semibold">Опросы</h2>
+      <h2 class="mb-3 text-section-title-small font-semibold">Опросы</h2>
       <ul class="space-y-2">
         @for (poll of workspace().polls; track poll.id) {
-          <li class="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4">
-            <span class="min-w-0 truncate">{{ poll.title || 'Опрос #' + poll.sequenceNo }} · {{ poll.status === 'OPEN' ? 'Открыт' : 'Закрыт' }}</span>
-            <a class="shrink-0 text-sm font-medium text-emerald-700 underline" [routerLink]="['/g', inviteCode(), 'polls', poll.id, 'results']">Результаты</a>
+          <li
+            class="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4"
+          >
+            <span class="min-w-0 truncate">
+              {{ poll.title || 'Опрос #' + poll.sequenceNo }} ·
+              {{ poll.status === 'OPEN' ? 'Открыт' : 'Закрыт' }}
+            </span>
+            <a
+              class="shrink-0 text-supporting font-medium text-emerald-700 underline"
+              [routerLink]="['/g', group.inviteCode(), 'polls', poll.id, 'results']"
+              >Результаты</a
+            >
           </li>
-        } @empty { <li class="text-sm text-slate-500">Пока нет опросов.</li> }
+        } @empty {
+          <li class="text-supporting text-slate-500">Пока нет опросов.</li>
+        }
       </ul>
     </section>
   </section>

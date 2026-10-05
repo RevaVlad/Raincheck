@@ -1,36 +1,31 @@
 <mat-card class="overflow-hidden">
-  <app-availability-toolbar
-    [selectedKind]="editor.selectedKind()"
-    (selectKind)="select($event)"
-  />
+  <app-availability-toolbar [selectedKind]="editor.selectedKind()" (selectKind)="select($event)" />
   @if (editor.saveState() === 'LOADING') {
-    <div class="grid min-h-48 place-items-center text-sm text-slate-500" aria-live="polite">
-      Загружаем ваш ответ…
-    </div>
+    <app-loading-state layout="editor" statusText="Загружаем ваш ответ…" />
   } @else if (editor.responseLoaded()) {
     <app-availability-grid [selectedKind]="editor.selectedKind()" />
   } @else {
-    <div class="grid min-h-48 place-items-center gap-3 p-6 text-center">
-      <p class="text-sm text-red-700" role="alert">
-        {{ editor.lastSaveError() || 'Не удалось загрузить ответ.' }}
-      </p>
-      <button mat-button type="button" (click)="retryLoad()">Повторить загрузку</button>
-    </div>
+    <app-error-state
+      class="mx-6 my-4"
+      [message]="editor.lastSaveError() || 'Не удалось загрузить ответ.'"
+      retryLabel="Повторить загрузку"
+      (retry)="retryLoad()"
+    />
   }
   <div class="flex flex-wrap items-center gap-3 border-t border-slate-200 px-4 py-3">
-    <span class="text-sm text-slate-500">Выбрано: {{ editor.label() }}</span>
-    <span class="text-xs text-slate-500" role="status" aria-live="polite">
+    <span class="text-supporting text-slate-500">Выбрано: {{ editor.label() }}</span>
+    <span class="text-caption text-slate-500" role="status" aria-live="polite">
       {{ saveLabel(editor.saveState()) }}
     </span>
     @if (editor.responseId()) {
-      <span class="text-xs font-medium text-slate-600">
+      <span class="text-caption font-medium text-slate-600">
         {{ editor.responseState() === 'CONFIRMED' ? 'Ответ подтверждён' : 'Черновик' }}
       </span>
     } @else {
-      <span class="text-xs text-slate-500">Черновик появится после первого изменения</span>
+      <span class="text-caption text-slate-500">Черновик появится после первого изменения</span>
     }
     @if (editor.responseLoaded() && editor.saveState() === 'ERROR' && editor.lastSaveError()) {
-      <p class="w-full text-sm text-red-700" role="alert">{{ editor.lastSaveError() }}</p>
+      <p class="w-full text-supporting text-red-700" role="alert">{{ editor.lastSaveError() }}</p>
     }
     <span class="ml-auto flex gap-2">
       @if (editor.saveState() === 'ERROR' && editor.responseLoaded()) {

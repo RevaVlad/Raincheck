@@ -1,21 +1,28 @@
 import { Component, computed, inject, input } from '@angular/core';
 import { AvailabilityBrush, AvailabilityKind, PollEditorService } from '../poll-editor.service';
 import { TimezonePreferenceService } from '../../../../core/timezone/timezone-preference.service';
+import { TimezoneDisplayPipe } from '../../../../core/timezone/timezone-display.pipe';
 
 interface Slot {
   time: string;
 }
 
+interface Day {
+  localDate: string;
+  startTime: string;
+}
+
 @Component({
   selector: 'app-availability-grid',
+  imports: [TimezoneDisplayPipe],
   templateUrl: './availability-grid.component.html',
   styleUrl: './availability-grid.component.css',
 })
 export class AvailabilityGridComponent {
   readonly selectedKind = input.required<AvailabilityBrush>();
   private readonly editor = inject(PollEditorService);
-  private readonly timezone = inject(TimezonePreferenceService);
-  readonly days = computed(() => {
+  readonly timezone = inject(TimezonePreferenceService);
+  readonly days = computed<Day[]>(() => {
     const poll = this.editor.poll();
     if (!poll) return [];
 
@@ -24,18 +31,11 @@ export class AvailabilityGridComponent {
     const end = new Date(`${poll.endsOn}T00:00:00Z`);
     while (date <= end) {
       const localDate = date.toISOString().slice(0, 10);
-      days.push({
-        weekday: new Intl.DateTimeFormat('ru-RU', { weekday: 'short', timeZone: this.timezone.selectedTimeZone() }).format(new Date(`${localDate}T${poll.dayStart}:00Z`)),
-        date: new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', timeZone: this.timezone.selectedTimeZone() }).format(new Date(`${localDate}T${poll.dayStart}:00Z`)),
-        localDate,
-      });
+      days.push({ localDate, startTime: poll.dayStart });
       date.setUTCDate(date.getUTCDate() + 1);
     }
     return days;
   });
-  displayTime(utcDate: string, utcTime: string): string {
-    return this.timezone.convertUtc(utcDate, utcTime).localTime;
-  }
   readonly slots = computed<Slot[]>(() => {
     const poll = this.editor.poll();
     if (!poll) return [];
@@ -80,9 +80,7 @@ export class AvailabilityGridComponent {
   }
 
   private cellFromTarget(target: EventTarget | null): HTMLElement | null {
-    return target instanceof Element
-      ? target.closest<HTMLElement>('[data-date][data-time]')
-      : null;
+    return target instanceof Element ? target.closest<HTMLElement>('[data-date][data-time]') : null;
   }
 
   private paint(cell: HTMLElement): void {

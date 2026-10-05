@@ -1,6 +1,8 @@
 import { Component, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
+import { ErrorStateComponent } from '../../../shared/presentation/error-state.component';
+import { LoadingStateComponent } from '../../../shared/presentation/loading-state.component';
 import { AvailabilityGridComponent } from './availability-grid/availability-grid.component';
 import { AvailabilityToolbarComponent } from './availability-toolbar/toolbar.component';
 import { PollEditorService } from './poll-editor.service';
@@ -8,7 +10,14 @@ import type { AvailabilityBrush, SaveState } from './poll-editor.service';
 
 @Component({
   selector: 'app-poll-editor',
-  imports: [MatButtonModule, MatCardModule, AvailabilityGridComponent, AvailabilityToolbarComponent],
+  imports: [
+    MatButtonModule,
+    MatCardModule,
+    AvailabilityGridComponent,
+    AvailabilityToolbarComponent,
+    ErrorStateComponent,
+    LoadingStateComponent,
+  ],
   templateUrl: './poll-editor.component.html',
 })
 export class PollEditorComponent {

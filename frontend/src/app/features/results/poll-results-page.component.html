@@ -1,58 +1,61 @@
-<main class="min-h-screen bg-slate-50 p-5 sm:p-8">
+<main class="min-h-[calc(100dvh_-_3.5rem)] bg-slate-50 p-5 sm:p-8">
   <div class="mx-auto max-w-5xl">
-    <a class="text-sm font-medium text-emerald-700 underline" [routerLink]="['/g', inviteCode]"
+    <a
+      class="text-supporting font-medium text-emerald-700 underline"
+      [routerLink]="['/g', inviteCode()]"
       >← К группе</a
     >
-    <h1 class="mt-4 text-3xl font-semibold">Результаты опроса</h1>
-    <p class="mt-2 text-sm text-slate-500">
+    <h1 class="mt-4 text-page-title font-semibold">Результаты опроса</h1>
+    <p class="mt-2 text-supporting text-slate-500">
       Время отображается в часовом поясе {{ timezone.selectedTimeZone() }}.
     </p>
 
     @if (loading()) {
-      <p class="mt-8 rounded-xl bg-white p-6 text-slate-500" aria-live="polite">
-        Загружаем результаты…
-      </p>
+      <app-loading-state class="mt-8" layout="results" statusText="Загружаем результаты…" />
     } @else if (error()) {
-      <section class="mt-8 rounded-xl bg-white p-6">
-        <p class="text-red-700" role="alert">{{ error() }}</p>
-        <button
-          class="mt-4 text-sm font-medium text-emerald-700 underline"
-          type="button"
-          (click)="load()"
-        >
-          Повторить
-        </button>
-      </section>
+      <app-error-state
+        class="mt-8"
+        [message]="error()!"
+        retryLabel="Повторить"
+        (retry)="reload()"
+      />
     } @else if (results(); as data) {
       <section class="mt-6 grid grid-cols-3 gap-3">
         <div class="rounded-xl border border-slate-200 bg-white p-4">
-          <p class="text-xs text-slate-500">Участники</p>
-          <strong class="text-2xl">{{ data.participantSummary.total }}</strong>
+          <p class="text-caption text-slate-500">Участники</p>
+          <strong class="text-metric">{{ data.participantSummary.total }}</strong>
         </div>
         <div class="rounded-xl border border-slate-200 bg-white p-4">
-          <p class="text-xs text-slate-500">Подтвердили</p>
-          <strong class="text-2xl">{{ data.participantSummary.confirmed }}</strong>
+          <p class="text-caption text-slate-500">Подтвердили</p>
+          <strong class="text-metric">{{ data.participantSummary.confirmed }}</strong>
         </div>
         <div class="rounded-xl border border-slate-200 bg-white p-4">
-          <p class="text-xs text-slate-500">Ожидают</p>
-          <strong class="text-2xl">{{ data.participantSummary.pending }}</strong>
+          <p class="text-caption text-slate-500">Ожидают</p>
+          <strong class="text-metric">{{ data.participantSummary.pending }}</strong>
         </div>
       </section>
 
       <section class="mt-8">
-        <h2 class="mb-3 text-xl font-semibold">Лучшее время</h2>
+        <h2 class="mb-3 text-section-title font-semibold">Лучшее время</h2>
         <ol class="space-y-2">
           @for (slot of data.bestSlots; track slot.localDate + slot.startTime; let rank = $index) {
             <li
               class="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4"
             >
-              <span
-                ><strong class="mr-2">{{ rank + 1 }}.</strong
-                >{{ slotLabel(slot.localDate, slot.startTime, slot.endTime) }}</span
-              >
-              <span class="shrink-0 text-sm text-slate-600"
-                >{{ slot.available }} доступны · {{ slot.stars }}/5</span
-              >
+              <span>
+                <strong class="mr-2">{{ rank + 1 }}.</strong>
+                {{
+                  slot.localDate
+                    | timezoneDisplay
+                      : timezone.selectedTimeZone()
+                      : 'slot'
+                      : slot.startTime
+                      : slot.endTime
+                }}
+              </span>
+              <span class="shrink-0 text-supporting text-slate-600">
+                {{ slot.available }} доступны · {{ slot.stars }}/5
+              </span>
             </li>
           } @empty {
             <li class="rounded-xl border border-slate-200 bg-white p-4 text-slate-500">
@@ -63,10 +66,10 @@
       </section>
 
       <section class="mt-8">
-        <h2 class="mb-3 text-xl font-semibold">Доступность по времени</h2>
+        <h2 class="mb-3 text-section-title font-semibold">Доступность по времени</h2>
         <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-          <table class="w-full min-w-[680px] text-left text-sm">
-            <thead class="bg-slate-100 text-xs text-slate-600">
+          <table class="w-full min-w-[680px] text-left text-supporting">
+            <thead class="bg-slate-100 text-caption text-slate-600">
               <tr>
                 <th class="p-3">Время</th>
                 <th class="p-3">Доступны</th>
@@ -79,7 +82,14 @@
               @for (cell of data.heatmap; track cell.localDate + cell.startTime) {
                 <tr class="border-t border-slate-100">
                   <td class="whitespace-nowrap p-3">
-                    {{ slotLabel(cell.localDate, cell.startTime, cell.endTime) }}
+                    {{
+                      cell.localDate
+                        | timezoneDisplay
+                          : timezone.selectedTimeZone()
+                          : 'slot'
+                          : cell.startTime
+                          : cell.endTime
+                    }}
                   </td>
                   <td
                     class="p-3"
