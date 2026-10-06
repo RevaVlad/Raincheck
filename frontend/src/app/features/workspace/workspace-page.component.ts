@@ -7,9 +7,10 @@ import { filter } from 'rxjs/operators';
 import { ParticipantSessionService } from '../../core/session/participant-session.service';
 import { TimezoneDisplayPipe } from '../../core/timezone/timezone-display.pipe';
 import { TimezonePreferenceService } from '../../core/timezone/timezone-preference.service';
-import type { Poll, Workspace } from '../../core/api/api.types';
+import type { Poll, Workspace, WorkspaceParticipant } from '../../core/api/api.types';
 import { GroupFacade } from '../group/group.facade';
 import { GroupSidebarComponent } from './group-sidebar/group-sidebar.component';
+import { AvailabilityIntervalsService } from './poll-editor/availability-grid/availability-intervals.service';
 import { PollEditorComponent } from './poll-editor/poll-editor.component';
 import { PollEditorService } from './poll-editor/poll-editor.service';
 
@@ -21,7 +22,7 @@ interface EditorContext {
 @Component({
   selector: 'app-workspace-page',
   imports: [GroupSidebarComponent, PollEditorComponent, RouterLink, TimezoneDisplayPipe],
-  providers: [PollEditorService],
+  providers: [PollEditorService, AvailabilityIntervalsService],
   templateUrl: './workspace-page.component.html',
 })
 export class WorkspacePageComponent {
@@ -47,6 +48,21 @@ export class WorkspacePageComponent {
   });
 
   readonly currentPoll = computed(() => this.group.workspace()?.currentPoll ?? null);
+
+  readonly sidebarParticipants = computed<WorkspaceParticipant[]>(() => {
+    const workspace = this.group.workspace();
+    if (!workspace) return [];
+
+    const identity = this.session.get(this.group.inviteCode());
+    if (!identity || !workspace.currentPoll || !this.editor.responseLoaded()) {
+      return workspace.participants;
+    }
+
+    const currentPollState = this.editor.responseId() ? this.editor.responseState() : 'NONE';
+    return workspace.participants.map((participant) =>
+      participant.id === identity.participantId ? { ...participant, currentPollState } : participant,
+    );
+  });
 
   readonly inviteLink = computed(
     () =>

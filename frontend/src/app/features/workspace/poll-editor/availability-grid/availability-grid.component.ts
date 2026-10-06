@@ -2,6 +2,7 @@ import { Component, computed, inject, input } from '@angular/core';
 import { AvailabilityBrush, AvailabilityKind, PollEditorService } from '../poll-editor.service';
 import { TimezonePreferenceService } from '../../../../core/timezone/timezone-preference.service';
 import { TimezoneDisplayPipe } from '../../../../core/timezone/timezone-display.pipe';
+import { AvailabilityGridCellComponent } from './availability-grid-cell.component';
 
 interface Slot {
   time: string;
@@ -14,7 +15,7 @@ interface Day {
 
 @Component({
   selector: 'app-availability-grid',
-  imports: [TimezoneDisplayPipe],
+  imports: [TimezoneDisplayPipe, AvailabilityGridCellComponent],
   templateUrl: './availability-grid.component.html',
   styleUrl: './availability-grid.component.css',
 })
@@ -35,6 +36,10 @@ export class AvailabilityGridComponent {
       date.setUTCDate(date.getUTCDate() + 1);
     }
     return days;
+  });
+  readonly gridTemplateColumns = computed(() => {
+    const dayCount = this.days().length;
+    return dayCount ? `68px repeat(${dayCount}, minmax(128px, 1fr))` : '68px';
   });
   readonly slots = computed<Slot[]>(() => {
     const poll = this.editor.poll();

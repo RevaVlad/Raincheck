@@ -6,13 +6,8 @@ import { apiErrorCode, apiErrorMessage, isUnauthorized } from '../../../core/api
 import type { ParticipantResponse, Poll } from '../../../core/api/api.types';
 
 import { PollResponsesApiService } from './poll-responses-api.service';
-import {
-  availabilityCellKey,
-  compressCellsToIntervals,
-  expandIntervalsToCells,
-  type AvailabilityCells,
-  type SerializedAvailabilityInterval,
-} from './availability-grid/availability-intervals';
+import type { SerializedAvailabilityInterval } from './availability-grid/availability-intervals';
+import { AvailabilityIntervalsService } from './availability-grid/availability-intervals.service';
 
 export type AvailabilityKind = 'UNAVAILABLE' | 'IF_NEEDED' | 'PREFERRED';
 
@@ -39,10 +34,10 @@ const AUTOSAVE_DELAY = 600;
 @Injectable()
 export class PollEditorService {
   private readonly api = inject(PollResponsesApiService);
+  private readonly availabilityIntervals = inject(AvailabilityIntervalsService);
   private readonly destroyRef = inject(DestroyRef);
 
   readonly selectedKind = signal<AvailabilityBrush>('PREFERRED');
-  readonly cells = signal<AvailabilityCells>({});
   readonly poll = signal<Poll | null>(null);
 
   readonly responseId = signal<string | null>(null);
@@ -95,7 +90,7 @@ export class PollEditorService {
       if (!this.isCurrent(context)) return;
 
       this.applyResponse(response);
-      this.cells.set(expandIntervalsToCells(response.intervals, poll.slotMinutes));
+      this.availabilityIntervals.load(response.intervals, poll.slotMinutes);
 
       this.finishLoading();
     } catch (error) {
@@ -129,7 +124,7 @@ export class PollEditorService {
       return;
     }
 
-    if (!this.updateCell(localDate, startTime, kind)) {
+    if (!this.availabilityIntervals.paint(localDate, startTime, kind)) {
       return;
     }
 
@@ -147,11 +142,11 @@ export class PollEditorService {
   }
 
   cellAt(localDate: string, startTime: string): AvailabilityKind | null {
-    return this.cells()[availabilityCellKey(localDate, startTime)] ?? null;
+    return this.availabilityIntervals.cellAt(localDate, startTime);
   }
 
   toIntervals(): SerializedAvailabilityInterval[] {
-    return compressCellsToIntervals(this.cells(), this.poll()?.slotMinutes ?? 30);
+    return this.availabilityIntervals.toIntervals(this.poll()?.slotMinutes ?? 30);
   }
 
   pauseAutosave(): void {
@@ -296,30 +291,6 @@ export class PollEditorService {
     return true;
   }
 
-  private updateCell(localDate: string, startTime: string, kind: AvailabilityBrush): boolean {
-    const key = availabilityCellKey(localDate, startTime);
-    const current = this.cells();
-
-    if (kind === 'CLEAR') {
-      if (!(key in current)) return false;
-
-      this.cells.update(({ [key]: _, ...rest }) => rest);
-
-      return true;
-    }
-
-    if (current[key] === kind) {
-      return false;
-    }
-
-    this.cells.update((cells) => ({
-      ...cells,
-      [key]: kind,
-    }));
-
-    return true;
-  }
-
   private canSave(context: EditorContext | null): context is EditorContext {
     return (
       this.isCurrent(context) &&
@@ -404,7 +375,7 @@ export class PollEditorService {
     this.mutationCount.set(0);
 
     this.poll.set(poll);
-    this.cells.set({});
+    this.availabilityIntervals.reset();
 
     this.responseId.set(null);
     this.responseState.set('DRAFT');

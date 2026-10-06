@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { Observable, of, Subject, throwError } from 'rxjs';
 import type { Poll } from '../../../core/api/api.types';
 import { ParticipantSessionService } from '../../../core/session/participant-session.service';
+import { AvailabilityIntervalsService } from './availability-grid/availability-intervals.service';
 import { PollResponsesApiService } from './poll-responses-api.service';
 import { PollEditorService } from './poll-editor.service';
 
@@ -45,6 +46,7 @@ describe('PollEditorService', () => {
     TestBed.configureTestingModule({
       providers: [
         PollEditorService,
+        AvailabilityIntervalsService,
         { provide: PollResponsesApiService, useValue: api },
         { provide: ParticipantSessionService, useValue: session },
       ],
@@ -53,6 +55,30 @@ describe('PollEditorService', () => {
   });
 
   afterEach(() => vi.useRealTimers());
+
+  it('delegates interval loading and resets the interval state for a different poll', async () => {
+    const loaded = {
+      ...draft,
+      intervals: [
+        {
+          id: 'interval-1',
+          localDate: '2026-10-06',
+          startTime: '09:00',
+          endTime: '09:30',
+          kind: 'PREFERRED' as const,
+          preferenceDirection: 'FLAT' as const,
+        },
+      ],
+    };
+    api.getMyResponse.mockReturnValueOnce(of(loaded)).mockReturnValueOnce(of(draft));
+    const availability = TestBed.inject(AvailabilityIntervalsService);
+
+    await editor.load('invite-code', poll, 'secret-token', vi.fn());
+    expect(availability.cellAt('2026-10-06', '09:00')).toBe('PREFERRED');
+
+    await editor.load('invite-code', { ...poll, id: 'another-poll' }, 'secret-token', vi.fn());
+    expect(availability.cellAt('2026-10-06', '09:00')).toBeNull();
+  });
 
   it('starts empty for RESPONSE_NOT_FOUND and lazily creates a draft on first edit', async () => {
     api.getMyResponse.mockReturnValue(
@@ -68,7 +94,7 @@ describe('PollEditorService', () => {
     api.replaceMyResponse.mockReturnValue(of(draft));
     await editor.load('invite-code', poll, 'secret-token', vi.fn());
 
-    expect(editor.cells()).toEqual({});
+    expect(editor.cellAt('2026-10-06', '09:00')).toBeNull();
     expect(editor.responseId()).toBeNull();
     editor.paint('2026-10-06', '09:00', 'PREFERRED');
     await vi.advanceTimersByTimeAsync(600);
@@ -102,7 +128,7 @@ describe('PollEditorService', () => {
 
     await editor.load('invite-code', poll, 'secret-token', unauthorized);
 
-    expect(editor.cells()).toEqual({});
+    expect(editor.cellAt('2026-10-06', '09:00')).toBeNull();
     expect(editor.responseLoaded()).toBe(false);
     expect(editor.saveState()).toBe('ERROR');
     expect(api.createMyResponse).not.toHaveBeenCalled();
@@ -236,7 +262,7 @@ describe('PollEditorService', () => {
     editor.paint('2026-10-06', '09:30', 'CLEAR');
     expect(editor.saveState()).toBe('IDLE');
     editor.paint('2026-10-06', '09:00', 'CLEAR');
-    expect(editor.cells()).toEqual({});
+    expect(editor.toIntervals()).toEqual([]);
     expect(editor.responseState()).toBe('DRAFT');
     await vi.advanceTimersByTimeAsync(600);
     expect(api.replaceMyResponse).toHaveBeenCalledWith('invite-code', 'poll-id', 'secret-token', {

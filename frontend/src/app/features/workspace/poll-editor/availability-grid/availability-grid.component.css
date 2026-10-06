@@ -1,6 +1,5 @@
 .schedule-grid {
   display: grid;
-  grid-template-columns: 68px repeat(7, minmax(128px, 1fr));
 }
 .corner,
 .day {
@@ -26,21 +25,4 @@
   padding: 7px 8px 0 0;
   border-bottom: 1px solid #f1f5f9;
   text-align: right;
-}
-.cell {
-  height: 34px;
-  border-bottom: 1px solid #f1f5f9;
-  border-left: 1px solid #e2e8f0;
-  cursor: crosshair;
-  touch-action: none;
-  user-select: none;
-}
-.unavailable {
-  background: #fbe9e9;
-}
-.if-needed {
-  background: #fdf5df;
-}
-.preferred {
-  background: #e7f5e9;
 }

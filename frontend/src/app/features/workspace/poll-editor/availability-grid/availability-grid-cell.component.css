@@ -1,0 +1,21 @@
+:host {
+  display: block;
+  height: 34px;
+  border-bottom: 1px solid #f1f5f9;
+  border-left: 1px solid #e2e8f0;
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+}
+
+:host(.unavailable) {
+  background: #fbe9e9;
+}
+
+:host(.if-needed) {
+  background: #fdf5df;
+}
+
+:host(.preferred) {
+  background: #e7f5e9;
+}

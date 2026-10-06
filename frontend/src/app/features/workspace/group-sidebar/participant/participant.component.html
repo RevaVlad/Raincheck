@@ -1,0 +1,15 @@
+<div class="flex items-center gap-3 rounded-lg px-2 py-2">
+  <span
+    class="grid size-7 place-items-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600"
+    aria-hidden="true"
+    >{{ initials(participant().displayName) }}</span
+  >
+  <span class="text-sm font-medium">{{ participant().displayName }}</span>
+  <span
+    class="ml-auto text-xs"
+    [class.text-emerald-700]="participant().currentPollState === 'CONFIRMED'"
+    [class.text-slate-400]="participant().currentPollState !== 'CONFIRMED'"
+  >
+    {{ status(participant().currentPollState) }}
+  </span>
+</div>

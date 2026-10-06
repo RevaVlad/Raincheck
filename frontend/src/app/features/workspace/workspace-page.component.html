@@ -2,7 +2,7 @@
   <app-group-sidebar
     [groupName]="workspace().group.name"
     [inviteLink]="inviteLink()"
-    [participants]="workspace().participants"
+    [participants]="sidebarParticipants()"
   />
   <section class="min-w-0 p-5 sm:p-8">
     @if (currentPoll(); as poll) {

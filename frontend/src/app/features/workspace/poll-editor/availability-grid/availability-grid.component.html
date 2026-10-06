@@ -1,6 +1,7 @@
 <div class="overflow-x-auto bg-white">
   <div
-    class="schedule-grid min-w-[760px]"
+    class="schedule-grid"
+    [style.grid-template-columns]="gridTemplateColumns()"
     (pointerdown)="onPointerDown($event)"
     (pointermove)="onPointerMove($event)"
     (pointerup)="onPointerUp($event)"
@@ -21,34 +22,12 @@
     @for (slot of slots(); track slot.time) {
       <div class="time">{{ slot.time }} UTC</div>
       @for (day of days(); track day.localDate) {
-        @let kind = state(day.localDate, slot.time);
-        <div
-          class="cell"
-          [attr.data-date]="day.localDate"
-          [attr.data-time]="slot.time"
-          [attr.title]="
-            (day.localDate | timezoneDisplay: timezone.selectedTimeZone() : 'time' : slot.time) +
-            ' ' +
-            (day.localDate | timezoneDisplay: timezone.selectedTimeZone() : 'offset' : slot.time)
-          "
-          role="gridcell"
-          [attr.aria-label]="
-            (day.localDate
-              | timezoneDisplay: timezone.selectedTimeZone() : 'weekday' : day.startTime) +
-            ' ' +
-            (day.localDate
-              | timezoneDisplay: timezone.selectedTimeZone() : 'date' : day.startTime) +
-            ' ' +
-            (day.localDate | timezoneDisplay: timezone.selectedTimeZone() : 'time' : slot.time) +
-            ' ' +
-            (day.localDate | timezoneDisplay: timezone.selectedTimeZone() : 'offset' : slot.time) +
-            ': ' +
-            (kind ?? 'нейтрально')
-          "
-          [class.unavailable]="kind === 'UNAVAILABLE'"
-          [class.if-needed]="kind === 'IF_NEEDED'"
-          [class.preferred]="kind === 'PREFERRED'"
-        ></div>
+        <app-availability-grid-cell
+          [localDate]="day.localDate"
+          [startTime]="slot.time"
+          [dayStart]="day.startTime"
+          [kind]="state(day.localDate, slot.time)"
+        />
       }
     }
   </div>
