@@ -33,10 +33,9 @@ const pollBody = {
 const groupBody = {
   type: 'object',
   additionalProperties: false,
-  required: ['name', 'creatorDisplayName', 'firstPoll'],
+  required: ['name', 'firstPoll'],
   properties: {
     name: { type: 'string', minLength: 1, maxLength: 120 },
-    creatorDisplayName: { type: 'string', minLength: 1, maxLength: 80 },
     timezone: { type: 'string' },
     firstPoll: pollBody,
   },
@@ -114,7 +113,6 @@ export function registerGroupRoutes(app: FastifyInstance, database: PrismaDataba
   app.post('/api/groups', { schema: { body: groupBody } }, async (request, reply) => {
     const body = request.body as {
       name: string;
-      creatorDisplayName: string;
       timezone?: string;
       firstPoll: Parameters<PollService['create']>[2];
     };
@@ -128,18 +126,11 @@ export function registerGroupRoutes(app: FastifyInstance, database: PrismaDataba
     }
     const created = await database.transaction(async (tx) => {
       const group = await new GroupService(tx).create({ name: body.name });
-      const creator = await new ParticipantService(tx).create(
-        group.id,
-        body.creatorDisplayName,
-        AVATAR_COLORS[0],
-      );
       const currentPoll = await new PollService(tx).create(group.id, 1, body.firstPoll);
-      return { group, creator, currentPoll };
+      return { group, currentPoll };
     });
     return reply.code(201).send({
       group: groupDto(created.group),
-      participant: participantDto(created.creator.participant),
-      participantEditToken: created.creator.editToken,
       currentPoll: pollDto(created.currentPoll),
     });
   });

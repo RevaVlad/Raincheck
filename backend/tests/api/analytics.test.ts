@@ -54,10 +54,17 @@ async function createScenario() {
   const created = await app.inject({
     method: 'POST',
     url: '/api/groups',
-    payload: { name: 'Analytics team', creatorDisplayName: 'Alice', firstPoll: basePoll },
+    payload: { name: 'Analytics team', firstPoll: basePoll },
   });
   assert.equal(created.statusCode, 201, created.body);
-  const { group, currentPoll, participantEditToken: token } = created.json();
+  const { group, currentPoll } = created.json();
+  const joined = await app.inject({
+    method: 'POST',
+    url: `/api/groups/${group.inviteCode}/participants`,
+    payload: { displayName: 'Alice', avatarColor: 'green' },
+  });
+  assert.equal(joined.statusCode, 201, joined.body);
+  const token = joined.json().participantEditToken;
   const responseUrl = `/api/groups/${group.inviteCode}/polls/${currentPoll.id}/responses/me`;
   await submitResponse(responseUrl, token, {
     localDate: '2026-10-06',
