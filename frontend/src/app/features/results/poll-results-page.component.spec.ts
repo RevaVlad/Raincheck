@@ -39,8 +39,8 @@ describe('PollResultsPageComponent', () => {
     group: { id: 'group-a', name: 'Design team', inviteCode: 'group-a', timezone: 'UTC' },
     me: null,
     participants: [
-      { id: 'alice', displayName: 'Алиса', currentPollState: 'NONE' },
-      { id: 'bob', displayName: 'Боб', currentPollState: 'NONE' },
+      { id: 'alice', displayName: 'Алиса', avatarColor: 'gray', currentPollState: 'NONE' },
+      { id: 'bob', displayName: 'Боб', avatarColor: 'gray', currentPollState: 'NONE' },
     ],
     polls: [poll],
     currentPoll: null,
