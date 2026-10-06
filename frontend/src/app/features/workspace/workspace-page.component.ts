@@ -3,6 +3,7 @@ import { Component, DestroyRef, computed, effect, inject } from '@angular/core';
 import { NavigationCancel, NavigationError, Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { filter } from 'rxjs/operators';
+
 import { ParticipantSessionService } from '../../core/session/participant-session.service';
 import { TimezoneDisplayPipe } from '../../core/timezone/timezone-display.pipe';
 import { TimezonePreferenceService } from '../../core/timezone/timezone-preference.service';
@@ -12,6 +13,11 @@ import { GroupSidebarComponent } from './group-sidebar/group-sidebar.component';
 import { PollEditorComponent } from './poll-editor/poll-editor.component';
 import { PollEditorService } from './poll-editor/poll-editor.service';
 
+interface EditorContext {
+  inviteCode: string;
+  poll: Poll;
+}
+
 @Component({
   selector: 'app-workspace-page',
   imports: [GroupSidebarComponent, PollEditorComponent, RouterLink, TimezoneDisplayPipe],
@@ -20,76 +26,127 @@ import { PollEditorService } from './poll-editor/poll-editor.service';
 })
 export class WorkspacePageComponent {
   readonly group = inject(GroupFacade);
-  readonly workspace = computed<Workspace>(() => {
-    const workspace = this.group.workspace();
-    if (!workspace) throw new Error('Workspace data is not available.');
-    return workspace;
-  });
-  readonly currentPoll = computed(() => this.group.workspace()?.currentPoll ?? null);
-  readonly inviteLink = computed(
-    () =>
-      `${this.document.location?.origin ?? ''}/g/${encodeURIComponent(this.group.inviteCode())}`,
-  );
+  readonly timezone = inject(TimezonePreferenceService);
 
   private readonly document = inject(DOCUMENT);
   private readonly session = inject(ParticipantSessionService);
   private readonly editor = inject(PollEditorService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
-  readonly timezone = inject(TimezonePreferenceService);
+
   private leaveAttempt: Promise<boolean> | null = null;
 
+  readonly workspace = computed<Workspace>(() => {
+    const workspace = this.group.workspace();
+
+    if (!workspace) {
+      throw new Error('Workspace data is not available.');
+    }
+
+    return workspace;
+  });
+
+  readonly currentPoll = computed(() => this.group.workspace()?.currentPoll ?? null);
+
+  readonly inviteLink = computed(
+    () =>
+      `${this.document.location?.origin ?? ''}/g/${encodeURIComponent(this.group.inviteCode())}`,
+  );
+
+  private readonly editorContext = computed<EditorContext | null>(() => {
+    const inviteCode = this.group.inviteCode();
+    const workspace = this.group.workspace();
+    const poll = workspace?.currentPoll;
+
+    if (!inviteCode || !workspace?.me || !poll) {
+      return null;
+    }
+
+    return {
+      inviteCode,
+      poll,
+    };
+  });
+
   constructor() {
-    const unregisterLeaveCheck = this.group.registerLeaveCheck(() => this.canLeave());
-    this.destroyRef.onDestroy(unregisterLeaveCheck);
+    this.registerLeaveCheck();
+    this.watchCancelledNavigation();
+    this.watchEditorContext();
+  }
+
+  canLeave(): Promise<boolean> {
+    if (!this.editor.pendingChanges()) {
+      return Promise.resolve(true);
+    }
+
+    return (this.leaveAttempt ??= this.saveBeforeLeaving());
+  }
+
+  private registerLeaveCheck(): void {
+    const unregister = this.group.registerLeaveCheck(() => this.canLeave());
+
+    this.destroyRef.onDestroy(unregister);
+  }
+
+  private watchCancelledNavigation(): void {
     this.router.events
       .pipe(
         filter((event) => event instanceof NavigationCancel || event instanceof NavigationError),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe(() => this.editor.cancelLeaving());
+  }
 
-    effect(() => {
-      const inviteCode = this.group.inviteCode();
-      const poll = this.currentPoll();
-      if (!inviteCode || !poll || !this.group.workspace()?.me) return;
-      void this.loadEditor(inviteCode, poll);
+  private watchEditorContext(): void {
+    effect((onCleanup) => {
+      const context = this.editorContext();
+
+      if (!context) {
+        return;
+      }
+
+      let cancelled = false;
+
+      onCleanup(() => {
+        cancelled = true;
+      });
+
+      void this.loadEditor(context, () => cancelled);
     });
   }
 
-  canLeave(): Promise<boolean> {
-    if (!this.editor.pendingChanges()) return Promise.resolve(true);
-    if (this.leaveAttempt) return this.leaveAttempt;
+  private async saveBeforeLeaving(): Promise<boolean> {
+    try {
+      await this.editor.saveNow();
 
-    const attempt = this.editor
-      .saveNow()
-      .then(() => {
-        this.editor.beginLeaving();
-        return true;
-      })
-      .catch(() => false)
-      .finally(() => {
-        if (this.leaveAttempt === attempt) this.leaveAttempt = null;
-      });
-    this.leaveAttempt = attempt;
-    return attempt;
+      this.editor.beginLeaving();
+
+      return true;
+    } catch {
+      return false;
+    } finally {
+      this.leaveAttempt = null;
+    }
   }
 
-  private async loadEditor(inviteCode: string, poll: Poll): Promise<void> {
+  private async loadEditor(
+    { inviteCode, poll }: EditorContext,
+    isCancelled: () => boolean,
+  ): Promise<void> {
     await this.timezone.ensureConfirmed();
-    if (!this.isCurrentEditorContext(inviteCode, poll)) return;
+
+    if (isCancelled()) {
+      return;
+    }
+
     const identity = this.session.get(inviteCode);
-    if (!identity) return;
+
+    if (!identity) {
+      return;
+    }
+
     void this.editor.load(inviteCode, poll, identity.token, () =>
       this.group.invalidateIdentity(inviteCode),
-    );
-  }
-
-  private isCurrentEditorContext(inviteCode: string, poll: Poll): boolean {
-    return (
-      inviteCode === this.group.inviteCode() &&
-      this.currentPoll()?.id === poll.id &&
-      !!this.group.workspace()?.me
     );
   }
 }

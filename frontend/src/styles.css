@@ -26,6 +26,7 @@
   --border-subtle: #e3e6e5;
   --text-primary: #1d2929;
   --text-secondary: #596767;
+  --mat-card-elevated-container-elevation: none;
 }
 
 body {

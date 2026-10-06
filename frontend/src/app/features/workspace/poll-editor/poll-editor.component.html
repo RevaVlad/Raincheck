@@ -13,20 +13,6 @@
     />
   }
   <div class="flex flex-wrap items-center gap-3 border-t border-slate-200 px-4 py-3">
-    <span class="text-supporting text-slate-500">Выбрано: {{ editor.label() }}</span>
-    <span class="text-caption text-slate-500" role="status" aria-live="polite">
-      {{ saveLabel(editor.saveState()) }}
-    </span>
-    @if (editor.responseId()) {
-      <span class="text-caption font-medium text-slate-600">
-        {{ editor.responseState() === 'CONFIRMED' ? 'Ответ подтверждён' : 'Черновик' }}
-      </span>
-    } @else {
-      <span class="text-caption text-slate-500">Черновик появится после первого изменения</span>
-    }
-    @if (editor.responseLoaded() && editor.saveState() === 'ERROR' && editor.lastSaveError()) {
-      <p class="w-full text-supporting text-red-700" role="alert">{{ editor.lastSaveError() }}</p>
-    }
     <span class="ml-auto flex gap-2">
       @if (editor.saveState() === 'ERROR' && editor.responseLoaded()) {
         <button mat-button type="button" (click)="retrySave()">Повторить сохранение</button>

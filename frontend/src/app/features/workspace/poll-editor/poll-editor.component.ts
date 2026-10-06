@@ -6,7 +6,7 @@ import { LoadingStateComponent } from '../../../shared/presentation/loading-stat
 import { AvailabilityGridComponent } from './availability-grid/availability-grid.component';
 import { AvailabilityToolbarComponent } from './availability-toolbar/toolbar.component';
 import { PollEditorService } from './poll-editor.service';
-import type { AvailabilityBrush, SaveState } from './poll-editor.service';
+import type { AvailabilityBrush } from './poll-editor.service';
 
 @Component({
   selector: 'app-poll-editor',
@@ -25,18 +25,6 @@ export class PollEditorComponent {
 
   select(kind: AvailabilityBrush): void {
     this.editor.select(kind);
-  }
-
-  saveLabel(state: SaveState): string {
-    const labels: Record<SaveState, string> = {
-      LOADING: 'Загружаем ответ…',
-      IDLE: 'Изменений нет',
-      DIRTY: 'Есть несохранённые изменения',
-      SAVING: 'Сохраняем…',
-      SAVED: 'Сохранено',
-      ERROR: 'Не удалось сохранить',
-    };
-    return labels[state];
   }
 
   confirm(): void {
