@@ -1,0 +1,23 @@
+<a
+  class="flex min-w-0 items-center gap-3 rounded-lg px-3 py-3 text-sm hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-emerald-700"
+  [class.bg-emerald-50]="poll().status === 'OPEN'"
+  [class.ring-1]="poll().status === 'OPEN'"
+  [class.ring-inset]="poll().status === 'OPEN'"
+  [class.ring-emerald-100]="poll().status === 'OPEN'"
+  [routerLink]="
+    poll().status === 'OPEN'
+      ? ['/g', inviteCode()]
+      : ['/g', inviteCode(), 'polls', poll().id, 'results']
+  "
+>
+  <span class="min-w-0 flex-1 truncate font-medium text-slate-700">
+    {{ poll().title || 'Опрос #' + poll().sequenceNo }}
+  </span>
+  <span
+    class="shrink-0 text-xs font-medium"
+    [class.text-emerald-700]="poll().status === 'OPEN'"
+    [class.text-slate-500]="poll().status === 'CLOSED'"
+  >
+    {{ poll().status === 'OPEN' ? 'Открыт' : 'Завершён' }}
+  </span>
+</a>

@@ -17,4 +17,10 @@
       }
     </mat-card>
   </section>
+
+  <app-poll-list
+    class="block border-t border-slate-200 mt-8"
+    [inviteCode]="inviteCode()"
+    [polls]="polls()"
+  />
 </aside>

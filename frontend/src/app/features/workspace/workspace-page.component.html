@@ -2,7 +2,9 @@
   <app-group-sidebar
     [groupName]="workspace().group.name"
     [inviteLink]="inviteLink()"
+    [inviteCode]="group.inviteCode()"
     [participants]="sidebarParticipants()"
+    [polls]="workspace().polls"
   />
   <section class="min-w-0 p-5 sm:p-8">
     @if (currentPoll(); as poll) {
@@ -17,27 +19,5 @@
         </p>
       </section>
     }
-    <section class="mt-8">
-      <h2 class="mb-3 text-section-title-small font-semibold">Опросы</h2>
-      <ul class="space-y-2">
-        @for (poll of workspace().polls; track poll.id) {
-          <li
-            class="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4"
-          >
-            <span class="min-w-0 truncate">
-              {{ poll.title || 'Опрос #' + poll.sequenceNo }} ·
-              {{ poll.status === 'OPEN' ? 'Открыт' : 'Закрыт' }}
-            </span>
-            <a
-              class="shrink-0 text-supporting font-medium text-emerald-700 underline"
-              [routerLink]="['/g', group.inviteCode(), 'polls', poll.id, 'results']"
-              >Результаты</a
-            >
-          </li>
-        } @empty {
-          <li class="text-supporting text-slate-500">Пока нет опросов.</li>
-        }
-      </ul>
-    </section>
   </section>
 </main>

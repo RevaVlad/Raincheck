@@ -11,17 +11,4 @@ export class AvailabilityToolbarComponent {
   readonly selectedKind = input.required<AvailabilityBrush>();
   readonly selectKind = output<AvailabilityBrush>();
   readonly editor = inject(PollEditorService);
-
-  readonly saveLabel = computed(() => {
-    const labels: Record<SaveState, string> = {
-      LOADING: 'Сохраняем…',
-      IDLE: 'Изменений нет',
-      DIRTY: 'Сохраняем…',
-      SAVING: 'Сохраняем…',
-      SAVED: 'Сохранено',
-      ERROR: 'Не удалось сохранить',
-    };
-
-    return labels[this.editor.saveState()];
-  });
 }

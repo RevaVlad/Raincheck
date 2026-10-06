@@ -11,14 +11,4 @@
     <mat-button-toggle value="PREFERRED">Удобно</mat-button-toggle>
     <mat-button-toggle value="CLEAR">Очистить</mat-button-toggle>
   </mat-button-toggle-group>
-  <span
-    class="text-caption inline-flex h-7 w-40 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 px-3 text-center text-slate-500"
-    [class.border-emerald-200]="editor.saveState() === 'SAVED'"
-    [class.bg-emerald-50]="editor.saveState() === 'SAVED'"
-    [class.text-emerald-700]="editor.saveState() === 'SAVED'"
-    role="status"
-    aria-live="polite"
-  >
-    {{ saveLabel() }}
-  </span>
 </div>

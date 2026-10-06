@@ -1,6 +1,6 @@
 import { DOCUMENT } from '@angular/common';
 import { Component, DestroyRef, computed, effect, inject } from '@angular/core';
-import { NavigationCancel, NavigationError, Router, RouterLink } from '@angular/router';
+import { NavigationCancel, NavigationError, Router } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { filter } from 'rxjs/operators';
 
@@ -27,7 +27,6 @@ interface EditorContext {
     PollHeaderComponent,
     PollEntryEditorComponent,
     ConfirmResponseButtonComponent,
-    RouterLink,
   ],
   providers: [PollEditorService, AvailabilityIntervalsService],
   templateUrl: './workspace-page.component.html',

@@ -6,7 +6,6 @@
   activePoll.endsOn | timezoneDisplay: selectedTimeZone : 'offset' : activePoll.dayEnd;
 
 <header class="mb-6">
-  <p class="text-supporting font-medium text-slate-500">Текущий опрос</p>
   <h1 class="mt-1 text-page-title font-semibold tracking-tight">
     {{ activePoll.title || 'Опрос #' + activePoll.sequenceNo }}
   </h1>
@@ -18,27 +17,4 @@
       {{ activePoll.endsOn | timezoneDisplay: selectedTimeZone : 'date' : activePoll.dayEnd }}
     </mat-chip>
   </mat-chip-set>
-  <dl class="mt-3 space-y-1 text-supporting text-slate-600">
-    <div class="flex flex-wrap gap-x-1">
-      <dt>Время:</dt>
-      <dd>
-        {{ activePoll.startsOn | timezoneDisplay: selectedTimeZone : 'time' : activePoll.dayStart }}
-        –
-        {{ activePoll.endsOn | timezoneDisplay: selectedTimeZone : 'time' : activePoll.dayEnd }}
-      </dd>
-    </div>
-    <div class="flex gap-x-1">
-      <dt>Шаг:</dt>
-      <dd>{{ activePoll.slotMinutes }} минут</dd>
-    </div>
-    <div class="flex flex-wrap gap-x-1">
-      <dt>Часовой пояс:</dt>
-      <dd>
-        {{ selectedTimeZone }}
-        @if (startOffset !== endOffset) {
-          · {{ startOffset }} – {{ endOffset }}
-        }
-      </dd>
-    </div>
-  </dl>
 </header>
