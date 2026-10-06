@@ -1,0 +1,12 @@
+<mat-card class="mt-3 p-2" aria-label="Участники группы">
+  @for (participant of participants(); track participant.id) {
+    <app-group-participant
+      [participant]="participant"
+      [inviteCode]="inviteCode()"
+      [currentParticipantId]="currentParticipantId()"
+      [showStatus]="showStatuses()"
+    />
+  } @empty {
+    <p class="px-2 py-3 text-sm text-slate-500">Пока нет участников.</p>
+  }
+</mat-card>

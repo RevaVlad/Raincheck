@@ -16,11 +16,14 @@ export type ApiErrorResponse = {
 };
 
 export type Group = { id: string; name: string; inviteCode: string; timezone: 'UTC' };
-export type Participant = { id: string; displayName: string };
-export type ParticipantInput = { displayName: string };
+export type AvatarColor = 'green' | 'blue' | 'purple' | 'rose' | 'yellow' | 'gray';
+export type Participant = { id: string; displayName: string; avatarColor: AvatarColor };
+export type ParticipantInput = { displayName: string; avatarColor: AvatarColor };
+export type ParticipantProfileResponse = { participant: Participant };
 export type WorkspaceParticipant = {
   id: string;
   displayName: string;
+  avatarColor: AvatarColor;
   currentPollState: 'NONE' | 'DRAFT' | 'CONFIRMED';
 };
 
@@ -68,14 +71,11 @@ export type ReplaceResponseRequest = { intervals: IntervalInput[] };
 
 export type CreateGroupRequest = {
   name: string;
-  creatorDisplayName: string;
   timezone?: 'UTC';
   firstPoll: PollInput;
 };
 export type CreateGroupResponse = {
   group: Group;
-  participant: Participant;
-  participantEditToken: string;
   currentPoll: Poll;
 };
 export type JoinResponse = { participant: Participant; participantEditToken: string };

@@ -9,9 +9,20 @@ import {
   provideRouter,
 } from '@angular/router';
 import { GroupFacade } from './group.facade';
-import { confirmGroupEntryLeave, confirmGroupSwitch } from './group.routes';
+import { GROUP_ROUTES, confirmGroupEntryLeave, confirmGroupSwitch } from './group.routes';
 
 describe('group route leave guards', () => {
+  it('registers the same entry component for first entry and explicit profile editing', () => {
+    const children = GROUP_ROUTES[0]?.children ?? [];
+    const entry = children.find((route) => route.path === '');
+    const profile = children.find((route) => route.path === 'profile');
+
+    expect(entry?.loadComponent).toBeDefined();
+    expect(profile?.loadComponent).toBe(entry?.loadComponent);
+    expect(profile?.data?.['profile']).toBe(true);
+    expect(profile?.canDeactivate).toContain(confirmGroupEntryLeave);
+  });
+
   it('asks the active workspace to confirm a group switch', async () => {
     const confirmLeave = vi.fn().mockResolvedValue(false);
     TestBed.configureTestingModule({

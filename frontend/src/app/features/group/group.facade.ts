@@ -1,7 +1,7 @@
 import { DestroyRef, Injectable, computed, effect, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { apiErrorCode, apiErrorMessage } from '../../core/api/api-errors';
-import type { JoinResponse, Workspace } from '../../core/api/api.types';
+import { apiErrorCode, apiErrorMessage, isUnauthorized } from '../../core/api/api-errors';
+import type { JoinResponse, ParticipantInput, Workspace } from '../../core/api/api.types';
 import {
   ParticipantSessionService,
   type ParticipantIdentity,
@@ -9,7 +9,7 @@ import {
 import { GroupsApiService } from './groups-api.service';
 import { ParticipantsApiService } from './participants-api.service';
 
-interface JoinContext {
+interface ProfileContext {
   inviteCode: string;
   version: number;
 }
@@ -22,16 +22,16 @@ interface WorkspaceParams {
 @Injectable()
 export class GroupFacade {
   readonly inviteCode = signal('');
-  readonly joining = signal(false);
-  readonly joinError = signal<string | null>(null);
+  readonly savingProfile = signal(false);
+  readonly profileError = signal<string | null>(null);
 
   private readonly groupsApi = inject(GroupsApiService);
   private readonly participantsApi = inject(ParticipantsApiService);
   private readonly session = inject(ParticipantSessionService);
   private readonly loadVersion = signal(0);
   private readonly identityInvalidated = signal(false);
-  private readonly joinNotFound = signal(false);
-  private joinVersion = 0;
+  private readonly profileNotFound = signal(false);
+  private profileVersion = 0;
   private leaveCheck: (() => Promise<boolean>) | null = null;
 
   private readonly workspaceParams = computed<WorkspaceParams | undefined>(() => {
@@ -56,7 +56,7 @@ export class GroupFacade {
   readonly notFound = computed(
     () =>
       !this.inviteCode() ||
-      this.joinNotFound() ||
+      this.profileNotFound() ||
       apiErrorCode(this.workspaceResource.error()) === 'GROUP_NOT_FOUND',
   );
   readonly loadError = computed(() => {
@@ -72,12 +72,12 @@ export class GroupFacade {
 
   setInviteCode(inviteCode: string): void {
     if (inviteCode === this.inviteCode()) return;
-    this.joinVersion += 1;
-    this.joining.set(false);
+    this.profileVersion += 1;
+    this.savingProfile.set(false);
     this.inviteCode.set(inviteCode);
     this.identityInvalidated.set(false);
-    this.joinNotFound.set(false);
-    this.joinError.set(null);
+    this.profileNotFound.set(false);
+    this.profileError.set(null);
   }
 
   registerLeaveCheck(check: () => Promise<boolean>): () => void {
@@ -95,24 +95,26 @@ export class GroupFacade {
     this.loadVersion.update((version) => version + 1);
   }
 
-  async join(displayName: string): Promise<void> {
+  async saveProfile(input: ParticipantInput): Promise<boolean> {
     const inviteCode = this.inviteCode();
-    const name = displayName.trim();
-    if (!this.canJoin(inviteCode, name)) return;
+    const displayName = input.displayName.trim();
+    if (!this.canSaveProfile(inviteCode, displayName)) return false;
 
-    const context = { inviteCode, version: ++this.joinVersion };
-    this.joining.set(true);
-    this.joinNotFound.set(false);
-    this.joinError.set(null);
+    const context = this.beginProfileSave(inviteCode);
+    const identity = this.currentProfileIdentity(inviteCode);
+
     try {
-      const result = await firstValueFrom(
-        this.participantsApi.joinGroup(inviteCode, { displayName: name }),
-      );
-      if (this.isCurrentJoin(context)) this.completeJoin(context, result);
+      const body = { displayName, avatarColor: input.avatarColor };
+      if (!(await this.persistProfile(context, identity, body))) return false;
+      if (!this.isCurrentProfile(context)) return false;
+      this.identityInvalidated.set(false);
+      this.reload();
+      return true;
     } catch (error) {
-      if (this.isCurrentJoin(context)) this.handleJoinError(error);
+      this.handleProfileError(error, context, identity !== null);
+      return false;
     } finally {
-      if (context.version === this.joinVersion) this.joining.set(false);
+      this.finishProfileSave(context);
     }
   }
 
@@ -120,7 +122,7 @@ export class GroupFacade {
     this.session.clear(inviteCode);
     if (inviteCode !== this.inviteCode()) return;
     this.identityInvalidated.set(true);
-    this.joinError.set('Сеанс участника завершился. Присоединитесь к группе ещё раз.');
+    this.profileError.set('Сеанс участника завершился. Заполните профиль ещё раз.');
   }
 
   private readWorkspace(): Workspace | null {
@@ -140,45 +142,99 @@ export class GroupFacade {
 
   private clearStaleIdentity(): void {
     const params = this.workspaceParams();
-    if (!this.shouldClearStaleIdentity(params)) return;
+    if (!params?.identity || !this.workspaceIsReady()) return;
     if (!this.workspaceResource.value()?.me) this.session.clear(params.inviteCode);
   }
 
-  private shouldClearStaleIdentity(params: WorkspaceParams | undefined): params is WorkspaceParams {
-    return !!params?.identity && this.workspaceIsReady();
+  private isCurrentProfile(context: ProfileContext): boolean {
+    return context.inviteCode === this.inviteCode() && context.version === this.profileVersion;
   }
 
-  private canJoin(inviteCode: string, name: string): boolean {
-    return !!inviteCode && !!name && !this.joining();
+  private canSaveProfile(inviteCode: string, displayName: string): boolean {
+    return !!inviteCode && !!displayName && !this.savingProfile();
   }
 
-  private isCurrentJoin(context: JoinContext): boolean {
-    return context.inviteCode === this.inviteCode() && context.version === this.joinVersion;
+  private beginProfileSave(inviteCode: string): ProfileContext {
+    this.savingProfile.set(true);
+    this.profileError.set(null);
+    this.profileNotFound.set(false);
+    return { inviteCode, version: ++this.profileVersion };
   }
 
-  private completeJoin(context: JoinContext, result: JoinResponse): void {
+  private currentProfileIdentity(inviteCode: string): ParticipantIdentity | null {
+    const me = this.workspace()?.me;
+    const identity = this.session.get(inviteCode);
+    return me && identity?.participantId === me.id ? identity : null;
+  }
+
+  private async persistProfile(
+    context: ProfileContext,
+    identity: ParticipantIdentity | null,
+    body: ParticipantInput,
+  ): Promise<boolean> {
+    if (identity) {
+      await firstValueFrom(
+        this.participantsApi.updateProfile(context.inviteCode, identity.token, body),
+      );
+      return true;
+    }
+
+    const result = await firstValueFrom(this.participantsApi.joinGroup(context.inviteCode, body));
+    return this.isCurrentProfile(context) && this.storeCreatedIdentity(context, result);
+  }
+
+  private storeCreatedIdentity(context: ProfileContext, result: JoinResponse): boolean {
     const stored = this.session.store(context.inviteCode, {
       participantId: result.participant.id,
       token: result.participantEditToken,
     });
-    if (!stored) {
-      this.joinError.set(
-        'Браузер не сохранил доступ участника. Включите локальное хранилище и попробуйте снова.',
-      );
+    if (stored) return true;
+
+    this.profileError.set(
+      'Браузер не сохранил доступ участника. Включите локальное хранилище и попробуйте снова.',
+    );
+    return false;
+  }
+
+  private handleProfileError(error: unknown, context: ProfileContext, wasUpdate: boolean): void {
+    if (!this.isCurrentProfile(context)) return;
+
+    this.setProfileError(error, context, wasUpdate);
+  }
+
+  private setProfileError(error: unknown, context: ProfileContext, wasUpdate: boolean): void {
+    const code = apiErrorCode(error);
+    if (code === 'GROUP_NOT_FOUND') {
+      this.profileNotFound.set(true);
       return;
     }
-    this.identityInvalidated.set(false);
+    if (code === 'PARTICIPANT_NAME_TAKEN') {
+      this.profileError.set('Это имя уже используется в группе. Выберите другое.');
+      return;
+    }
+    if (this.isUnauthorizedProfileUpdate(error, code, wasUpdate)) {
+      this.invalidateUpdatedIdentity(context);
+      return;
+    }
+    this.profileError.set(apiErrorMessage(error, 'Не удалось сохранить профиль.'));
+  }
+
+  private isUnauthorizedProfileUpdate(
+    error: unknown,
+    code: ReturnType<typeof apiErrorCode>,
+    wasUpdate: boolean,
+  ): boolean {
+    return wasUpdate && (code === 'UNAUTHORIZED' || isUnauthorized(error));
+  }
+
+  private invalidateUpdatedIdentity(context: ProfileContext): void {
+    this.session.clear(context.inviteCode);
+    this.identityInvalidated.set(true);
+    this.profileError.set('Не удалось подтвердить участника. Заполните профиль ещё раз.');
     this.reload();
   }
 
-  private handleJoinError(error: unknown): void {
-    const code = apiErrorCode(error);
-    if (code === 'GROUP_NOT_FOUND') {
-      this.joinNotFound.set(true);
-    } else if (code === 'PARTICIPANT_NAME_TAKEN') {
-      this.joinError.set('Это имя уже используется в группе. Выберите другое.');
-    } else {
-      this.joinError.set(apiErrorMessage(error, 'Не удалось присоединиться к группе.'));
-    }
+  private finishProfileSave(context: ProfileContext): void {
+    if (context.version === this.profileVersion) this.savingProfile.set(false);
   }
 }

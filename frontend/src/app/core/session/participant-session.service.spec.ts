@@ -61,13 +61,13 @@ describe('ParticipantSessionService', () => {
     }
   });
 
-  it('lets storage removal errors from clear reach the caller', () => {
+  it('keeps stale identity cleanup safe when browser storage removal fails', () => {
     const removeItem = vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
       throw new DOMException('Storage unavailable', 'SecurityError');
     });
 
     try {
-      expect(() => session.clear('group-a')).toThrow('Storage unavailable');
+      expect(() => session.clear('group-a')).not.toThrow();
     } finally {
       removeItem.mockRestore();
     }

@@ -1,17 +1,40 @@
-<div class="flex items-center gap-3 rounded-lg px-2 py-2">
+<ng-template #cardContent>
   <span
-    class="grid size-7 place-items-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600"
+    class="grid size-8 shrink-0 place-items-center rounded-full text-xs font-semibold text-slate-700"
+    [style.background-color]="color(participant().avatarColor)"
+    [attr.data-avatar-color]="participant().avatarColor"
     aria-hidden="true"
-    >{{ initials(participant().displayName) }}</span
   >
-  <span class="text-sm font-medium">{{ participant().displayName }}</span>
+    {{ initials(participant().displayName) }}
+  </span>
+  <span class="min-w-0 truncate text-sm font-medium">{{ participant().displayName }}</span>
   @if (showStatus()) {
     <span
-      class="ml-auto text-xs"
+      class="ml-auto shrink-0 text-xs"
       [class.text-emerald-700]="participant().currentPollState === 'CONFIRMED'"
       [class.text-slate-400]="participant().currentPollState !== 'CONFIRMED'"
     >
       {{ status(participant().currentPollState) }}
     </span>
   }
-</div>
+</ng-template>
+
+@if (isCurrent()) {
+  <a
+    class="flex items-center gap-3 rounded-lg bg-emerald-50 px-2 py-2 ring-1 ring-emerald-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+    [routerLink]="['/g', inviteCode(), 'profile']"
+    aria-current="page"
+    [attr.aria-label]="participant().displayName + ', ваш профиль'"
+    data-participant-card
+  >
+    <ng-container [ngTemplateOutlet]="cardContent" />
+  </a>
+} @else {
+  <div
+    class="flex items-center gap-3 rounded-lg px-2 py-2 opacity-60"
+    [attr.aria-label]="participant().displayName"
+    data-participant-card
+  >
+    <ng-container [ngTemplateOutlet]="cardContent" />
+  </div>
+}

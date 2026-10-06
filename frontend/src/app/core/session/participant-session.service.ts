@@ -61,7 +61,11 @@ export class ParticipantSessionService {
   }
 
   clear(inviteCode: string): void {
-    localStorage.removeItem(this.key(inviteCode));
+    try {
+      localStorage.removeItem(this.key(inviteCode));
+    } catch {
+      // Storage can become unavailable after the session was read.
+    }
   }
 
   private key(inviteCode: string): string {

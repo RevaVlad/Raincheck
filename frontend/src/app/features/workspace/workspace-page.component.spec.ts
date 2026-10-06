@@ -14,6 +14,17 @@ describe('WorkspacePageComponent leave checks', () => {
     pending = true,
     saveDraft: () => Promise<void> = vi.fn().mockResolvedValue(undefined),
     polls: Poll[] = [],
+    participants: {
+      id: string;
+      displayName: string;
+      avatarColor: 'green' | 'blue' | 'purple' | 'rose' | 'yellow' | 'gray';
+      currentPollState: 'NONE' | 'DRAFT' | 'CONFIRMED';
+    }[] = [],
+    me: {
+      id: string;
+      displayName: string;
+      avatarColor: 'green' | 'blue' | 'purple' | 'rose' | 'yellow' | 'gray';
+    } | null = null,
   ) {
     const editor = {
       pendingChanges: signal(pending),
@@ -25,9 +36,14 @@ describe('WorkspacePageComponent leave checks', () => {
     const group = {
       inviteCode: signal('invite-code'),
       workspace: signal({
-        group: { name: 'Team' },
-        me: null,
-        participants: [],
+        group: {
+          id: 'group-id',
+          name: 'Team',
+          inviteCode: 'invite-code',
+          timezone: 'UTC' as const,
+        },
+        me,
+        participants,
         polls,
         currentPoll: null,
       }),
@@ -38,7 +54,12 @@ describe('WorkspacePageComponent leave checks', () => {
       providers: [
         provideRouter([]),
         { provide: GroupFacade, useValue: group },
-        { provide: ParticipantSessionService, useValue: { get: vi.fn(() => null) } },
+        {
+          provide: ParticipantSessionService,
+          useValue: {
+            get: vi.fn(() => (me ? { participantId: me.id, token: 'secret' } : null)),
+          },
+        },
         {
           provide: TimezonePreferenceService,
           useValue: { selectedTimeZone: signal('UTC'), ensureConfirmed: vi.fn() },
@@ -204,5 +225,45 @@ describe('WorkspacePageComponent leave checks', () => {
     expect(sectionText.some((text: string) => text.includes('Пока нет прошедших опросов.'))).toBe(
       true,
     );
+  });
+
+  it('links only the current participant to the active profile and shows avatar colors', async () => {
+    const me = { id: 'self', displayName: 'Alex', avatarColor: 'purple' as const };
+    const { fixture } = await createPage(
+      false,
+      undefined,
+      [],
+      [
+        { ...me, currentPollState: 'NONE' },
+        {
+          id: 'other',
+          displayName: 'Sam',
+          avatarColor: 'yellow',
+          currentPollState: 'NONE',
+        },
+      ],
+      me,
+    );
+    const cards = [...fixture.nativeElement.querySelectorAll('app-group-participant')];
+    const selfLink = cards[0].querySelector('a');
+    const otherCard = cards[1];
+
+    expect(selfLink?.getAttribute('href')).toBe('/g/invite-code/profile');
+    expect(selfLink?.getAttribute('aria-current')).toBe('page');
+    expect(cards[0].querySelector('[data-avatar-color="purple"]')).not.toBeNull();
+    expect(otherCard.querySelector('a')).toBeNull();
+    expect(otherCard.textContent).toContain('Sam');
+    expect(otherCard.querySelector('[data-avatar-color="yellow"]')).not.toBeNull();
+    expect(
+      otherCard.querySelector('[data-participant-card]')?.classList.contains('opacity-60'),
+    ).toBe(true);
+  });
+
+  it('keeps the empty participant state in the sidebar', async () => {
+    const { fixture } = await createPage(false);
+
+    expect(
+      fixture.nativeElement.querySelector('app-group-participant-list')?.textContent,
+    ).toContain('Пока нет участников.');
   });
 });

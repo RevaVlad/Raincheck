@@ -18,6 +18,11 @@ export const resolveGroupInviteCode: ResolveFn<boolean> = (route: ActivatedRoute
   return true;
 };
 
+const loadGroupEntryPage = () =>
+  import('../group-entry/group-entry-page.component').then(
+    (module) => module.GroupEntryPageComponent,
+  );
+
 export const GROUP_ROUTES: Routes = [
   {
     path: ':inviteCode',
@@ -30,10 +35,13 @@ export const GROUP_ROUTES: Routes = [
         path: '',
         pathMatch: 'full',
         canDeactivate: [confirmGroupEntryLeave],
-        loadComponent: () =>
-          import('../group-entry/group-entry-page.component').then(
-            (module) => module.GroupEntryPageComponent,
-          ),
+        loadComponent: loadGroupEntryPage,
+      },
+      {
+        path: 'profile',
+        data: { profile: true },
+        canDeactivate: [confirmGroupEntryLeave],
+        loadComponent: loadGroupEntryPage,
       },
       {
         path: 'polls/:pollId/results',

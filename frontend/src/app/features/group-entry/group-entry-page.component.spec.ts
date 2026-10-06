@@ -1,21 +1,43 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { ActivatedRoute, Router, provideRouter } from '@angular/router';
 import { TimezonePreferenceService } from '../../core/timezone/timezone-preference.service';
 import { GroupFacade } from '../group/group.facade';
 import { GroupEntryPageComponent } from './group-entry-page.component';
 
 describe('GroupEntryPageComponent', () => {
-  it('keeps the group form in the feature and delegates joining to the facade', async () => {
+  async function setup(
+    me: {
+      id: string;
+      displayName: string;
+      avatarColor: 'green' | 'blue' | 'purple' | 'rose' | 'yellow' | 'gray';
+    } | null = null,
+    routeData: Record<string, unknown> = {},
+    onSave = vi.fn().mockResolvedValue(true),
+  ) {
+    const profileError = signal<string | null>(null);
     const facade = {
       inviteCode: signal('invite-code'),
-      workspace: signal({ group: { name: 'Team' }, me: null, polls: [], currentPoll: null }),
+      workspace: signal({
+        group: {
+          id: 'group-id',
+          name: 'Team',
+          inviteCode: 'invite-code',
+          timezone: 'UTC' as const,
+        },
+        me,
+        participants: [],
+        polls: [],
+        currentPoll: null,
+      }),
       loading: signal(false),
-      joining: signal(false),
       notFound: signal(false),
       loadError: signal(null),
-      joinError: signal(null),
-      join: vi.fn(),
+      savingProfile: signal(false),
+      profileError,
+      saveProfile: onSave,
       reload: vi.fn(),
+      confirmLeave: vi.fn().mockResolvedValue(true),
     };
     const timezone = {
       selectedTimeZone: signal('UTC'),
@@ -26,19 +48,87 @@ describe('GroupEntryPageComponent', () => {
     await TestBed.configureTestingModule({
       imports: [GroupEntryPageComponent],
       providers: [
+        provideRouter([]),
+        { provide: ActivatedRoute, useValue: { snapshot: { data: routeData } } },
         { provide: GroupFacade, useValue: facade },
         { provide: TimezonePreferenceService, useValue: timezone },
       ],
     }).compileComponents();
 
+    const router = TestBed.inject(Router);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
     const fixture = TestBed.createComponent(GroupEntryPageComponent);
     fixture.detectChanges();
-    fixture.componentInstance.displayName = ' Alex ';
-    fixture.detectChanges();
-    (fixture.nativeElement.querySelector('form') as HTMLFormElement).dispatchEvent(
-      new Event('submit', { bubbles: true, cancelable: true }),
-    );
+    TestBed.tick();
+    return { fixture, component: fixture.componentInstance, facade, navigate, profileError };
+  }
 
-    expect(facade.join).toHaveBeenCalledWith(' Alex ');
+  it('starts with green and saves a new profile before opening the workspace', async () => {
+    const saveProfile = vi.fn().mockResolvedValue(true);
+    const { component, facade, navigate } = await setup(null, {}, saveProfile);
+    expect(component.avatarColor).toBe('green');
+
+    component.displayName = ' Alex ';
+    component.avatarColor = 'purple';
+    await component.submitProfile();
+
+    expect(saveProfile).toHaveBeenCalledWith({ displayName: 'Alex', avatarColor: 'purple' });
+    expect(navigate).toHaveBeenCalledWith(['/g', 'invite-code']);
+    expect(facade.profileError()).toBeNull();
+  });
+
+  it('pre-fills a valid participant on the explicit profile route', async () => {
+    const member = { id: 'participant-id', displayName: 'Alex', avatarColor: 'blue' as const };
+    const { component } = await setup(member, { profile: true });
+
+    expect(component.displayName).toBe('Alex');
+    expect(component.avatarColor).toBe('blue');
+  });
+
+  it('renders the six accessible colors in palette order and supports arrow navigation', async () => {
+    const { fixture, component } = await setup();
+    const choices = [...fixture.nativeElement.querySelectorAll('mat-button-toggle')];
+
+    expect(choices.map((choice) => choice.textContent.trim())).toEqual([
+      'Зелёный',
+      'Синий',
+      'Фиолетовый',
+      'Розовый',
+      'Жёлтый',
+      'Серый',
+    ]);
+    expect(
+      choices.filter(
+        (choice) => choice.querySelector('[role="radio"]')?.getAttribute('aria-checked') === 'true',
+      ),
+    ).toHaveLength(1);
+
+    const firstButton = choices[0].querySelector('button') as HTMLButtonElement;
+    firstButton.focus();
+    firstButton.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowRight', keyCode: 39, bubbles: true }),
+    );
+    fixture.detectChanges();
+
+    expect(component.avatarColor).toBe('blue');
+    expect(choices[1].querySelector('[role="radio"]')?.getAttribute('aria-checked')).toBe('true');
+  });
+
+  it('keeps profile errors visible and stays on the form after a failed save', async () => {
+    const saveProfile = vi.fn().mockResolvedValue(false);
+    const { fixture, component, navigate, profileError } = await setup(null, {}, saveProfile);
+    saveProfile.mockImplementation(async () => {
+      profileError.set('This name is already used.');
+      return false;
+    });
+    component.displayName = 'Alex';
+    await component.submitProfile();
+    fixture.detectChanges();
+
+    expect(navigate).not.toHaveBeenCalled();
+    expect(profileError()).toBe('This name is already used.');
+    expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toContain(
+      'already used',
+    );
   });
 });
