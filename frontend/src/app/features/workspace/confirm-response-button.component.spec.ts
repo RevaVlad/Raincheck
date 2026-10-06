@@ -1,5 +1,6 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { Router, provideRouter } from '@angular/router';
 
 import type { SaveState } from './poll-editor/poll-editor.service';
 import { PollEditorService } from './poll-editor/poll-editor.service';
@@ -17,12 +18,17 @@ describe('ConfirmResponseButtonComponent', () => {
       saveState: signal(saveState),
       confirm: vi.fn(),
     };
-    await TestBed.configureTestingModule({ imports: [ConfirmResponseButtonComponent] })
+    await TestBed.configureTestingModule({
+      imports: [ConfirmResponseButtonComponent],
+      providers: [provideRouter([])],
+    })
       .overrideComponent(ConfirmResponseButtonComponent, {
         set: { providers: [{ provide: PollEditorService, useValue: editor }] },
       })
       .compileComponents();
     const fixture = TestBed.createComponent(ConfirmResponseButtonComponent);
+    fixture.componentRef.setInput('inviteCode', 'invite-code');
+    fixture.componentRef.setInput('pollId', 'poll-id');
     fixture.detectChanges();
     return { fixture, editor };
   }
@@ -72,5 +78,23 @@ describe('ConfirmResponseButtonComponent', () => {
     const { fixture } = await createButton('response-id', 'DRAFT', 'LOADING');
 
     expect(fixture.nativeElement.querySelector('button').disabled).toBe(true);
+  });
+
+  it('keeps the results link unavailable until the response is confirmed', async () => {
+    const { fixture, editor } = await createButton('response-id', 'DRAFT');
+    const link: HTMLAnchorElement = fixture.nativeElement.querySelector('a');
+
+    expect(link.textContent.trim()).toBe('Посмотреть результаты');
+    expect(link.getAttribute('href')).toBeNull();
+    expect(link.getAttribute('aria-disabled')).toBe('true');
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl');
+    link.click();
+    expect(navigate).not.toHaveBeenCalled();
+
+    editor.responseState.set('CONFIRMED');
+    fixture.detectChanges();
+
+    expect(link.getAttribute('aria-disabled')).toBeNull();
+    expect(link.getAttribute('href')).toBe('/g/invite-code/polls/poll-id/results');
   });
 });

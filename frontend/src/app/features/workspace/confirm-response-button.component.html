@@ -1,5 +1,17 @@
 <section class="mt-4 flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
+  <a
+    mat-stroked-button
+    [routerLink]="
+      editor.responseState() === 'CONFIRMED'
+        ? ['/g', inviteCode(), 'polls', pollId(), 'results']
+        : null
+    "
+    [disabled]="editor.responseState() !== 'CONFIRMED'"
+  >
+    Посмотреть результаты
+  </a>
   <button
+    class="!min-w-45"
     mat-flat-button
     type="button"
     [disabled]="
