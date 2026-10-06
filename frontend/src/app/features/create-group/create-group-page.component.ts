@@ -22,14 +22,23 @@ type CreateGroupValues = {
 
 type ValidCreateGroupValues = Omit<
   CreateGroupValues,
-  'groupName' | 'startsOn' | 'endsOn' | 'dayStart' | 'dayEnd'
+  'groupName' | 'startsOn' | 'endsOn' | 'dayStart' | 'dayEnd' | 'slotMinutes'
 > & {
   groupName: string;
   startsOn: string;
   endsOn: string;
   dayStart: string;
   dayEnd: string;
+  slotMinutes: string;
 };
+
+function defaultPollDates(): [string, string] {
+  const startsOn = new Date();
+  startsOn.setUTCDate(startsOn.getUTCDate() + 1);
+  const endsOn = new Date(startsOn);
+  endsOn.setUTCDate(endsOn.getUTCDate() + 6);
+  return [startsOn.toISOString().slice(0, 10), endsOn.toISOString().slice(0, 10)];
+}
 
 @Component({
   selector: 'app-create-group-page',
@@ -47,13 +56,14 @@ type ValidCreateGroupValues = Omit<
 export class CreateGroupPageComponent {
   private readonly api = inject(GroupsApiService);
   private readonly router = inject(Router);
+  private readonly pollDates = defaultPollDates();
   readonly submitting = signal(false);
   readonly created = signal(false);
   readonly errorMessage = signal<string | null>(null);
   readonly form = new FormGroup({
-    groupName: new FormControl('Встречи команды CRM'),
-    startsOn: new FormControl('2026-10-06'),
-    endsOn: new FormControl('2026-10-12'),
+    groupName: new FormControl(''),
+    startsOn: new FormControl(this.pollDates[0]),
+    endsOn: new FormControl(this.pollDates[1]),
     dayStart: new FormControl('16:00'),
     dayEnd: new FormControl('23:00'),
     slotMinutes: new FormControl('30'),
@@ -64,6 +74,13 @@ export class CreateGroupPageComponent {
     const value = this.form.getRawValue();
     if (!this.hasRequiredFields(value)) {
       this.form.markAllAsTouched();
+      this.errorMessage.set('Заполните все обязательные поля.');
+      return;
+    }
+    const scheduleError = this.scheduleError(value);
+    if (scheduleError) {
+      this.form.markAllAsTouched();
+      this.errorMessage.set(scheduleError);
       return;
     }
 
@@ -88,7 +105,7 @@ export class CreateGroupPageComponent {
       this.created.set(true);
       await this.router.navigate(['/g', result.group.inviteCode, 'profile']);
     } catch (error) {
-      this.errorMessage.set(apiErrorMessage(error, 'Could not create the group.'));
+      this.errorMessage.set(apiErrorMessage(error, 'Не удалось создать группу.'));
     } finally {
       this.submitting.set(false);
     }
@@ -100,7 +117,29 @@ export class CreateGroupPageComponent {
       !!value.startsOn &&
       !!value.endsOn &&
       !!value.dayStart &&
-      !!value.dayEnd
+      !!value.dayEnd &&
+      (value.slotMinutes === '30' || value.slotMinutes === '60')
     );
+  }
+
+  private scheduleError(value: ValidCreateGroupValues): string | null {
+    const startsOn = Date.parse(`${value.startsOn}T00:00:00Z`);
+    const endsOn = Date.parse(`${value.endsOn}T00:00:00Z`);
+    const days = (endsOn - startsOn) / 86_400_000 + 1;
+    if (!Number.isInteger(days) || days < 1 || days > 7) {
+      return 'Первый опрос должен охватывать от 1 до 7 дней.';
+    }
+
+    const [startHour, startMinute] = value.dayStart.split(':').map(Number);
+    const [endHour, endMinute] = value.dayEnd.split(':').map(Number);
+    const windowMinutes = endHour * 60 + endMinute - (startHour * 60 + startMinute);
+    if (windowMinutes < 60) {
+      return 'Конец окна должен быть позже начала и оставлять не менее 60 минут.';
+    }
+    if (value.slotMinutes !== '30' && value.slotMinutes !== '60') {
+      return 'Выберите шаг сетки: 30 или 60 минут.';
+    }
+
+    return null;
   }
 }

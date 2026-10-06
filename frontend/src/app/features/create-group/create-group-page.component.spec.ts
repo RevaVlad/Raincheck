@@ -5,6 +5,47 @@ import { GroupsApiService } from '../group/groups-api.service';
 import { CreateGroupPageComponent } from './create-group-page.component';
 
 describe('CreateGroupPageComponent', () => {
+  it('defaults the first poll to the next seven UTC days', async () => {
+    await TestBed.configureTestingModule({
+      imports: [CreateGroupPageComponent],
+    }).compileComponents();
+
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-06T23:30:00.000Z'));
+    try {
+      const fixture = TestBed.createComponent(CreateGroupPageComponent);
+      const { startsOn, endsOn } = fixture.componentInstance.form.getRawValue();
+
+      expect(startsOn).toBe('2026-10-07');
+      expect(endsOn).toBe('2026-10-13');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('shows a form error instead of sending an invalid daily window', async () => {
+    const createGroup = vi.fn().mockReturnValue(of({}));
+    await TestBed.configureTestingModule({
+      imports: [CreateGroupPageComponent],
+      providers: [provideRouter([]), { provide: GroupsApiService, useValue: { createGroup } }],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(CreateGroupPageComponent);
+    fixture.componentInstance.form.patchValue({
+      groupName: 'Team',
+      dayStart: '23:00',
+      dayEnd: '16:00',
+    });
+
+    await fixture.componentInstance.submit();
+    fixture.detectChanges();
+
+    expect(createGroup).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toContain(
+      'Конец окна должен быть позже начала',
+    );
+  });
+
   it('creates the first UTC poll without a participant name and opens the profile route', async () => {
     const createGroup = vi.fn().mockReturnValue(
       of({
