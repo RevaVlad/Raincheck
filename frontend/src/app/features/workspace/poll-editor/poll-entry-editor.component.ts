@@ -9,7 +9,7 @@ import { PollEditorService } from './poll-editor.service';
 import type { AvailabilityBrush } from './poll-editor.service';
 
 @Component({
-  selector: 'app-poll-editor',
+  selector: 'app-poll-entry-editor',
   imports: [
     MatButtonModule,
     MatCardModule,
@@ -18,17 +18,13 @@ import type { AvailabilityBrush } from './poll-editor.service';
     ErrorStateComponent,
     LoadingStateComponent,
   ],
-  templateUrl: './poll-editor.component.html',
+  templateUrl: './poll-entry-editor.component.html',
 })
-export class PollEditorComponent {
+export class PollEntryEditorComponent {
   readonly editor = inject(PollEditorService);
 
   select(kind: AvailabilityBrush): void {
     this.editor.select(kind);
-  }
-
-  confirm(): void {
-    void this.editor.confirm();
   }
 
   retrySave(): void {

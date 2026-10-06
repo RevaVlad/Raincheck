@@ -1,0 +1,20 @@
+<mat-card class="overflow-hidden">
+  <app-availability-toolbar [selectedKind]="editor.selectedKind()" (selectKind)="select($event)" />
+  @if (editor.saveState() === 'LOADING') {
+    <app-loading-state layout="editor" statusText="Загружаем ваш ответ…" />
+  } @else if (editor.responseLoaded()) {
+    <app-availability-grid [selectedKind]="editor.selectedKind()" />
+  } @else {
+    <app-error-state
+      class="mx-6 my-4"
+      [message]="editor.lastSaveError() || 'Не удалось загрузить ответ.'"
+      retryLabel="Повторить загрузку"
+      (retry)="retryLoad()"
+    />
+  }
+  @if (editor.saveState() === 'ERROR' && editor.responseLoaded()) {
+    <div class="flex justify-end border-t border-slate-200 px-4 py-3">
+      <button mat-button type="button" (click)="retrySave()">Повторить сохранение</button>
+    </div>
+  }
+</mat-card>

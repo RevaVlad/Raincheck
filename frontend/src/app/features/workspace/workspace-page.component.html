@@ -6,31 +6,9 @@
   />
   <section class="min-w-0 p-5 sm:p-8">
     @if (currentPoll(); as poll) {
-      <header class="mb-6">
-        @let startOffset =
-          poll.startsOn | timezoneDisplay: timezone.selectedTimeZone() : 'offset' : poll.dayStart;
-        @let endOffset =
-          poll.endsOn | timezoneDisplay: timezone.selectedTimeZone() : 'offset' : poll.dayEnd;
-        <p class="text-supporting font-medium text-slate-500">Текущий опрос</p>
-        <h1 class="mt-1 text-page-title font-semibold tracking-tight">
-          {{ poll.title || 'Опрос #' + poll.sequenceNo }}
-        </h1>
-        <p class="mt-2 text-slate-600">
-          {{
-            poll.startsOn | timezoneDisplay: timezone.selectedTimeZone() : 'date' : poll.dayStart
-          }}
-          —
-          {{ poll.endsOn | timezoneDisplay: timezone.selectedTimeZone() : 'date' : poll.dayEnd }}
-          {{ startOffset }}{{ startOffset !== endOffset ? '–' + endOffset : '' }} ·
-          {{
-            poll.startsOn | timezoneDisplay: timezone.selectedTimeZone() : 'time' : poll.dayStart
-          }}–{{
-            poll.endsOn | timezoneDisplay: timezone.selectedTimeZone() : 'time' : poll.dayEnd
-          }}
-          · шаг {{ poll.slotMinutes }} минут
-        </p>
-      </header>
-      <app-poll-editor />
+      <app-poll-header [poll]="poll" />
+      <app-poll-entry-editor />
+      <app-confirm-response-button />
     } @else {
       <section class="rounded-2xl border border-slate-200 bg-white p-6">
         <h1 class="text-page-title-compact font-semibold">Сейчас нет активного опроса</h1>

@@ -240,6 +240,19 @@ describe('PollEditorService', () => {
     expect(editor.responseState()).toBe('CONFIRMED');
   });
 
+  it('returns a confirmed response to draft as soon as availability is edited', async () => {
+    api.getMyResponse.mockReturnValue(
+      of({ ...draft, state: 'CONFIRMED', confirmedAt: '2026-10-02T12:00:00.000Z' }),
+    );
+    api.replaceMyResponse.mockReturnValue(of(draft));
+    await editor.load('invite-code', poll, 'secret-token', vi.fn());
+
+    editor.paint('2026-10-06', '09:00', 'PREFERRED');
+
+    expect(editor.responseState()).toBe('DRAFT');
+    expect(editor.saveState()).toBe('DIRTY');
+  });
+
   it('clears an existing slot and leaves a no-op clear clean', async () => {
     api.getMyResponse.mockReturnValue(
       of({

@@ -5,14 +5,15 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { filter } from 'rxjs/operators';
 
 import { ParticipantSessionService } from '../../core/session/participant-session.service';
-import { TimezoneDisplayPipe } from '../../core/timezone/timezone-display.pipe';
 import { TimezonePreferenceService } from '../../core/timezone/timezone-preference.service';
 import type { Poll, Workspace, WorkspaceParticipant } from '../../core/api/api.types';
 import { GroupFacade } from '../group/group.facade';
 import { GroupSidebarComponent } from './group-sidebar/group-sidebar.component';
 import { AvailabilityIntervalsService } from './poll-editor/availability-grid/availability-intervals.service';
-import { PollEditorComponent } from './poll-editor/poll-editor.component';
+import { ConfirmResponseButtonComponent } from './confirm-response-button.component';
+import { PollEntryEditorComponent } from './poll-editor/poll-entry-editor.component';
 import { PollEditorService } from './poll-editor/poll-editor.service';
+import { PollHeaderComponent } from './poll-header.component';
 
 interface EditorContext {
   inviteCode: string;
@@ -21,7 +22,13 @@ interface EditorContext {
 
 @Component({
   selector: 'app-workspace-page',
-  imports: [GroupSidebarComponent, PollEditorComponent, RouterLink, TimezoneDisplayPipe],
+  imports: [
+    GroupSidebarComponent,
+    PollHeaderComponent,
+    PollEntryEditorComponent,
+    ConfirmResponseButtonComponent,
+    RouterLink,
+  ],
   providers: [PollEditorService, AvailabilityIntervalsService],
   templateUrl: './workspace-page.component.html',
 })
@@ -60,7 +67,9 @@ export class WorkspacePageComponent {
 
     const currentPollState = this.editor.responseId() ? this.editor.responseState() : 'NONE';
     return workspace.participants.map((participant) =>
-      participant.id === identity.participantId ? { ...participant, currentPollState } : participant,
+      participant.id === identity.participantId
+        ? { ...participant, currentPollState }
+        : participant,
     );
   });
 
