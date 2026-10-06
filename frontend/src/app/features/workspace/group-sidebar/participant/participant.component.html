@@ -5,11 +5,13 @@
     >{{ initials(participant().displayName) }}</span
   >
   <span class="text-sm font-medium">{{ participant().displayName }}</span>
-  <span
-    class="ml-auto text-xs"
-    [class.text-emerald-700]="participant().currentPollState === 'CONFIRMED'"
-    [class.text-slate-400]="participant().currentPollState !== 'CONFIRMED'"
-  >
-    {{ status(participant().currentPollState) }}
-  </span>
+  @if (showStatus()) {
+    <span
+      class="ml-auto text-xs"
+      [class.text-emerald-700]="participant().currentPollState === 'CONFIRMED'"
+      [class.text-slate-400]="participant().currentPollState !== 'CONFIRMED'"
+    >
+      {{ status(participant().currentPollState) }}
+    </span>
+  }
 </div>

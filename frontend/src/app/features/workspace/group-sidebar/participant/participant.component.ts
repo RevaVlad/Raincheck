@@ -13,6 +13,7 @@ const STATUS_LABELS: Record<WorkspaceParticipant['currentPollState'], string> = 
 })
 export class ParticipantComponent {
   readonly participant = input.required<WorkspaceParticipant>();
+  readonly showStatus = input(true);
 
   initials(name: string): string {
     return name

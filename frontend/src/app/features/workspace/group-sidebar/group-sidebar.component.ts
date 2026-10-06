@@ -17,4 +17,5 @@ export class GroupSidebarComponent {
   readonly inviteCode = input.required<string>();
   readonly participants = input.required<WorkspaceParticipant[]>();
   readonly polls = input.required<Poll[]>();
+  readonly showParticipantStatuses = input(true);
 }

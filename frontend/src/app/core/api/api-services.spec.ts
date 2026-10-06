@@ -112,6 +112,7 @@ describe('feature API services', () => {
       participantSummary: { total: 0, confirmed: 0, pending: 0 },
       heatmap: [],
       bestSlots: [],
+      participants: [],
     };
     call.flush(body);
   });

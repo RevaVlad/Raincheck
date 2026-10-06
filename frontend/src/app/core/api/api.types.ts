@@ -123,4 +123,9 @@ export type PollResults = {
   participantSummary: { total: number; confirmed: number; pending: number };
   heatmap: HeatmapCell[];
   bestSlots: BestSlot[];
+  participants: Array<{
+    id: string;
+    displayName: string;
+    state: 'NONE' | 'DRAFT' | 'CONFIRMED';
+  }>;
 };

@@ -38,21 +38,38 @@ export class AnalyticsService {
   }
 
   async results(pollId: string, groupId: string) {
-    const [poll, total, responses] = await Promise.all([
+    const [poll, participants] = await Promise.all([
       this.database.client.poll.findUniqueOrThrow({ where: { id: pollId } }),
-      this.database.client.participant.count({ where: { groupId } }),
-      this.database.client.pollResponse.findMany({
-        where: { pollId, state: 'CONFIRMED' },
-        include: { intervals: true },
+      this.database.client.participant.findMany({
+        where: { groupId },
+        include: {
+          responses: {
+            where: { pollId },
+            include: { intervals: true },
+          },
+        },
+        orderBy: { createdAt: 'asc' },
       }),
     ]);
-    return calculateResults(
-      toPoll(poll),
-      total,
-      responses.map((response) => ({
-        participantId: response.participantId,
-        intervals: response.intervals.map(toInterval),
-      })),
+    const confirmedResponses = participants.flatMap((participant) =>
+      participant.responses
+        .filter((response) => response.state === 'CONFIRMED')
+        .map((response) => ({
+          participantId: participant.id,
+          intervals: response.intervals.map(toInterval),
+        })),
     );
+    const results = calculateResults(toPoll(poll), participants.length, confirmedResponses);
+    return {
+      ...results,
+      participants: participants.map((participant) => {
+        const state = participant.responses[0]?.state;
+        return {
+          id: participant.id,
+          displayName: participant.displayName,
+          state: state === 'CONFIRMED' || state === 'DRAFT' ? state : 'NONE',
+        };
+      }),
+    };
   }
 }

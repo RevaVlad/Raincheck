@@ -156,6 +156,41 @@ void test(
   },
 );
 
+void test('returns the selected poll state for every group participant', async () => {
+  const { group, poll } = await createScenario();
+  const bob = await app.inject({
+    method: 'POST',
+    url: `/api/groups/${group.inviteCode}/participants`,
+    payload: { displayName: 'Bob' },
+  });
+  assert.equal(bob.statusCode, 201, bob.body);
+  const bobToken = bob.json().participantEditToken;
+  const bobResponseUrl = `/api/groups/${group.inviteCode}/polls/${poll.id}/responses/me`;
+  await request('POST', bobResponseUrl, bobToken);
+
+  const cara = await app.inject({
+    method: 'POST',
+    url: `/api/groups/${group.inviteCode}/participants`,
+    payload: { displayName: 'Cara' },
+  });
+  assert.equal(cara.statusCode, 201, cara.body);
+
+  const response = await app.inject(`/api/groups/${group.inviteCode}/polls/${poll.id}/results`);
+  assert.equal(response.statusCode, 200, response.body);
+  assert.deepEqual(response.json().participantSummary, { total: 3, confirmed: 1, pending: 2 });
+  assert.deepEqual(
+    Object.fromEntries(
+      response
+        .json()
+        .participants.map((participant: { displayName: string; state: string }) => [
+          participant.displayName,
+          participant.state,
+        ]),
+    ),
+    { Alice: 'CONFIRMED', Bob: 'DRAFT', Cara: 'NONE' },
+  );
+});
+
 void test('considers the final meeting window of the daily range', () => {
   const poll: Poll = {
     id: 'poll',
