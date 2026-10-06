@@ -45,13 +45,17 @@ export class ResponseService {
   }
 
   async deleteForOpenPoll(pollId: string, participantId: string): Promise<boolean> {
-    const poll = await this.db.client.poll.findUnique({
-      where: { id: pollId },
-      select: { status: true },
+    return this.db.transaction(async (transaction) => {
+      // The no-op update locks the poll row so deletion serializes with closure.
+      const [poll] = await transaction.client.poll.updateManyAndReturn({
+        where: { id: pollId, status: 'OPEN' },
+        data: { status: 'OPEN' },
+      });
+      if (!poll) throw new Error('Response requires an open poll');
+      return (
+        (await transaction.client.pollResponse.deleteMany({ where: { pollId, participantId } }))
+          .count > 0
+      );
     });
-    if (!poll || poll.status !== 'OPEN') throw new Error('Response requires an open poll');
-    return (
-      (await this.db.client.pollResponse.deleteMany({ where: { pollId, participantId } })).count > 0
-    );
   }
 }

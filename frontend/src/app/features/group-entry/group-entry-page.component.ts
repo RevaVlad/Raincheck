@@ -69,8 +69,16 @@ export class GroupEntryPageComponent {
     const displayName = this.displayName.trim();
     if (!displayName || this.facade.savingProfile()) return;
 
+    const destination = this.profileDestination();
     if (await this.facade.saveProfile({ displayName, avatarColor: this.avatarColor })) {
-      await this.router.navigate(['/g', this.facade.inviteCode()]);
+      await this.router.navigate(destination);
     }
+  }
+
+  private profileDestination(): string[] {
+    const workspace = this.facade.workspace();
+    return !workspace?.me && !workspace?.currentPoll
+      ? ['/g', this.facade.inviteCode(), 'polls', 'new']
+      : ['/g', this.facade.inviteCode()];
   }
 }

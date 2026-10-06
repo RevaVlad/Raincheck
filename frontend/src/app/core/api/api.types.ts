@@ -71,13 +71,12 @@ export type ReplaceResponseRequest = { intervals: IntervalInput[] };
 
 export type CreateGroupRequest = {
   name: string;
-  timezone?: 'UTC';
-  firstPoll: PollInput;
 };
 export type CreateGroupResponse = {
   group: Group;
-  currentPoll: Poll;
+  currentPoll: null;
 };
+export type PollMutationResponse = { poll: Poll };
 export type JoinResponse = { participant: Participant; participantEditToken: string };
 
 export type PublicGroupDto = { name: string; timezone: 'UTC' };

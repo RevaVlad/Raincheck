@@ -2,13 +2,13 @@ openapi: 3.1.0
 info:
   title: Raincheck API
   version: 0.1.0
-  description: All calendar values use UTC. Raw participant edit tokens occur only in successful create-group and join responses.
+  description: All calendar values use UTC. Raw participant edit tokens occur only in successful join responses.
 paths:
   /api/groups:
     post:
-      summary: Create a UTC group, creator, and first poll
+      summary: Create a UTC group without a poll
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateGroupRequest' } } } }
-      responses: { '201': { $ref: '#/components/responses/CreateGroup' }, '400': { $ref: '#/components/responses/InvalidRequest' }, '409': { $ref: '#/components/responses/Error' }, '422': { $ref: '#/components/responses/InvalidSchedule' } }
+      responses: { '201': { $ref: '#/components/responses/CreateGroup' }, '400': { $ref: '#/components/responses/InvalidRequest' } }
   /api/groups/{inviteCode}:
     parameters: [{ $ref: '#/components/parameters/InviteCode' }]
     get:
@@ -37,10 +37,15 @@ paths:
       summary: List polls newest first
       responses: { '200': { $ref: '#/components/responses/Polls' }, '404': { $ref: '#/components/responses/Error' } }
     post:
-      summary: Close the open poll and create the next one
+      summary: Create a poll when the group has no open poll
       parameters: [{ $ref: '#/components/parameters/ParticipantToken' }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PollInput' } } } }
       responses: { '201': { $ref: '#/components/responses/PollResponse' }, '400': { $ref: '#/components/responses/InvalidRequest' }, '401': { $ref: '#/components/responses/Error' }, '404': { $ref: '#/components/responses/Error' }, '409': { $ref: '#/components/responses/Error' }, '422': { $ref: '#/components/responses/InvalidSchedule' } }
+  /api/groups/{inviteCode}/polls/{pollId}/close:
+    parameters: [{ $ref: '#/components/parameters/InviteCode' }, { $ref: '#/components/parameters/PollId' }, { $ref: '#/components/parameters/ParticipantToken' }]
+    post:
+      summary: Permanently close a poll and keep it in group history
+      responses: { '200': { $ref: '#/components/responses/PollResponse' }, '401': { $ref: '#/components/responses/Error' }, '404': { $ref: '#/components/responses/Error' }, '409': { $ref: '#/components/responses/Error' } }
   /api/groups/{inviteCode}/polls/{pollId}:
     parameters: [{ $ref: '#/components/parameters/InviteCode' }, { $ref: '#/components/parameters/PollId' }]
     get:
@@ -49,22 +54,22 @@ paths:
   /api/groups/{inviteCode}/polls/{pollId}/responses/me:
     parameters: [{ $ref: '#/components/parameters/InviteCode' }, { $ref: '#/components/parameters/PollId' }, { $ref: '#/components/parameters/ParticipantToken' }]
     post:
-      summary: Create a draft response
+      summary: Create a draft response on an open poll
       responses: { '201': { $ref: '#/components/responses/Response' }, '401': { $ref: '#/components/responses/Error' }, '404': { $ref: '#/components/responses/Error' }, '409': { $ref: '#/components/responses/Error' } }
     get:
       summary: Read the authenticated participant response
       responses: { '200': { $ref: '#/components/responses/Response' }, '401': { $ref: '#/components/responses/Error' }, '404': { $ref: '#/components/responses/Error' } }
     put:
-      summary: Replace all intervals; identical payload preserves IDs and confirmation
+      summary: Replace intervals on an open poll; identical payload preserves IDs and confirmation
       requestBody: { required: true, content: { application/json: { schema: { type: object, required: [intervals], properties: { intervals: { type: array, items: { $ref: '#/components/schemas/IntervalInput' } } } } } } }
       responses: { '200': { $ref: '#/components/responses/Response' }, '400': { $ref: '#/components/responses/InvalidRequest' }, '401': { $ref: '#/components/responses/Error' }, '404': { $ref: '#/components/responses/Error' }, '409': { $ref: '#/components/responses/Error' }, '422': { $ref: '#/components/responses/InvalidSchedule' } }
     delete:
-      summary: Delete the response from an open poll
+      summary: Delete the response from an open poll; closed-poll responses are immutable
       responses: { '204': { description: Deleted }, '401': { $ref: '#/components/responses/Error' }, '404': { $ref: '#/components/responses/Error' }, '409': { $ref: '#/components/responses/Error' } }
   /api/groups/{inviteCode}/polls/{pollId}/responses/me/confirm:
     parameters: [{ $ref: '#/components/parameters/InviteCode' }, { $ref: '#/components/parameters/PollId' }, { $ref: '#/components/parameters/ParticipantToken' }]
     post:
-      summary: Confirm the response idempotently
+      summary: Confirm a response on an open poll idempotently
       responses: { '200': { $ref: '#/components/responses/Response' }, '401': { $ref: '#/components/responses/Error' }, '404': { $ref: '#/components/responses/Error' }, '409': { $ref: '#/components/responses/Error' } }
   /api/groups/{inviteCode}/polls/{pollId}/suggestions/me:
     parameters: [{ $ref: '#/components/parameters/InviteCode' }, { $ref: '#/components/parameters/PollId' }, { $ref: '#/components/parameters/ParticipantToken' }]
@@ -107,8 +112,8 @@ components:
     IntervalInput: { type: object, required: [localDate, startTime, endTime, kind, preferenceDirection], properties: { localDate: { type: string, format: date }, startTime: { type: string }, endTime: { type: string }, kind: { enum: [UNAVAILABLE, IF_NEEDED, PREFERRED] }, preferenceDirection: { type: [string, 'null'], enum: [EARLIER, FLAT, LATER, null] } } }
     Interval: { allOf: [{ $ref: '#/components/schemas/IntervalInput' }, { type: object, required: [id], properties: { id: { type: string, format: uuid } } }] }
     Response: { type: object, required: [id, state, confirmedAt, intervals], properties: { id: { type: string, format: uuid }, state: { enum: [DRAFT, CONFIRMED] }, confirmedAt: { type: [string, 'null'], format: date-time }, intervals: { type: array, items: { $ref: '#/components/schemas/Interval' } } } }
-    CreateGroupRequest: { type: object, required: [name, firstPoll], properties: { name: { type: string }, timezone: { const: UTC }, firstPoll: { $ref: '#/components/schemas/PollInput' } } }
-    CreateGroupResponse: { type: object, required: [group, currentPoll], properties: { group: { $ref: '#/components/schemas/Group' }, currentPoll: { $ref: '#/components/schemas/Poll' } } }
+    CreateGroupRequest: { type: object, additionalProperties: false, required: [name], properties: { name: { type: string, minLength: 1, maxLength: 120 } } }
+    CreateGroupResponse: { type: object, required: [group, currentPoll], properties: { group: { $ref: '#/components/schemas/Group' }, currentPoll: { type: 'null' } } }
     JoinResponse: { type: object, required: [participant, participantEditToken], properties: { participant: { $ref: '#/components/schemas/Participant' }, participantEditToken: { type: string, writeOnly: true } } }
     PublicGroupDto: { type: object, additionalProperties: false, required: [name, timezone], properties: { name: { type: string }, timezone: { const: UTC } } }
     PublicCurrentPollDto: { type: object, additionalProperties: false, required: [id, sequenceNo, startsOn, endsOn], properties: { id: { type: string, format: uuid }, sequenceNo: { type: integer }, startsOn: { type: string, format: date }, endsOn: { type: string, format: date } } }

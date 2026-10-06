@@ -12,16 +12,57 @@
   />
   <section class="min-w-0 p-5 sm:p-8">
     @if (currentPoll(); as poll) {
-      <app-poll-header [poll]="poll" />
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <app-poll-header [poll]="poll" />
+        <button
+          mat-stroked-button
+          type="button"
+          class="shrink-0"
+          [disabled]="closing()"
+          (click)="closePoll()"
+        >
+          {{ closing() ? 'Завершаем…' : 'Завершить опрос' }}
+        </button>
+      </div>
+      @if (closeError()) {
+        <p class="mb-4 text-supporting text-red-700" role="alert">{{ closeError() }}</p>
+      }
       <app-poll-entry-editor />
       <app-confirm-response-button [inviteCode]="group.inviteCode()" [pollId]="poll.id" />
     } @else {
       <section class="rounded-2xl border border-slate-200 bg-white p-6">
-        <h1 class="text-page-title-compact font-semibold">Сейчас нет активного опроса</h1>
+        <h1 class="text-page-title-compact font-semibold">Нет активного опроса</h1>
         <p class="mt-2 text-slate-600">
-          Когда появится новый опрос, участники смогут отметить удобное время.
+          Создайте следующий опрос, чтобы участники отметили удобное время.
         </p>
+        @if (workspace().me) {
+          <a mat-flat-button class="mt-5" [routerLink]="['/g', group.inviteCode(), 'polls', 'new']">
+            Создать опрос
+          </a>
+        } @else {
+          <a mat-button class="mt-5" [routerLink]="['/g', group.inviteCode(), 'profile']">
+            Заполнить профиль
+          </a>
+        }
       </section>
     }
   </section>
+
+  <ng-template #closePollDialog>
+    <h2 mat-dialog-title id="close-poll-title">Завершить опрос?</h2>
+    <mat-dialog-content id="close-poll-description">
+      @if (confirmationPendingResponseCount() > 0) {
+        <p class="mb-3">
+          Осталось неподтверждённых ответов: {{ confirmationPendingResponseCount() }}.
+        </p>
+      } @else {
+        <p class="mb-3">Нет неподтверждённых ответов.</p>
+      }
+      <p>После завершения менять ответы будет нельзя. Результаты останутся в истории группы.</p>
+    </mat-dialog-content>
+    <mat-dialog-actions align="end">
+      <button mat-button type="button" [mat-dialog-close]="false">Продолжить ответы</button>
+      <button mat-flat-button type="button" [mat-dialog-close]="true">Завершить опрос</button>
+    </mat-dialog-actions>
+  </ng-template>
 </main>

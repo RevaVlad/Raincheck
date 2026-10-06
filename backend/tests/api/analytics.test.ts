@@ -54,10 +54,10 @@ async function createScenario() {
   const created = await app.inject({
     method: 'POST',
     url: '/api/groups',
-    payload: { name: 'Analytics team', firstPoll: basePoll },
+    payload: { name: 'Analytics team' },
   });
   assert.equal(created.statusCode, 201, created.body);
-  const { group, currentPoll } = created.json();
+  const { group } = created.json();
   const joined = await app.inject({
     method: 'POST',
     url: `/api/groups/${group.inviteCode}/participants`,
@@ -65,6 +65,14 @@ async function createScenario() {
   });
   assert.equal(joined.statusCode, 201, joined.body);
   const token = joined.json().participantEditToken;
+  const firstCreated = await app.inject({
+    method: 'POST',
+    url: `/api/groups/${group.inviteCode}/polls`,
+    headers: { 'x-participant-token': token },
+    payload: basePoll,
+  });
+  assert.equal(firstCreated.statusCode, 201, firstCreated.body);
+  const currentPoll = firstCreated.json().poll;
   const responseUrl = `/api/groups/${group.inviteCode}/polls/${currentPoll.id}/responses/me`;
   await submitResponse(responseUrl, token, {
     localDate: '2026-10-06',
@@ -73,6 +81,12 @@ async function createScenario() {
     kind: 'PREFERRED',
     preferenceDirection: 'FLAT',
   });
+  const closed = await app.inject({
+    method: 'POST',
+    url: `/api/groups/${group.inviteCode}/polls/${currentPoll.id}/close`,
+    headers: { 'x-participant-token': token },
+  });
+  assert.equal(closed.statusCode, 200, closed.body);
   const createdNext = await app.inject({
     method: 'POST',
     url: `/api/groups/${group.inviteCode}/polls`,
@@ -168,7 +182,7 @@ void test('returns the selected poll state for every group participant', async (
   const bob = await app.inject({
     method: 'POST',
     url: `/api/groups/${group.inviteCode}/participants`,
-    payload: { displayName: 'Bob' },
+    payload: { displayName: 'Bob', avatarColor: 'green' },
   });
   assert.equal(bob.statusCode, 201, bob.body);
   const bobToken = bob.json().participantEditToken;
@@ -178,7 +192,7 @@ void test('returns the selected poll state for every group participant', async (
   const cara = await app.inject({
     method: 'POST',
     url: `/api/groups/${group.inviteCode}/participants`,
-    payload: { displayName: 'Cara' },
+    payload: { displayName: 'Cara', avatarColor: 'green' },
   });
   assert.equal(cara.statusCode, 201, cara.body);
 

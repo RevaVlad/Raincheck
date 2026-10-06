@@ -44,6 +44,13 @@ export const GROUP_ROUTES: Routes = [
         loadComponent: loadGroupEntryPage,
       },
       {
+        path: 'polls/new',
+        loadComponent: () =>
+          import('./poll-creation-page.component').then(
+            (module) => module.PollCreationPageComponent,
+          ),
+      },
+      {
         path: 'polls/:pollId/results',
         loadComponent: () =>
           import('../results/poll-results-page.component').then(

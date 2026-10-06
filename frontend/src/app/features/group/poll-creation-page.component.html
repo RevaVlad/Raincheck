@@ -1,0 +1,109 @@
+<main
+  class="min-h-[calc(100dvh_-_3.5rem)] min-w-0 bg-slate-50 lg:grid lg:grid-cols-[310px_minmax(0,1fr)]"
+>
+  @if (workspace(); as current) {
+    <app-group-sidebar
+      class="block min-w-0 border-b border-slate-200 bg-white lg:sticky lg:top-14 lg:h-[calc(100dvh-3.5rem)] lg:self-start lg:border-b-0"
+      [groupName]="current.group.name"
+      [inviteLink]="inviteLink()"
+      [inviteCode]="group.inviteCode()"
+      [participants]="current.participants"
+      [polls]="current.polls"
+      [currentParticipantId]="current.me?.id ?? null"
+    />
+    <section class="min-w-0 p-5 sm:p-8">
+      @if (ready()) {
+        <div class="mx-auto max-w-3xl">
+          <header class="mb-6">
+            <h1 class="text-page-title-compact font-semibold">Создать опрос</h1>
+            <p class="mt-2 max-w-2xl text-slate-600">
+              Даты предложены на ближайшие семь дней. Проверьте время и длительность встречи; ответы
+              на прошлые опросы не переносятся.
+            </p>
+          </header>
+
+          <mat-card class="p-5 sm:p-7">
+            <form
+              [formGroup]="form"
+              class="grid gap-x-4 gap-y-2 sm:grid-cols-2"
+              (ngSubmit)="submit()"
+            >
+              <mat-form-field class="sm:col-span-2">
+                <mat-label>Название опроса (необязательно)</mat-label>
+                <input matInput formControlName="title" maxlength="160" />
+              </mat-form-field>
+
+              <p class="-mb-1 text-supporting font-medium text-slate-700 sm:col-span-2">Даты</p>
+              <mat-form-field>
+                <mat-label>Начало</mat-label>
+                <input matInput type="date" formControlName="startsOn" required />
+              </mat-form-field>
+              <mat-form-field>
+                <mat-label>Конец</mat-label>
+                <input matInput type="date" formControlName="endsOn" required />
+              </mat-form-field>
+
+              <p class="-mb-1 text-supporting font-medium text-slate-700 sm:col-span-2">
+                Время (UTC)
+              </p>
+              <mat-form-field>
+                <mat-label>Начало дня</mat-label>
+                <input matInput type="time" formControlName="dayStart" required />
+              </mat-form-field>
+              <mat-form-field>
+                <mat-label>Конец дня</mat-label>
+                <input matInput type="time" formControlName="dayEnd" required />
+              </mat-form-field>
+              <mat-form-field>
+                <mat-label>Шаг сетки</mat-label>
+                <mat-select formControlName="slotMinutes" required>
+                  <mat-option [value]="30">30 минут</mat-option>
+                  <mat-option [value]="60">60 минут</mat-option>
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field>
+                <mat-label>Длительность встречи</mat-label>
+                <mat-select formControlName="meetingDurationMinutes" required>
+                  @for (minutes of meetingDurations; track minutes) {
+                    <mat-option
+                      [value]="minutes"
+                      [disabled]="minutes % form.controls.slotMinutes.value !== 0"
+                      >{{ minutes }} минут</mat-option
+                    >
+                  }
+                </mat-select>
+              </mat-form-field>
+
+              @if (errorMessage()) {
+                <p class="text-supporting text-red-700 sm:col-span-2" role="alert">
+                  {{ errorMessage() }}
+                </p>
+              }
+              <div class="flex items-end justify-end sm:col-span-2">
+                <button mat-flat-button type="submit" [disabled]="submitting()">
+                  {{ submitting() ? 'Создаём…' : 'Создать опрос' }}
+                </button>
+              </div>
+            </form>
+          </mat-card>
+        </div>
+      } @else if (group.notFound()) {
+        <app-error-state message="Группа не найдена." />
+      } @else if (group.loadError()) {
+        <app-error-state [message]="group.loadError()!" (retry)="group.reload()" />
+      } @else {
+        <app-loading-state layout="group" statusText="Проверяем доступ к группе…" />
+      }
+    </section>
+  } @else if (group.notFound()) {
+    <section class="p-5 sm:p-8"><app-error-state message="Группа не найдена." /></section>
+  } @else if (group.loadError()) {
+    <section class="p-5 sm:p-8">
+      <app-error-state [message]="group.loadError()!" (retry)="group.reload()" />
+    </section>
+  } @else {
+    <section class="p-5 sm:p-8">
+      <app-loading-state layout="group" statusText="Загружаем группу…" />
+    </section>
+  }
+</main>

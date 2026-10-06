@@ -3,6 +3,7 @@ import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { GroupsApiService } from '../../features/group/groups-api.service';
+import { PollsApiService } from '../../features/group/polls-api.service';
 import { ParticipantsApiService } from '../../features/group/participants-api.service';
 import { PollResultsApiService } from '../../features/results/poll-results-api.service';
 import { PollResponsesApiService } from '../../features/workspace/poll-editor/poll-responses-api.service';
@@ -11,6 +12,7 @@ import type { CreateGroupRequest, PollResults, Workspace } from './api.types';
 
 describe('feature API services', () => {
   let groups: GroupsApiService;
+  let polls: PollsApiService;
   let participants: ParticipantsApiService;
   let results: PollResultsApiService;
   let responses: PollResponsesApiService;
@@ -22,12 +24,14 @@ describe('feature API services', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         GroupsApiService,
+        PollsApiService,
         ParticipantsApiService,
         PollResultsApiService,
         PollResponsesApiService,
       ],
     });
     groups = TestBed.inject(GroupsApiService);
+    polls = TestBed.inject(PollsApiService);
     participants = TestBed.inject(ParticipantsApiService);
     results = TestBed.inject(PollResultsApiService);
     responses = TestBed.inject(PollResponsesApiService);
@@ -36,19 +40,8 @@ describe('feature API services', () => {
 
   afterEach(() => http.verify());
 
-  it('creates a group and first poll without participant fields', () => {
-    const body: CreateGroupRequest = {
-      name: 'Team',
-      timezone: 'UTC',
-      firstPoll: {
-        startsOn: '2026-10-06',
-        endsOn: '2026-10-12',
-        dayStart: '16:00',
-        dayEnd: '23:00',
-        slotMinutes: 30,
-        meetingDurationMinutes: 60,
-      },
-    };
+  it('creates a group without poll or participant data', () => {
+    const body: CreateGroupRequest = { name: 'Team' };
 
     groups.createGroup(body).subscribe();
 
@@ -56,7 +49,33 @@ describe('feature API services', () => {
     expect(call.request.method).toBe('POST');
     expect(call.request.body).toEqual(body);
     expect(call.request.headers.has('X-Participant-Token')).toBe(false);
-    call.flush({});
+    call.flush({ group: {}, currentPoll: null });
+  });
+
+  it('creates and closes polls with the explicit participant token', () => {
+    const input = {
+      startsOn: '2026-10-07',
+      endsOn: '2026-10-13',
+      dayStart: '16:00',
+      dayEnd: '23:00',
+      slotMinutes: 30 as const,
+      meetingDurationMinutes: 60,
+    };
+    const token = 'secret-token';
+
+    polls.createPoll('group/a', input, token).subscribe();
+    const create = http.expectOne('/api/groups/group%2Fa/polls');
+    expect(create.request.method).toBe('POST');
+    expect(create.request.body).toEqual(input);
+    expect(create.request.headers.get('X-Participant-Token')).toBe(token);
+    create.flush({ poll: {} });
+
+    polls.closePoll('group/a', 'poll/b', token).subscribe();
+    const close = http.expectOne('/api/groups/group%2Fa/polls/poll%2Fb/close');
+    expect(close.request.method).toBe('POST');
+    expect(close.request.body).toBeNull();
+    expect(close.request.headers.get('X-Participant-Token')).toBe(token);
+    close.flush({ poll: {} });
   });
 
   it('starts workspace reads only when enabled and cancels superseded reads', async () => {
@@ -87,6 +106,15 @@ describe('feature API services', () => {
     currentRequest.flush(body);
     await TestBed.inject(ApplicationRef).whenStable();
     expect(resource.value()).toEqual(body);
+  });
+
+  it('fetches fresh workspace data with the current participant token', () => {
+    groups.getWorkspace('group/code', 'secret-token').subscribe();
+
+    const call = http.expectOne('/api/groups/group%2Fcode/workspace');
+    expect(call.request.method).toBe('GET');
+    expect(call.request.headers.get('X-Participant-Token')).toBe('secret-token');
+    call.flush({});
   });
 
   it('joins without forwarding an existing participant token', () => {

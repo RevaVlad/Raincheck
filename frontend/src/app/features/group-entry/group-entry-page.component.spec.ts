@@ -14,6 +14,7 @@ describe('GroupEntryPageComponent', () => {
     } | null = null,
     routeData: Record<string, unknown> = {},
     onSave = vi.fn().mockResolvedValue(true),
+    currentPoll: unknown = null,
   ) {
     const profileError = signal<string | null>(null);
     const facade = {
@@ -28,7 +29,7 @@ describe('GroupEntryPageComponent', () => {
         me,
         participants: [],
         polls: [],
-        currentPoll: null,
+        currentPoll,
       }),
       loading: signal(false),
       notFound: signal(false),
@@ -63,7 +64,7 @@ describe('GroupEntryPageComponent', () => {
     return { fixture, component: fixture.componentInstance, facade, navigate, profileError };
   }
 
-  it('starts with green and saves a new profile before opening the workspace', async () => {
+  it('routes a new profile to poll creation when the group has no poll', async () => {
     const saveProfile = vi.fn().mockResolvedValue(true);
     const { component, facade, navigate } = await setup(null, {}, saveProfile);
     expect(component.avatarColor).toBe('green');
@@ -73,8 +74,27 @@ describe('GroupEntryPageComponent', () => {
     await component.submitProfile();
 
     expect(saveProfile).toHaveBeenCalledWith({ displayName: 'Alex', avatarColor: 'purple' });
-    expect(navigate).toHaveBeenCalledWith(['/g', 'invite-code']);
+    expect(navigate).toHaveBeenCalledWith(['/g', 'invite-code', 'polls', 'new']);
     expect(facade.profileError()).toBeNull();
+  });
+
+  it('returns an edited profile to the group workspace', async () => {
+    const member = { id: 'participant-id', displayName: 'Alex', avatarColor: 'blue' as const };
+    const { component, navigate } = await setup(member, { profile: true });
+
+    component.displayName = 'Alex';
+    await component.submitProfile();
+
+    expect(navigate).toHaveBeenCalledWith(['/g', 'invite-code']);
+  });
+
+  it('routes a first profile to the group when an active poll already exists', async () => {
+    const { component, navigate } = await setup(null, {}, undefined, { id: 'active-poll' });
+
+    component.displayName = 'Alex';
+    await component.submitProfile();
+
+    expect(navigate).toHaveBeenCalledWith(['/g', 'invite-code']);
   });
 
   it('pre-fills a valid participant on the explicit profile route', async () => {

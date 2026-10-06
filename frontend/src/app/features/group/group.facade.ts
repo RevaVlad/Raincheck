@@ -95,6 +95,12 @@ export class GroupFacade {
     this.loadVersion.update((version) => version + 1);
   }
 
+  refreshWorkspace(): Promise<Workspace> {
+    const inviteCode = this.inviteCode();
+    const identity = this.session.get(inviteCode);
+    return firstValueFrom(this.groupsApi.getWorkspace(inviteCode, identity?.token));
+  }
+
   async saveProfile(input: ParticipantInput): Promise<boolean> {
     const inviteCode = this.inviteCode();
     const displayName = input.displayName.trim();

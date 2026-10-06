@@ -23,6 +23,13 @@ describe('group route leave guards', () => {
     expect(profile?.canDeactivate).toContain(confirmGroupEntryLeave);
   });
 
+  it('registers poll creation inside the group', () => {
+    const routes = GROUP_ROUTES[0]?.children ?? [];
+    const createPoll = routes.find((route) => route.path === 'polls/new');
+
+    expect(createPoll?.loadComponent).toBeDefined();
+  });
+
   it('asks the active workspace to confirm a group switch', async () => {
     const confirmLeave = vi.fn().mockResolvedValue(false);
     TestBed.configureTestingModule({

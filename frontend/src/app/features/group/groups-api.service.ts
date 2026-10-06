@@ -14,6 +14,12 @@ export class GroupsApiService {
     return this.http.post<CreateGroupResponse>('/api/groups', body);
   }
 
+  getWorkspace(inviteCode: string, token?: string): Observable<Workspace> {
+    return this.http.get<Workspace>(`${groupApiPath(inviteCode)}/workspace`, {
+      headers: token ? participantTokenHeaders(token) : undefined,
+    });
+  }
+
   workspaceResource(
     parameters: () => { inviteCode: string; token?: string } | undefined,
   ): HttpResourceRef<Workspace | undefined> {

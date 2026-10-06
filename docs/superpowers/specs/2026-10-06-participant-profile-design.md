@@ -4,21 +4,21 @@
 
 After creating a group or opening an invite without a valid participant session, a person sets their display name and avatar color before entering the poll. A participant can later edit the same profile from their own card in the group sidebar.
 
-Group creation remains available before anyone joins: it creates the persistent group and its first poll, while the profile screen creates the first participant.
+Group creation is independent from poll scheduling. It creates only the persistent group; the profile screen creates the first participant, then the group can create its first poll.
 
 ## User flows
 
 ### Create a group
 
-1. The create form collects the group name and first poll schedule; it does not collect a participant name.
-2. `POST /api/groups` creates the group and first poll in one transaction, with no participant.
-3. The response contains only `group` and `currentPoll`.
+1. The create form collects only the group name; it does not collect a participant name or poll schedule.
+2. `POST /api/groups` creates the group without a poll or participant.
+3. The response contains `group` and `currentPoll: null`.
 4. The browser opens `/g/:inviteCode/profile`.
-5. Saving the profile creates the participant, stores the returned participant ID and edit token in local storage, and opens `/g/:inviteCode`.
+5. Saving the profile creates the participant and stores the returned participant ID and edit token. If no poll is active, open `/g/:inviteCode/polls/new`; otherwise open `/g/:inviteCode`.
 
 ### Open an invite
 
-The group entry flow continues to load the workspace with an optional participant token. A valid token returns `me` and opens the workspace. With no valid token, the entry flow shows the profile screen with the same group sidebar. A successful first profile save stores the token and opens the workspace. Refreshing the page reads the token and restores the correct state.
+The group entry flow continues to load the workspace with an optional participant token. A valid token returns `me` and opens the workspace. With no valid token, the entry flow shows the profile screen with the same group sidebar. A successful first profile save stores the token and opens poll creation when no poll is active, or the workspace when one already exists. Refreshing the page reads the token and restores the correct state.
 
 ### Edit a profile
 
@@ -43,7 +43,7 @@ These six swatches follow the join/profile reference image. New profiles default
 
 ## API contract
 
-- `POST /api/groups` no longer accepts `creatorDisplayName`. It creates only the group and first poll and returns no participant or participant token.
+- `POST /api/groups` accepts only the group name. It creates no poll or participant and returns `currentPoll: null`.
 - `POST /api/groups/:inviteCode/participants` accepts required `displayName` and `avatarColor` fields and returns the participant, including `avatarColor`, plus the one-time raw edit token.
 - `PATCH /api/groups/:inviteCode/participants/me` accepts the same profile fields and returns the updated participant, including `avatarColor`, without returning a token.
 - The participant response schema and each participant in the workspace response include `avatarColor`.
@@ -55,7 +55,7 @@ These six swatches follow the join/profile reference image. New profiles default
 
 Persist the selected palette value on each participant. Add a reviewed Prisma SQL migration that gives existing rows `gray`, constrains stored values to the six palette keys, and keeps the Prisma schema aligned. Participant creation and profile update validate the color at the API/domain boundary as well as relying on the database constraint.
 
-Group creation remains transactional for the group and first poll. Participant creation happens only when the profile form is saved. The existing uniqueness rule for normalized participant names remains group-scoped.
+Group creation persists only the group. Participant creation happens when the profile form is saved; poll creation happens afterward inside the group. The existing uniqueness rule for normalized participant names remains group-scoped.
 
 ## Frontend composition and behavior
 
@@ -68,7 +68,7 @@ Group creation remains transactional for the group and first poll. Participant c
 
 ## Compatibility and scope
 
-The current MVP notes describe the previous flow where group creation includes the creator. This approved feature replaces that flow. Update the relevant scope, UX, session/routing, and acceptance notes alongside the implementation so they describe the no-participant group state and shared profile screen. No poll scheduling, response, confirmation, token scope, or group invite semantics change.
+The current MVP notes describe the previous flow where group creation includes the creator. This lifecycle change separates group creation from poll scheduling. Update the scope, UX, session/routing, and acceptance notes alongside the implementation so they describe the group-only request, profile step, and in-group poll form. Response confirmation, token scope, and group invite semantics remain unchanged. Poll scheduling follows the separate in-group poll lifecycle.
 
 Full authentication, account recovery, editing other participants, and automatic participant creation are out of scope.
 
@@ -76,8 +76,8 @@ Full authentication, account recovery, editing other participants, and automatic
 
 Update backend API/service and Angular tests for the new request/response shapes and routes. Verify these paths, including refresh:
 
-- create group -> profile -> save -> workspace/poll;
-- invite without a valid token -> profile -> save -> workspace/poll;
+- create group -> profile -> save -> first poll -> workspace;
+- invite without a valid token -> profile -> save -> poll creation if needed -> workspace;
 - own participant card -> profile edit -> save -> workspace/poll.
 
 Cover all six persisted colors, default green, migration/default gray for existing participants, duplicate names, invalid colors, lost identity behavior, and a group with no participants. Check visible form errors, keyboard navigation for the palette and participant link, and mobile sidebar/profile layout. Run the browser smoke paths and relevant project checks before completion.

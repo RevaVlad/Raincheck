@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import test from 'node:test';
 import { buildApp } from '../../src/app.js';
 import { loadConfig } from '#config/config';
@@ -20,11 +21,7 @@ async function createGroup() {
   const response = await app.inject({
     method: 'POST',
     url: '/api/groups',
-    payload: {
-      name: '  Team  ',
-      timezone: 'UTC',
-      firstPoll: poll,
-    },
+    payload: { name: '  Team  ' },
   });
   assert.equal(response.statusCode, 201);
   return response.json();
@@ -40,41 +37,32 @@ async function createParticipant(inviteCode: string, displayName: string, avatar
   return response.json();
 }
 
-void test('creates a group and first poll without creating a participant', async () => {
+void test('creates a group without creating a poll or participant', async () => {
+  const legacyGroupName = `Legacy creator ${randomUUID()}`;
   const response = await app.inject({
     method: 'POST',
     url: '/api/groups',
-    payload: { name: 'Empty team', timezone: 'UTC', firstPoll: poll },
+    payload: { name: 'Empty team' },
   });
   assert.equal(response.statusCode, 201);
   const created = response.json();
   assert.deepEqual(Object.keys(created).sort(), ['currentPoll', 'group']);
-  assert.equal(created.currentPoll.sequenceNo, 1);
+  assert.equal(created.currentPoll, null);
 
   const workspace = await app.inject(`/api/groups/${created.group.inviteCode}/workspace`);
   assert.equal(workspace.statusCode, 200);
   assert.equal(workspace.json().me, null);
   assert.deepEqual(workspace.json().participants, []);
+  assert.deepEqual(workspace.json().polls, []);
 
   const withCreator = await app.inject({
     method: 'POST',
     url: '/api/groups',
-    payload: { name: 'Legacy creator', creatorDisplayName: 'Alice', firstPoll: poll },
+    payload: { name: legacyGroupName, firstPoll: poll },
   });
-  assert.equal(withCreator.statusCode, 201);
-  assert.deepEqual(Object.keys(withCreator.json()).sort(), ['currentPoll', 'group']);
-  const legacyWorkspace = await app.inject(
-    `/api/groups/${withCreator.json().group.inviteCode}/workspace`,
-  );
-  assert.deepEqual(legacyWorkspace.json().participants, []);
-
-  const invalid = await app.inject({
-    method: 'POST',
-    url: '/api/groups',
-    payload: { name: 'Rollback Team', firstPoll: { ...poll, meetingDurationMinutes: 45 } },
-  });
-  assert.equal(invalid.statusCode, 422);
-  assert.equal(await database.client.group.count({ where: { name: 'Rollback Team' } }), 0);
+  assert.equal(withCreator.statusCode, 400, withCreator.body);
+  assert.equal(withCreator.json().error.code, 'INVALID_REQUEST');
+  assert.equal(await database.client.group.count({ where: { name: legacyGroupName } }), 0);
 });
 
 void test(
@@ -125,36 +113,21 @@ void test(
     assert.equal(workspace.statusCode, 200);
     assert.equal(workspace.json().me, null);
     assert.equal(workspace.json().participants[0].currentPollState, 'NONE');
-    assert.equal(workspace.json().polls[0].id, created.currentPoll.id);
+    assert.deepEqual(workspace.json().polls, []);
   },
 );
 
-void test(
-  'rejects non-UTC creation and rolls back a group ' + 'when its first poll is invalid',
-  async () => {
-    const nonUtc = await app.inject({
-      method: 'POST',
-      url: '/api/groups',
-      payload: {
-        name: 'Elsewhere',
-        timezone: 'Asia/Yekaterinburg',
-        firstPoll: poll,
-      },
-    });
-    assert.equal(nonUtc.statusCode, 400);
-    assert.equal(nonUtc.json().error.code, 'INVALID_REQUEST');
-    const invalid = await app.inject({
-      method: 'POST',
-      url: '/api/groups',
-      payload: {
-        name: 'Rollback Team',
-        firstPoll: { ...poll, meetingDurationMinutes: 45 },
-      },
-    });
-    assert.equal(invalid.statusCode, 422);
-    assert.equal(await database.client.group.count({ where: { name: 'Rollback Team' } }), 0);
-  },
-);
+void test('rejects schedule settings in group creation', async () => {
+  const groupName = `Rollback Team ${randomUUID()}`;
+  const invalid = await app.inject({
+    method: 'POST',
+    url: '/api/groups',
+    payload: { name: groupName, timezone: 'UTC' },
+  });
+  assert.equal(invalid.statusCode, 400, invalid.body);
+  assert.equal(invalid.json().error.code, 'INVALID_REQUEST');
+  assert.equal(await database.client.group.count({ where: { name: groupName } }), 0);
+});
 
 void test('maps normalized-invalid participant input to INVALID_REQUEST', async () => {
   const created = await createGroup();
