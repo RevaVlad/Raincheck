@@ -34,6 +34,7 @@ const participant = {
   groupId: group.id,
   displayName: 'Alice',
   displayNameNormalized: 'alice',
+  avatarColor: 'green' as const,
   editTokenHash: 'a'.repeat(64),
   createdAt,
   updatedAt: createdAt,

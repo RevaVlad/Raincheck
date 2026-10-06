@@ -5,6 +5,7 @@ interface ParticipantRecord {
   id: string;
   groupId: string;
   displayName: string;
+  avatarColor: string;
 }
 
 interface ParticipantLookup {

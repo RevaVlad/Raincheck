@@ -1,6 +1,6 @@
 import type { Group } from '#domain/group/group';
 import type { AvailabilityInterval, PreferenceDirection } from '#domain/interval/interval';
-import type { Participant } from '#domain/participant/participant';
+import type { AvatarColor, Participant } from '#domain/participant/participant';
 import type { Poll, SlotMinutes } from '#domain/poll/poll';
 import type { PollResponse } from '#domain/response/response';
 import { utcCalendarDate, utcTimeMinutes } from '#shared/time/utc';
@@ -33,7 +33,7 @@ export function toGroup(record: GroupRecord): Group {
 }
 
 export function toParticipant(record: ParticipantRecord): Participant {
-  return { ...record };
+  return { ...record, avatarColor: record.avatarColor as AvatarColor };
 }
 
 export function toPoll(record: PollRecord): Poll {

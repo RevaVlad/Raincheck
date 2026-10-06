@@ -47,3 +47,27 @@ void test('Prisma migration creates all domain tables without legacy tracking', 
   }
   assert.doesNotMatch(prisma, /schema_migrations/i);
 });
+
+void test('participant color migration backfills gray before enforcing the palette constraint', async () => {
+  const sql = await readFile(
+    resolve(
+      import.meta.dirname,
+      '../../../prisma/migrations/20261006000000_participant_avatar_color/migration.sql',
+    ),
+    'utf8',
+  );
+  const normalized = sql.replace(/\s+/gu, ' ');
+  const addColumn = normalized.indexOf('ADD COLUMN "avatar_color" VARCHAR(6)');
+  const backfill = normalized.indexOf('SET "avatar_color" = \'gray\'');
+  const required = normalized.indexOf('ALTER COLUMN "avatar_color" SET NOT NULL');
+  const constraint = normalized.indexOf('participants_avatar_color_valid');
+  assert.ok(addColumn >= 0);
+  assert.ok(backfill > addColumn);
+  assert.ok(required > backfill);
+  assert.ok(constraint > required);
+  assert.match(
+    normalized,
+    /"avatar_color"\s+in\s+\(\s*'green', 'blue', 'purple', 'rose', 'yellow', 'gray'\s*\)/i,
+  );
+  assert.doesNotMatch(sql, /default\s+'?(green|gray)'?/i);
+});

@@ -33,7 +33,7 @@ void test('rejects a participant from another group', async () => {
       () => responses.create(first.poll.id, second.participant.id),
       /same group/i,
     );
-    assert.equal(await database.client.pollResponse.count(), 0);
+    assert.equal(await database.client.pollResponse.count({ where: { pollId: first.poll.id } }), 0);
   });
 });
 
@@ -133,7 +133,7 @@ void test('requires both a poll and participant and rejects missing responses', 
     await assert.rejects(() => responses.create(poll.id, randomUUID()), /open poll/i);
     await assert.rejects(() => responses.confirm(randomUUID()), /open poll/i);
     await assert.rejects(() => responses.markDraft(randomUUID()), /open poll/i);
-    assert.equal(await database.client.pollResponse.count(), 0);
+    assert.equal(await database.client.pollResponse.count({ where: { pollId: poll.id } }), 0);
   });
 });
 
@@ -181,6 +181,7 @@ async function responseFixture(database: PrismaDatabase) {
       groupId: group.id,
       displayName: 'Alice',
       displayNameNormalized: 'alice',
+      avatarColor: 'green',
       editTokenHash: randomBytes(32).toString('hex'),
       createdAt: now,
       updatedAt: now,

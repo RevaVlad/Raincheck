@@ -34,6 +34,7 @@ async function createParticipant(database: PrismaDatabase) {
       groupId: group.id,
       displayName: 'Alice',
       displayNameNormalized: 'alice',
+      avatarColor: 'green',
       editTokenHash: randomUUID().replaceAll('-', '').repeat(2),
       createdAt,
       updatedAt: createdAt,

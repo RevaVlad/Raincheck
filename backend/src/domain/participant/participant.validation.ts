@@ -1,5 +1,12 @@
 import { LIMITS } from '#shared/constants';
-import type { ValidParticipantName } from './participant.js';
+import { AVATAR_COLORS, type AvatarColor, type ValidParticipantName } from './participant.js';
+
+export function validateAvatarColor(value: string): AvatarColor {
+  if (!(AVATAR_COLORS as readonly string[]).includes(value)) {
+    throw new RangeError('Participant avatar color is invalid');
+  }
+  return value as AvatarColor;
+}
 
 export function validateParticipant(nameInput: string): ValidParticipantName {
   const displayName = normalizeDisplayName(nameInput);

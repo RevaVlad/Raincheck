@@ -20,6 +20,7 @@ const EXPECTED_INDEXES = [
 const EXPECTED_CONSTRAINTS = [
   'availability_interval_direction_valid',
   'groups_timezone_utc',
+  'participants_avatar_color_valid',
   'polls_based_on_same_group_fk',
 ] as const;
 
@@ -32,6 +33,7 @@ void test('database keeps the domain invariants after the Prisma migration', asy
   assert.deepEqual(await existingConstraintNames(), [
     'availability_interval_direction_valid',
     'groups_timezone_utc',
+    'participants_avatar_color_valid',
     'polls_based_on_same_group_fk',
   ]);
 });
@@ -62,6 +64,7 @@ const CHECK_NAMES = [
   'availability_interval_time_valid',
   'groups_name_not_blank',
   'groups_timezone_utc',
+  'participants_avatar_color_valid',
   'participants_name_not_blank',
   'poll_responses_confirmation_consistent',
   'poll_responses_state_valid',
@@ -216,6 +219,7 @@ const COLUMN_TYPES: Record<string, Record<string, string>> = {
     edit_token_hash: 'character(64)',
     created_at: 'timestamp with time zone',
     updated_at: 'timestamp with time zone',
+    avatar_color: 'character varying(6)',
   },
   poll_responses: {
     id: 'uuid',

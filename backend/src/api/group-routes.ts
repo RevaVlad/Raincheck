@@ -3,6 +3,8 @@ import type { PrismaDatabase } from '#infrastructure/database/prisma-database';
 import { GroupService } from '#services/group/group.service';
 import { ParticipantService } from '#services/participant/participant.service';
 import { PollService } from '#services/poll/poll.service';
+import { AVATAR_COLORS, type AvatarColor } from '#domain/participant/participant';
+import { validateAvatarColor } from '#domain/participant/participant.validation';
 import { validatePoll } from '#domain/poll/poll.validation';
 import { toPoll } from '#infrastructure/database/prisma-records';
 import { AppError } from './errors.js';
@@ -42,8 +44,11 @@ const groupBody = {
 const participantBody = {
   type: 'object',
   additionalProperties: false,
-  required: ['displayName'],
-  properties: { displayName: { type: 'string', minLength: 1, maxLength: 80 } },
+  required: ['displayName', 'avatarColor'],
+  properties: {
+    displayName: { type: 'string', minLength: 1, maxLength: 80 },
+    avatarColor: { type: 'string', enum: AVATAR_COLORS },
+  },
 } as const;
 
 const asCode = (params: unknown) => (params as { inviteCode: string }).inviteCode;
@@ -52,8 +57,12 @@ const asToken = (headers: unknown) =>
 function groupDto(group: { id: string; name: string; inviteCode: string; timezone: string }) {
   return { id: group.id, name: group.name, inviteCode: group.inviteCode, timezone: group.timezone };
 }
-function participantDto(participant: { id: string; displayName: string }) {
-  return { id: participant.id, displayName: participant.displayName };
+function participantDto(participant: { id: string; displayName: string; avatarColor: string }) {
+  return {
+    id: participant.id,
+    displayName: participant.displayName,
+    avatarColor: validateAvatarColor(participant.avatarColor),
+  };
 }
 function pollDto(poll: ReturnType<typeof toPoll>) {
   return {
@@ -119,7 +128,11 @@ export function registerGroupRoutes(app: FastifyInstance, database: PrismaDataba
     }
     const created = await database.transaction(async (tx) => {
       const group = await new GroupService(tx).create({ name: body.name });
-      const creator = await new ParticipantService(tx).create(group.id, body.creatorDisplayName);
+      const creator = await new ParticipantService(tx).create(
+        group.id,
+        body.creatorDisplayName,
+        AVATAR_COLORS[0],
+      );
       const currentPoll = await new PollService(tx).create(group.id, 1, body.firstPoll);
       return { group, creator, currentPoll };
     });
@@ -160,6 +173,7 @@ export function registerGroupRoutes(app: FastifyInstance, database: PrismaDataba
         const participant = await new ParticipantService(database).create(
           group.id,
           (request.body as { displayName: string }).displayName,
+          (request.body as { avatarColor: AvatarColor }).avatarColor,
         );
         return reply.code(201).send({
           participant: participantDto(participant.participant),
@@ -182,9 +196,10 @@ export function registerGroupRoutes(app: FastifyInstance, database: PrismaDataba
       if (!group) throw new AppError('GROUP_NOT_FOUND', 404, 'Group not found');
       const me = await resolveParticipant(database, asToken(request.headers), group.id);
       try {
-        const participant = await new ParticipantService(database).rename(
+        const participant = await new ParticipantService(database).updateProfile(
           me.id,
           (request.body as { displayName: string }).displayName,
+          (request.body as { avatarColor: AvatarColor }).avatarColor,
         );
         return { participant: participantDto(participant) };
       } catch (error) {
