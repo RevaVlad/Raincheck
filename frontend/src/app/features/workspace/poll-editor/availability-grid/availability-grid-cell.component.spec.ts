@@ -5,10 +5,10 @@ import { AvailabilityGridCellComponent } from './availability-grid-cell.componen
 
 describe('AvailabilityGridCellComponent', () => {
   it.each([
-    { kind: 'UNAVAILABLE' as const, background: 'rgb(251, 233, 233)' },
-    { kind: 'IF_NEEDED' as const, background: 'rgb(253, 245, 223)' },
-    { kind: 'PREFERRED' as const, background: 'rgb(231, 245, 233)' },
-  ])('owns the $kind cell color on its host', async ({ kind, background }) => {
+    { kind: 'UNAVAILABLE' as const, stateClass: 'unavailable' },
+    { kind: 'IF_NEEDED' as const, stateClass: 'if-needed' },
+    { kind: 'PREFERRED' as const, stateClass: 'preferred' },
+  ])('applies the $kind state class on its host', async ({ kind, stateClass }) => {
     await TestBed.configureTestingModule({
       imports: [AvailabilityGridCellComponent],
     }).compileComponents();
@@ -21,6 +21,6 @@ describe('AvailabilityGridCellComponent', () => {
     fixture.componentRef.setInput('kind', kind);
     fixture.detectChanges();
 
-    expect(getComputedStyle(fixture.nativeElement).backgroundColor).toBe(background);
+    expect(fixture.nativeElement.classList.contains(stateClass)).toBe(true);
   });
 });

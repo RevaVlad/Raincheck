@@ -213,7 +213,7 @@ describe('WorkspacePageComponent leave checks', () => {
 
     expect(currentLink?.textContent.replace(/\s+/g, ' ').trim()).toBe('Current poll Открыт');
     expect(currentLink?.getAttribute('href')).toBe('/g/invite-code');
-    expect(currentLink?.classList.contains('bg-emerald-50')).toBe(true);
+    expect(currentLink?.classList.contains('bg-accent-soft')).toBe(true);
     expect(currentLink?.classList.contains('ring-1')).toBe(true);
     expect(pastLinks.map((link) => link.textContent.replace(/\s+/g, ' ').trim())).toEqual([
       'Опрос #3 Завершён',
@@ -225,7 +225,7 @@ describe('WorkspacePageComponent leave checks', () => {
       '/g/invite-code/polls/past-2/results',
       '/g/invite-code/polls/past-1/results',
     ]);
-    expect(pastLinks.every((link) => !link.classList.contains('bg-emerald-50'))).toBe(true);
+    expect(pastLinks.every((link) => !link.classList.contains('bg-accent-soft'))).toBe(true);
     expect(pastSection?.querySelector('ul')?.classList.contains('max-h-64')).toBe(true);
     expect(pastSection?.querySelector('ul')?.classList.contains('overflow-y-auto')).toBe(true);
     expect(pastSection?.querySelector('a')?.className).toContain('focus-visible:');

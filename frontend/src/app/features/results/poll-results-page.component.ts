@@ -160,12 +160,12 @@ export class PollResultsPageComponent {
   }
 
   heatClass(available: number, confirmed: number): string {
-    if (!available || !confirmed) return 'bg-slate-50';
+    if (!available || !confirmed) return 'bg-background';
     const ratio = Math.min(available / confirmed, 1);
-    if (ratio === 1) return 'bg-emerald-300';
-    if (ratio >= 0.67) return 'bg-emerald-200';
-    if (ratio >= 0.34) return 'bg-emerald-100';
-    return 'bg-emerald-50';
+    if (ratio === 1) return 'bg-availability-density-full';
+    if (ratio >= 0.67) return 'bg-availability-density-high';
+    if (ratio >= 0.34) return 'bg-availability-density-medium';
+    return 'bg-availability-density-low';
   }
 
   heatDescription(cell: HeatmapCell, confirmed: number): string {

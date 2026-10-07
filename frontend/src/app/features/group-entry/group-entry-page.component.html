@@ -3,15 +3,15 @@
 } @else if (facade.loading()) {
   <app-loading-state layout="group" statusText="Загружаем группу…" />
 } @else if (facade.notFound()) {
-  <main class="grid min-h-[calc(100dvh_-_3.5rem)] place-items-center bg-slate-50 p-6">
+  <main class="grid min-h-[calc(100dvh_-_3.5rem)] place-items-center bg-background p-6">
     <section class="max-w-md text-center">
       <h1 class="text-page-title-compact font-semibold">Группа не найдена</h1>
-      <p class="mt-2 text-slate-600">Проверьте ссылку-приглашение и попробуйте ещё раз.</p>
+      <p class="mt-2 text-secondary">Проверьте ссылку-приглашение и попробуйте ещё раз.</p>
     </section>
   </main>
 } @else if (facade.workspace(); as current) {
   <main
-    class="grid min-h-[calc(100dvh_-_3.5rem)] min-w-0 bg-slate-50 lg:grid-cols-[310px_minmax(0,1fr)]"
+    class="grid min-h-[calc(100dvh_-_3.5rem)] min-w-0 bg-background lg:grid-cols-[310px_minmax(0,1fr)]"
   >
     <app-group-sidebar
       class="min-w-0"
@@ -29,7 +29,7 @@
           <h1 class="text-page-title-compact font-semibold">
             {{ current.me ? 'Ваш профиль' : 'Представьтесь группе' }}
           </h1>
-          <p class="mt-2 text-supporting text-slate-500">
+          <p class="mt-2 text-supporting text-secondary">
             Выберите имя и цвет аватара, чтобы перейти к опросу.
           </p>
         </div>
@@ -49,9 +49,9 @@
           </mat-form-field>
 
           <fieldset class="mt-2">
-            <legend class="mb-3 text-sm font-medium text-slate-700">Цвет аватара</legend>
+            <legend class="mb-3 text-sm font-medium text-text">Цвет аватара</legend>
             <mat-button-toggle-group
-              class="!grid w-full grid-cols-3 overflow-hidden rounded-xl border border-slate-200 sm:grid-cols-6"
+              class="!grid w-full grid-cols-3 overflow-hidden rounded-xl border border-border sm:grid-cols-6"
               aria-label="Цвет аватара"
               [value]="avatarColor"
               (change)="avatarColor = $event.value"
@@ -65,7 +65,7 @@
                   [title]="color.label"
                 >
                   <span
-                    class="mx-auto block size-7 rounded-full border border-black/10"
+                    class="mx-auto block size-7 rounded-full border border-border"
                     [style.background-color]="color.hex"
                     aria-hidden="true"
                   ></span>
@@ -76,7 +76,7 @@
           </fieldset>
 
           @if (facade.profileError()) {
-            <p class="mb-3 mt-4 text-supporting text-red-700" role="alert" aria-live="polite">
+            <p class="mb-3 mt-4 text-supporting text-danger" role="alert" aria-live="polite">
               {{ facade.profileError() }}
             </p>
           }

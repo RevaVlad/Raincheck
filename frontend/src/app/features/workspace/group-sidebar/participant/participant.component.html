@@ -1,6 +1,6 @@
 <ng-template #cardContent>
   <span
-    class="grid size-8 shrink-0 place-items-center rounded-full text-xs font-semibold text-slate-700"
+    class="grid size-8 shrink-0 place-items-center rounded-full text-xs font-semibold text-text"
     [style.background-color]="color(participant().avatarColor)"
     [attr.data-avatar-color]="participant().avatarColor"
     aria-hidden="true"
@@ -11,8 +11,8 @@
   @if (showStatus()) {
     <span
       class="ml-auto shrink-0 text-xs"
-      [class.text-emerald-700]="participant().currentPollState === 'CONFIRMED'"
-      [class.text-slate-400]="participant().currentPollState !== 'CONFIRMED'"
+      [class.text-success]="participant().currentPollState === 'CONFIRMED'"
+      [class.text-secondary]="participant().currentPollState !== 'CONFIRMED'"
     >
       {{ status(participant().currentPollState) }}
     </span>
@@ -21,7 +21,7 @@
 
 @if (isCurrent()) {
   <a
-    class="flex items-center gap-3 rounded-lg bg-emerald-50 px-2 py-2 ring-1 ring-emerald-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+    class="flex items-center gap-3 rounded-lg bg-accent-soft px-2 py-2 ring-1 ring-accent-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
     [routerLink]="['/g', inviteCode(), 'profile']"
     aria-current="page"
     [attr.aria-label]="participant().displayName + ', ваш профиль'"

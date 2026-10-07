@@ -49,6 +49,17 @@ npm run dev:frontend
 
 The frontend is at `http://localhost:4200`. Its `/api` requests proxy to the backend at `http://localhost:3000`. Health endpoints are `/health/live` and `/health/ready` on the backend. Readiness checks PostgreSQL; liveness only checks the web process.
 
+## Frontend theme
+
+The palette and Angular Material color mappings live in `frontend/src/styles.css`; `theme-raincheck` is applied to `<html>` in `frontend/src/index.html`. Use semantic color classes in new templates:
+
+```html
+<section class="bg-surface text-text border border-border">
+  <p class="text-secondary">Description</p>
+  <button class="bg-accent text-on-accent hover:bg-accent-hover">Continue</button>
+</section>
+```
+
 ## Checks
 
 ```sh

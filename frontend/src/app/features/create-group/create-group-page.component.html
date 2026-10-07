@@ -3,7 +3,7 @@
 >
   <section class="mb-7 text-center">
     <h1 class="text-page-title font-semibold tracking-tight">Создать группу</h1>
-    <p class="mt-2 text-slate-600">
+    <p class="mt-2 text-secondary">
       У группы будет постоянная ссылка. Первый опрос можно создать после заполнения профиля.
     </p>
   </section>
@@ -15,7 +15,7 @@
         <input matInput formControlName="groupName" required maxlength="120" />
       </mat-form-field>
       @if (errorMessage()) {
-        <p class="-mt-3 text-supporting text-red-700" role="alert">{{ errorMessage() }}</p>
+        <p class="-mt-3 text-supporting text-danger" role="alert">{{ errorMessage() }}</p>
       }
       <div class="flex justify-end">
         <button mat-flat-button type="submit" [disabled]="submitting() || created()">
