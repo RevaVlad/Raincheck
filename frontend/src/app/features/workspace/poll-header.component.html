@@ -1,9 +1,5 @@
 @let activePoll = poll();
 @let selectedTimeZone = timezone.selectedTimeZone();
-@let startOffset =
-  activePoll.startsOn | timezoneDisplay: selectedTimeZone : 'offset' : activePoll.dayStart;
-@let endOffset =
-  activePoll.endsOn | timezoneDisplay: selectedTimeZone : 'offset' : activePoll.dayEnd;
 
 <header class="mb-6">
   <h1 class="mt-1 text-page-title font-semibold tracking-tight">

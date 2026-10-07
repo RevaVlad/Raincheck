@@ -55,11 +55,11 @@
               aria-label="Цвет аватара"
               [value]="avatarColor"
               (change)="avatarColor = $event.value"
-              hideSingleSelectionIndicator="false"
+              hideSingleSelectionIndicator
             >
               @for (color of colors; track color.value) {
                 <mat-button-toggle
-                  class="!min-w-0 !border-0 !p-1"
+                  class="!border-0"
                   [value]="color.value"
                   [attr.aria-label]="color.label"
                   [title]="color.label"

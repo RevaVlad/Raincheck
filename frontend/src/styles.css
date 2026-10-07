@@ -38,3 +38,8 @@ body {
 mat-card.flex-row {
   flex-direction: row;
 }
+
+mat-button-toggle .mat-button-toggle-button {
+  padding-top: 10px !important;
+  padding-bottom: 8px !important;
+}
