@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { throwError, of } from 'rxjs';
-import { GroupsApiService } from '../group/groups-api.service';
+import { GroupsApiService } from '../../core/api/groups-api.service';
 import { CreateGroupPageComponent } from './create-group-page.component';
 
 describe('CreateGroupPageComponent', () => {

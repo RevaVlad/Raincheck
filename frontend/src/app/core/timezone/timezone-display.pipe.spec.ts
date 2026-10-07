@@ -38,7 +38,8 @@ describe('TimezoneDisplayPipe', () => {
   it('shows both local dates when a slot crosses midnight', () => {
     const pipe = TestBed.runInInjectionContext(() => new TimezoneDisplayPipe());
     expect(pipe.transform('2026-10-03', 'America/Los_Angeles', 'slot', '06:30', '07:30')).toBe(
-      `${formatLocalDate('2026-10-02', 'UTC')} — ${formatLocalDate('2026-10-03', 'UTC')}, 23:30–00:30 UTC-07:00`,
+      `${formatLocalDate('2026-10-02', 'UTC')} — ${formatLocalDate('2026-10-03', 'UTC')}, ` +
+        '23:30–00:30 UTC-07:00',
     );
   });
 

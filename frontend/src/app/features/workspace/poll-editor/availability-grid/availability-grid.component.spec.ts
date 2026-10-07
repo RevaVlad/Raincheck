@@ -27,10 +27,10 @@ describe('AvailabilityGridComponent', () => {
     fixture.componentRef.setInput('selectedKind', 'PREFERRED');
     fixture.detectChanges();
 
-    const grid = (fixture.nativeElement as HTMLElement).querySelector('.schedule-grid') as HTMLElement;
-    expect(grid.style.gridTemplateColumns).toBe(
-      `68px repeat(${dayCount}, minmax(128px, 1fr))`,
-    );
+    const grid = (fixture.nativeElement as HTMLElement).querySelector(
+      '.schedule-grid',
+    ) as HTMLElement;
+    expect(grid.style.gridTemplateColumns).toBe(`68px repeat(${dayCount}, minmax(128px, 1fr))`);
     expect(grid.querySelectorAll('.day')).toHaveLength(dayCount);
     expect(grid.parentElement?.classList.contains('overflow-x-auto')).toBe(true);
   });
@@ -39,42 +39,42 @@ describe('AvailabilityGridComponent', () => {
     { kind: 'UNAVAILABLE' as const, className: 'unavailable' },
     { kind: 'IF_NEEDED' as const, className: 'if-needed' },
     { kind: 'PREFERRED' as const, className: 'preferred' },
-  ])('renders the $kind state and timezone label on the cell component host', async ({
-    kind,
-    className,
-  }) => {
-    const editor = {
-      poll: signal({
-        id: 'poll-id',
-        startsOn: '2026-10-06',
-        endsOn: '2026-10-06',
-        dayStart: '09:00',
-        dayEnd: '10:00',
-        slotMinutes: 60,
-      }),
-      cellAt: () => kind,
-    };
-    await TestBed.configureTestingModule({
-      imports: [AvailabilityGridComponent],
-      providers: [{ provide: PollEditorService, useValue: editor }],
-    }).compileComponents();
+  ])(
+    'renders the $kind state and timezone label on the cell component host',
+    async ({ kind, className }) => {
+      const editor = {
+        poll: signal({
+          id: 'poll-id',
+          startsOn: '2026-10-06',
+          endsOn: '2026-10-06',
+          dayStart: '09:00',
+          dayEnd: '10:00',
+          slotMinutes: 60,
+        }),
+        cellAt: () => kind,
+      };
+      await TestBed.configureTestingModule({
+        imports: [AvailabilityGridComponent],
+        providers: [{ provide: PollEditorService, useValue: editor }],
+      }).compileComponents();
 
-    const timezone = TestBed.inject(TimezonePreferenceService);
-    timezone.selectedTimeZone.set('UTC');
-    const fixture = TestBed.createComponent(AvailabilityGridComponent);
-    fixture.componentRef.setInput('selectedKind', 'PREFERRED');
-    fixture.detectChanges();
+      const timezone = TestBed.inject(TimezonePreferenceService);
+      timezone.selectedTimeZone.set('UTC');
+      const fixture = TestBed.createComponent(AvailabilityGridComponent);
+      fixture.componentRef.setInput('selectedKind', 'PREFERRED');
+      fixture.detectChanges();
 
-    const cell = (fixture.nativeElement as HTMLElement).querySelector(
-      'app-availability-grid-cell',
-    ) as HTMLElement;
-    expect(cell).not.toBeNull();
-    expect(cell.dataset['date']).toBe('2026-10-06');
-    expect(cell.dataset['time']).toBe('09:00');
-    expect(cell.classList.contains(className)).toBe(true);
-    expect(cell.title).toBe('09:00 UTC+00:00');
-    expect(cell.getAttribute('aria-label')).toContain(`09:00 UTC+00:00: ${kind}`);
-  });
+      const cell = (fixture.nativeElement as HTMLElement).querySelector(
+        'app-availability-grid-cell',
+      ) as HTMLElement;
+      expect(cell).not.toBeNull();
+      expect(cell.dataset['date']).toBe('2026-10-06');
+      expect(cell.dataset['time']).toBe('09:00');
+      expect(cell.classList.contains(className)).toBe(true);
+      expect(cell.title).toBe('09:00 UTC+00:00');
+      expect(cell.getAttribute('aria-label')).toContain(`09:00 UTC+00:00: ${kind}`);
+    },
+  );
 
   it('paints the UTC cells under a captured pointer drag', async () => {
     const paint = vi.fn();
@@ -112,7 +112,10 @@ describe('AvailabilityGridComponent', () => {
     });
     const previousElementFromPoint = Object.getOwnPropertyDescriptor(document, 'elementFromPoint');
     const elementFromPoint = vi.fn(() => secondCell);
-    Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: elementFromPoint });
+    Object.defineProperty(document, 'elementFromPoint', {
+      configurable: true,
+      value: elementFromPoint,
+    });
 
     try {
       fixture.componentInstance.onPointerDown({

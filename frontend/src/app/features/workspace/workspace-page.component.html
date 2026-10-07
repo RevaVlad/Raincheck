@@ -1,68 +1,26 @@
-<main
-  class="min-h-[calc(100dvh_-_3.5rem)] min-w-0 bg-background lg:grid lg:grid-cols-[310px_minmax(0,1fr)]"
->
-  <app-group-sidebar
-    class="block min-w-0 border-b border-border bg-surface lg:sticky lg:top-14 lg:h-[calc(100dvh-3.5rem)] lg:self-start lg:border-b-0"
-    [groupName]="workspace().group.name"
-    [inviteLink]="inviteLink()"
-    [inviteCode]="group.inviteCode()"
-    [participants]="sidebarParticipants()"
-    [polls]="workspace().polls"
-    [currentParticipantId]="workspace().me?.id ?? null"
-  />
-  <section class="min-w-0 p-5 sm:p-8">
-    @if (currentPoll(); as poll) {
-      <div class="flex flex-wrap items-start justify-between gap-3">
-        <app-poll-header [poll]="poll" />
-        <button
-          mat-stroked-button
-          type="button"
-          class="shrink-0"
-          [disabled]="closing()"
-          (click)="closePoll()"
-        >
-          Завершить опрос
-        </button>
-      </div>
-      @if (closeError()) {
-        <p class="mb-4 text-supporting text-danger" role="alert">{{ closeError() }}</p>
-      }
-      <app-poll-entry-editor />
-      <app-confirm-response-button [inviteCode]="group.inviteCode()" [pollId]="poll.id" />
-    } @else {
-      <section class="rounded-2xl border border-border bg-surface p-6">
-        <h1 class="text-page-title-compact font-semibold">Нет активного опроса</h1>
-        <p class="mt-2 text-secondary">
-          Создайте следующий опрос, чтобы участники отметили удобное время.
-        </p>
-        @if (workspace().me) {
-          <a mat-flat-button class="mt-5" [routerLink]="['/g', group.inviteCode(), 'polls', 'new']">
-            Создать опрос
-          </a>
-        } @else {
-          <a mat-button class="mt-5" [routerLink]="['/g', group.inviteCode(), 'profile']">
-            Заполнить профиль
-          </a>
-        }
-      </section>
-    }
-  </section>
-
-  <ng-template #closePollDialog>
-    <h2 mat-dialog-title id="close-poll-title">Завершить опрос?</h2>
-    <mat-dialog-content id="close-poll-description">
-      @if (confirmationPendingResponseCount() > 0) {
-        <p class="mb-3">
-          Осталось неподтверждённых ответов: {{ confirmationPendingResponseCount() }}.
-        </p>
+<section class="min-w-0 p-5 sm:p-8">
+  @if (currentPoll(); as poll) {
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <app-poll-header [poll]="poll" />
+      <app-poll-close-control [poll]="poll" />
+    </div>
+    <app-poll-entry-editor />
+    <app-confirm-response-button [inviteCode]="group.inviteCode()" [pollId]="poll.id" />
+  } @else {
+    <section class="rounded-2xl border border-border bg-surface p-6">
+      <h1 class="text-page-title-compact font-semibold">Нет активного опроса</h1>
+      <p class="mt-2 text-secondary">
+        Создайте следующий опрос, чтобы участники отметили удобное время.
+      </p>
+      @if (workspace().me) {
+        <a mat-flat-button class="mt-5" [routerLink]="['/g', group.inviteCode(), 'polls', 'new']">
+          Создать опрос
+        </a>
       } @else {
-        <p class="mb-3">Нет неподтверждённых ответов.</p>
+        <a mat-button class="mt-5" [routerLink]="['/g', group.inviteCode(), 'profile']">
+          Заполнить профиль
+        </a>
       }
-      <p>После завершения менять ответы будет нельзя. Результаты останутся в истории группы.</p>
-    </mat-dialog-content>
-    <mat-dialog-actions align="end">
-      <button mat-button type="button" [mat-dialog-close]="false">Продолжить ответы</button>
-      <button mat-flat-button type="button" [mat-dialog-close]="true">Завершить опрос</button>
-    </mat-dialog-actions>
-  </ng-template>
-</main>
+    </section>
+  }
+</section>

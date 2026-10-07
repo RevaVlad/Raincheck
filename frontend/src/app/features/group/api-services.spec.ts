@@ -2,13 +2,13 @@ import { ApplicationRef, signal } from '@angular/core';
 import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { GroupsApiService } from '../../features/group/groups-api.service';
-import { PollsApiService } from '../../features/group/polls-api.service';
-import { ParticipantsApiService } from '../../features/group/participants-api.service';
-import { PollResultsApiService } from '../../features/results/poll-results-api.service';
-import { PollResponsesApiService } from '../../features/workspace/poll-editor/poll-responses-api.service';
-import { apiErrorCode, apiErrorMessage, isUnauthorized } from './api-errors';
-import type { CreateGroupRequest, PollResults, Workspace } from './api.types';
+import { GroupsApiService } from '../../core/api/groups-api.service';
+import { apiErrorCode, apiErrorMessage, isUnauthorized } from '../../core/api/api-errors';
+import type { CreateGroupRequest, PollResults, Workspace } from '../../core/api/api.types';
+import { ParticipantsApiService } from './participants-api.service';
+import { PollsApiService } from './polls-api.service';
+import { PollResultsApiService } from '../results/poll-results-api.service';
+import { PollResponsesApiService } from '../workspace/poll-editor/poll-responses-api.service';
 
 describe('feature API services', () => {
   let groups: GroupsApiService;

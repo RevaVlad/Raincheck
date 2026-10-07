@@ -1,5 +1,6 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { Router, provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import type { Poll } from '../../core/api/api.types';
@@ -7,9 +8,17 @@ import { ParticipantSessionService } from '../../core/session/participant-sessio
 import { GroupFacade } from './group.facade';
 import { PollsApiService } from './polls-api.service';
 import { PollCreationPageComponent } from './poll-creation-page.component';
+import { PollScheduleFormComponent } from './poll-schedule-form.component';
 
 describe('PollCreationPageComponent', () => {
   const member = { id: 'participant-id', displayName: 'Alex', avatarColor: 'green' as const };
+
+  function scheduleForm(
+    fixture: ReturnType<typeof TestBed.createComponent<PollCreationPageComponent>>,
+  ) {
+    return fixture.debugElement.query(By.directive(PollScheduleFormComponent))
+      .componentInstance as PollScheduleFormComponent;
+  }
 
   function poll(overrides: Partial<Poll> = {}): Poll {
     return {
@@ -85,8 +94,8 @@ describe('PollCreationPageComponent', () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2026-10-06T23:30:00.000Z'));
     try {
-      const { component } = await setup();
-      expect(component.form.getRawValue()).toEqual({
+      const { fixture } = await setup();
+      expect(scheduleForm(fixture).form.getRawValue()).toEqual({
         title: '',
         startsOn: '2026-10-07',
         endsOn: '2026-10-13',
@@ -104,8 +113,8 @@ describe('PollCreationPageComponent', () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2026-10-06T23:30:00.000Z'));
     try {
-      const { component } = await setup({ polls: [poll()] });
-      expect(component.form.getRawValue()).toEqual({
+      const { fixture } = await setup({ polls: [poll()] });
+      expect(scheduleForm(fixture).form.getRawValue()).toEqual({
         title: '',
         startsOn: '2026-10-07',
         endsOn: '2026-10-13',
@@ -119,32 +128,10 @@ describe('PollCreationPageComponent', () => {
     }
   });
 
-  it('keeps meeting duration editable and validates the daily window against it', async () => {
-    const { component, createPoll, fixture } = await setup();
-    component.form.patchValue({ dayEnd: '17:00', meetingDurationMinutes: 90 });
-
-    await component.submit();
-    fixture.detectChanges();
-
-    expect(createPoll).not.toHaveBeenCalled();
-    expect(component.errorMessage()).toContain('длительности встречи');
-    expect(fixture.nativeElement.textContent).toContain('Длительность встречи');
-  });
-
-  it('rejects a meeting duration that does not align with the grid step', async () => {
-    const { component, createPoll } = await setup();
-    component.form.patchValue({ slotMinutes: 60, meetingDurationMinutes: 90 });
-
-    await component.submit();
-
-    expect(createPoll).not.toHaveBeenCalled();
-    expect(component.errorMessage()).toContain('длительность встречи');
-  });
-
   it('creates a poll for the active participant and returns to the group', async () => {
-    const { component, createPoll, navigate } = await setup({ polls: [poll()] });
+    const { fixture, createPoll, navigate } = await setup({ polls: [poll()] });
 
-    await component.submit();
+    await scheduleForm(fixture).submit();
 
     expect(createPoll).toHaveBeenCalledWith(
       'invite-code',
@@ -162,7 +149,7 @@ describe('PollCreationPageComponent', () => {
     expect(navigate).toHaveBeenCalledWith(['/g', 'invite-code']);
   });
 
-  it('redirects nonmembers to profile and groups with an active poll to the workspace', async () => {
+  it('redirects nonmembers and groups with an active poll', async () => {
     const noMember = await setup({ me: null });
     expect(noMember.navigate).toHaveBeenCalledWith(['/g', 'invite-code', 'profile']);
     TestBed.resetTestingModule();

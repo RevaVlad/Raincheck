@@ -118,7 +118,7 @@ void test('clears a reference when its previous poll is deleted', async () => {
   });
 });
 
-void test('creates the first available poll and never closes an active poll implicitly', async () => {
+void test('creates the first poll without closing an active one', async () => {
   await inPrismaTransaction(async ({ database }) => {
     const group = await new GroupService(database).create({ name: 'First poll' });
     const polls = new PollService(database);

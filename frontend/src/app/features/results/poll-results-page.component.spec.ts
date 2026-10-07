@@ -10,6 +10,7 @@ import { PollResultsApiService } from './poll-results-api.service';
 import { TimezonePreferenceService } from '../../core/timezone/timezone-preference.service';
 import { PollResultsPageComponent } from './poll-results-page.component';
 import { GroupFacade } from '../group/group.facade';
+import { GroupSidebarContext } from '../group/group-sidebar-context.service';
 
 describe('PollResultsPageComponent', () => {
   const result = (total: number): PollResults => ({
@@ -57,6 +58,7 @@ describe('PollResultsPageComponent', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         PollResultsApiService,
+        GroupSidebarContext,
         { provide: GroupFacade, useValue: { workspace: signal(workspace) } },
         {
           provide: ActivatedRoute,
@@ -71,7 +73,11 @@ describe('PollResultsPageComponent', () => {
         },
       ],
     });
-    return { params, http: TestBed.inject(HttpTestingController) };
+    return {
+      params,
+      http: TestBed.inject(HttpTestingController),
+      sidebar: TestBed.inject(GroupSidebarContext),
+    };
   }
 
   it('loads route-selected results and follows later route changes', async () => {
@@ -142,13 +148,14 @@ describe('PollResultsPageComponent', () => {
     expect(fixture.componentInstance.results()?.participantSummary.total).toBe(3);
   });
 
-  it('keeps the group sidebar and shows pending count with the selected poll states', async () => {
-    const { http } = setup();
+  it('supplies selected poll states to the sidebar after results load', async () => {
+    const { http, sidebar } = setup();
     const fixture = TestBed.createComponent(PollResultsPageComponent);
     fixture.componentInstance.timezone.selectedTimeZone.set('America/Los_Angeles');
     fixture.detectChanges();
     await fixture.whenStable();
     TestBed.tick();
+    expect(sidebar.temporaryPresentation()?.().showParticipantStatuses).toBe(false);
     http.expectOne('/api/groups/group-a/polls/poll-a/results').flush({
       participantSummary: { total: 2, confirmed: 1, pending: 1 },
       participants: [
@@ -172,14 +179,18 @@ describe('PollResultsPageComponent', () => {
     await TestBed.inject(ApplicationRef).whenStable();
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('app-group-sidebar')).not.toBeNull();
+    expect(sidebar.temporaryPresentation()?.().participants).toMatchObject([
+      { id: 'alice', currentPollState: 'CONFIRMED' },
+      { id: 'bob', currentPollState: 'NONE' },
+    ]);
+    expect(sidebar.temporaryPresentation()?.().showParticipantStatuses).toBe(true);
     expect(fixture.nativeElement.textContent).toContain('Ожидаем ещё 1');
     expect(fixture.nativeElement.textContent).toContain('Планирование команды');
-    expect(fixture.nativeElement.textContent).toContain('Алиса');
-    expect(fixture.nativeElement.textContent).toContain('Готово');
-    expect(fixture.nativeElement.textContent).toContain('Нет ответа');
     expect(fixture.nativeElement.textContent).toContain('1/1');
     expect(fixture.nativeElement.textContent).toContain('23:00');
     expect(fixture.nativeElement.textContent).toContain('5 окт.');
+
+    fixture.destroy();
+    expect(sidebar.temporaryPresentation()).toBeNull();
   });
 });

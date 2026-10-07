@@ -3,102 +3,90 @@
 } @else if (facade.loading()) {
   <app-loading-state layout="group" statusText="Загружаем группу…" />
 } @else if (facade.notFound()) {
-  <main class="grid min-h-[calc(100dvh_-_3.5rem)] place-items-center bg-background p-6">
-    <section class="max-w-md text-center">
+  <section class="grid min-h-[calc(100dvh_-_3.5rem)] place-items-center bg-background p-6">
+    <div class="max-w-md text-center">
       <h1 class="text-page-title-compact font-semibold">Группа не найдена</h1>
       <p class="mt-2 text-secondary">Проверьте ссылку-приглашение и попробуйте ещё раз.</p>
-    </section>
-  </main>
+    </div>
+  </section>
 } @else if (facade.workspace(); as current) {
-  <main
-    class="grid min-h-[calc(100dvh_-_3.5rem)] min-w-0 bg-background lg:grid-cols-[310px_minmax(0,1fr)]"
+  <section
+    class="flex min-h-[calc(100dvh_-_3.5rem)] min-w-0 items-center justify-center p-5 sm:p-8"
   >
-    <app-group-sidebar
-      class="min-w-0"
-      [groupName]="current.group.name"
-      [inviteLink]="inviteLink()"
-      [inviteCode]="facade.inviteCode()"
-      [participants]="current.participants"
-      [polls]="current.polls"
-      [currentParticipantId]="current.me?.id ?? null"
-    />
+    <mat-card class="w-full min-w-0 max-w-md p-6 sm:p-8">
+      <div class="text-center">
+        <h1 class="text-page-title-compact font-semibold">
+          {{ current.me ? 'Ваш профиль' : 'Представьтесь группе' }}
+        </h1>
+        <p class="mt-2 text-supporting text-secondary">
+          Выберите имя и цвет аватара, чтобы перейти к опросу.
+        </p>
+      </div>
 
-    <section class="flex min-w-0 items-center justify-center p-5 sm:p-8">
-      <mat-card class="w-full min-w-0 max-w-md p-6 sm:p-8">
-        <div class="text-center">
-          <h1 class="text-page-title-compact font-semibold">
-            {{ current.me ? 'Ваш профиль' : 'Представьтесь группе' }}
-          </h1>
-          <p class="mt-2 text-supporting text-secondary">
-            Выберите имя и цвет аватара, чтобы перейти к опросу.
-          </p>
-        </div>
+      <form class="mt-7" (ngSubmit)="submitProfile()">
+        <mat-form-field class="w-full">
+          <mat-label>Ваше имя</mat-label>
+          <input
+            matInput
+            name="displayName"
+            [(ngModel)]="displayName"
+            maxlength="80"
+            required
+            autocomplete="name"
+            placeholder="Например, Дима"
+          />
+        </mat-form-field>
 
-        <form class="mt-7" (ngSubmit)="submitProfile()">
-          <mat-form-field class="w-full">
-            <mat-label>Ваше имя</mat-label>
-            <input
-              matInput
-              name="displayName"
-              [(ngModel)]="displayName"
-              maxlength="80"
-              required
-              autocomplete="name"
-              placeholder="Например, Дима"
-            />
-          </mat-form-field>
-
-          <fieldset class="mt-2">
-            <legend class="mb-3 text-sm font-medium text-text">Цвет аватара</legend>
-            <mat-button-toggle-group
-              class="!grid w-full grid-cols-3 overflow-hidden rounded-xl border border-border sm:grid-cols-6"
-              aria-label="Цвет аватара"
-              [value]="avatarColor"
-              (change)="avatarColor = $event.value"
-              hideSingleSelectionIndicator
-            >
-              @for (color of colors; track color.value) {
-                <mat-button-toggle
-                  class="!border-0"
-                  [value]="color.value"
-                  [attr.aria-label]="color.label"
-                  [title]="color.label"
-                >
-                  <span
-                    class="mx-auto block size-7 rounded-full border border-border"
-                    [style.background-color]="color.hex"
-                    aria-hidden="true"
-                  ></span>
-                  <span class="sr-only">{{ color.label }}</span>
-                </mat-button-toggle>
-              }
-            </mat-button-toggle-group>
-          </fieldset>
-
-          @if (facade.profileError()) {
-            <p class="mb-3 mt-4 text-supporting text-danger" role="alert" aria-live="polite">
-              {{ facade.profileError() }}
-            </p>
-          }
-
-          <button
-            mat-flat-button
-            class="mt-6 w-full"
-            type="submit"
-            [disabled]="facade.savingProfile() || !displayName.trim()"
+        <fieldset class="mt-2">
+          <legend class="mb-3 text-sm font-medium text-text">Цвет аватара</legend>
+          <mat-button-toggle-group
+            class="!grid w-full grid-cols-3 overflow-hidden rounded-xl border border-border sm:grid-cols-6"
+            aria-label="Цвет аватара"
+            [value]="avatarColor"
+            (change)="avatarColor = $event.value"
+            hideSingleSelectionIndicator
           >
-            @if (facade.savingProfile()) {
-              Сохраняем…
-            } @else if (current.me) {
-              Сохранить профиль
-            } @else {
-              Продолжить к опросу
+            @for (color of colors; track color.value) {
+              <mat-button-toggle
+                class="!border-0"
+                [value]="color.value"
+                [attr.aria-label]="color.label"
+                [title]="color.label"
+              >
+                <span
+                  class="mx-auto block size-7 rounded-full border border-border"
+                  [style.background-color]="color.hex"
+                  aria-hidden="true"
+                ></span>
+                <span class="sr-only">{{ color.label }}</span>
+              </mat-button-toggle>
             }
-          </button>
-        </form>
-      </mat-card>
-    </section>
-  </main>
+          </mat-button-toggle-group>
+        </fieldset>
+
+        @if (facade.profileError()) {
+          <p class="mb-3 mt-4 text-supporting text-danger" role="alert" aria-live="polite">
+            {{ facade.profileError() }}
+          </p>
+        }
+
+        <button
+          mat-flat-button
+          class="mt-6 w-full"
+          type="submit"
+          [disabled]="facade.savingProfile() || !displayName.trim()"
+        >
+          @if (facade.savingProfile()) {
+            Сохраняем…
+          } @else if (current.me) {
+            Сохранить профиль
+          } @else {
+            Продолжить к опросу
+          }
+        </button>
+      </form>
+    </mat-card>
+  </section>
 } @else {
   <app-error-state
     [message]="facade.loadError() || 'Не удалось загрузить группу.'"

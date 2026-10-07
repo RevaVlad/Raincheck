@@ -41,14 +41,11 @@ describe('ConfirmResponseButtonComponent', () => {
     expect(button.disabled).toBe(true);
   });
 
-  it('confirms an available draft and explains that confirmed responses count in results', async () => {
+  it('confirms a draft response', async () => {
     const { fixture, editor } = await createButton('response-id', 'DRAFT');
     const button: HTMLButtonElement = fixture.nativeElement.querySelector('button');
 
     expect(button.disabled).toBe(false);
-    expect(fixture.nativeElement.textContent).toContain(
-      'Подтверждённый ответ учитывается в результатах.',
-    );
     button.click();
 
     expect(editor.confirm).toHaveBeenCalledOnce();

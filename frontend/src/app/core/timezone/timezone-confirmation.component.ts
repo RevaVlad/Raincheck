@@ -7,10 +7,7 @@ import { TimezonePreferenceService } from './timezone-preference.service';
   imports: [FormsModule],
   template: `
     @if (timezone.promptOpen()) {
-      <div
-        class="fixed inset-0 z-50 grid place-items-center bg-overlay/40 p-4"
-        role="presentation"
-      >
+      <div class="fixed inset-0 z-50 grid place-items-center bg-overlay/40 p-4" role="presentation">
         <section
           class="w-full max-w-md rounded-2xl bg-surface p-6 shadow-xl"
           role="dialog"
@@ -33,7 +30,8 @@ import { TimezonePreferenceService } from './timezone-preference.service';
             }
           </select>
           <button
-            class="mt-5 w-full rounded-lg bg-accent px-4 py-3 font-medium text-on-accent hover:bg-accent-hover"
+            class="mt-5 w-full rounded-lg bg-accent px-4 py-3 font-medium text-on-accent
+               hover:bg-accent-hover"
             type="button"
             (click)="timezone.confirm()"
           >

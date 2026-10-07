@@ -23,9 +23,13 @@ const loadGroupEntryPage = () =>
     (module) => module.GroupEntryPageComponent,
   );
 
+const loadGroupShell = () =>
+  import('./group-shell.component').then((module) => module.GroupShellComponent);
+
 export const GROUP_ROUTES: Routes = [
   {
     path: ':inviteCode',
+    loadComponent: loadGroupShell,
     providers: [GroupFacade],
     canActivate: [confirmGroupSwitch],
     resolve: { groupLoaded: resolveGroupInviteCode },

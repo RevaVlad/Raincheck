@@ -210,26 +210,30 @@ export class PollEditorService {
     try {
       await this.saveNow();
 
-      if (!this.isCurrent(context) || this.dirty() || !this.responseId()) {
-        return;
-      }
-
-      await this.withMutation(context, async () => {
-        const response = await this.request(
-          this.api.confirmMyResponse(context.inviteCode, context.poll.id, context.token),
-        );
-
-        if (!this.isCurrent(context)) return;
-
-        this.applyResponse(response);
-        this.saveState.set('SAVED');
-        this.lastSaveError.set(null);
-      });
+      if (this.canConfirm(context)) await this.confirmSavedResponse(context);
     } catch (error) {
       if (!this.isCurrent(context)) return;
 
       this.handleError(error, 'Could not confirm your response.');
     }
+  }
+
+  private canConfirm(context: EditorContext): boolean {
+    return this.isCurrent(context) && !this.dirty() && !!this.responseId();
+  }
+
+  private async confirmSavedResponse(context: EditorContext): Promise<void> {
+    await this.withMutation(context, async () => {
+      const response = await this.request(
+        this.api.confirmMyResponse(context.inviteCode, context.poll.id, context.token),
+      );
+
+      if (!this.isCurrent(context)) return;
+
+      this.applyResponse(response);
+      this.saveState.set('SAVED');
+      this.lastSaveError.set(null);
+    });
   }
 
   private async flush(context: EditorContext): Promise<void> {

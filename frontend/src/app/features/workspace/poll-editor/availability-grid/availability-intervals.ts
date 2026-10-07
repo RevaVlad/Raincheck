@@ -13,6 +13,12 @@ export interface SerializedAvailabilityInterval extends AvailabilityIntervalInpu
   preferenceDirection: 'FLAT' | null;
 }
 
+interface CellEntry {
+  localDate: string;
+  startTime: string;
+  kind: AvailabilityKind;
+}
+
 export function availabilityCellKey(localDate: string, startTime: string): string {
   return `${localDate}|${startTime}`;
 }
@@ -39,7 +45,7 @@ export function compressCellsToIntervals(
   cells: Readonly<AvailabilityCells>,
   slotMinutes = 30,
 ): SerializedAvailabilityInterval[] {
-  const entries = Object.entries(cells)
+  const entries: CellEntry[] = Object.entries(cells)
     .map(([key, kind]) => {
       const [localDate, startTime] = key.split('|');
       return { localDate, startTime, kind };
@@ -54,12 +60,7 @@ export function compressCellsToIntervals(
 
   for (const cell of entries) {
     const previous = intervals.at(-1);
-    if (
-      previous &&
-      previous.localDate === cell.localDate &&
-      previous.kind === cell.kind &&
-      toMinutes(previous.endTime) === toMinutes(cell.startTime)
-    ) {
+    if (canExtendInterval(previous, cell)) {
       previous.endTime = toTime(toMinutes(cell.startTime) + slotMinutes);
     } else {
       intervals.push({
@@ -73,11 +74,25 @@ export function compressCellsToIntervals(
   return intervals;
 }
 
+function canExtendInterval(
+  previous: SerializedAvailabilityInterval | undefined,
+  cell: CellEntry,
+): previous is SerializedAvailabilityInterval {
+  return (
+    !!previous &&
+    previous.localDate === cell.localDate &&
+    previous.kind === cell.kind &&
+    toMinutes(previous.endTime) === toMinutes(cell.startTime)
+  );
+}
+
 function toMinutes(time: string): number {
   const [hours, minutes] = time.split(':').map(Number);
   return hours * 60 + minutes;
 }
 
 function toTime(minutes: number): string {
-  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+  const hour = String(Math.floor(minutes / 60)).padStart(2, '0');
+  const minute = String(minutes % 60).padStart(2, '0');
+  return `${hour}:${minute}`;
 }

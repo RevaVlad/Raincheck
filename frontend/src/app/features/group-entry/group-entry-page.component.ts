@@ -1,5 +1,4 @@
 import { Component, ViewChild, effect, inject } from '@angular/core';
-import { DOCUMENT } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
@@ -13,7 +12,6 @@ import { TimezonePreferenceService } from '../../core/timezone/timezone-preferen
 import { ErrorStateComponent } from '../../shared/presentation/error-state.component';
 import { LoadingStateComponent } from '../../shared/presentation/loading-state.component';
 import { GroupFacade } from '../group/group.facade';
-import { GroupSidebarComponent } from '../workspace/group-sidebar/group-sidebar.component';
 import { WorkspacePageComponent } from '../workspace/workspace-page.component';
 
 @Component({
@@ -27,7 +25,6 @@ import { WorkspacePageComponent } from '../workspace/workspace-page.component';
     MatInputModule,
     ErrorStateComponent,
     LoadingStateComponent,
-    GroupSidebarComponent,
     WorkspacePageComponent,
   ],
   templateUrl: './group-entry-page.component.html',
@@ -35,18 +32,12 @@ import { WorkspacePageComponent } from '../workspace/workspace-page.component';
 export class GroupEntryPageComponent {
   readonly facade = inject(GroupFacade);
   readonly timezone = inject(TimezonePreferenceService);
-  private readonly document = inject(DOCUMENT);
   readonly colors = AVATAR_COLORS;
   readonly profileRoute = inject(ActivatedRoute).snapshot.data['profile'] === true;
   displayName = '';
   avatarColor: AvatarColor = 'green';
   private profilePrefilled = false;
   private readonly router = inject(Router);
-
-  inviteLink(): string {
-    const origin = this.document.location?.origin ?? '';
-    return `${origin}/g/${encodeURIComponent(this.facade.inviteCode())}`;
-  }
 
   @ViewChild(WorkspacePageComponent) private workspacePage?: WorkspacePageComponent;
 

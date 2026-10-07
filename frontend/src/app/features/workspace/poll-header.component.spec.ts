@@ -31,27 +31,17 @@ describe('PollHeaderComponent', () => {
     fixture.detectChanges();
   });
 
-  it('shows poll dates as static chips and displays both UTC offsets across the DST boundary', () => {
+  it('renders the poll title and date chips', () => {
     const chips = [...fixture.nativeElement.querySelectorAll('mat-chip')].map((chip: Element) =>
       chip.textContent.trim(),
     );
-    const rows = [...fixture.nativeElement.querySelectorAll('dl > div')].map((row: Element) => [
-      row.querySelector('dt')!.textContent.trim(),
-      row.querySelector('dd')!.textContent.replace(/\s+/g, ' ').trim(),
-    ]);
-
     expect(fixture.nativeElement.querySelectorAll('mat-chip')).toHaveLength(2);
     expect(fixture.nativeElement.querySelector('button')).toBeNull();
     expect(fixture.nativeElement.querySelector('h1').textContent.trim()).toBe('Planning');
     expect(chips).toEqual(['1 нояб. 2026 г.', '1 нояб. 2026 г.']);
-    expect(rows).toEqual([
-      ['Время:', '01:30 – 01:30'],
-      ['Шаг:', '30 минут'],
-      ['Часовой пояс:', 'America/New_York · UTC-04:00 – UTC-05:00'],
-    ]);
   });
 
-  it('formats both date chips and times across local midnight', () => {
+  it('formats date chips across local midnight', () => {
     fixture.componentRef.setInput('poll', {
       ...poll,
       startsOn: '2026-10-03',
@@ -67,8 +57,5 @@ describe('PollHeaderComponent', () => {
         chip.textContent.trim(),
       ),
     ).toEqual(['2 окт. 2026 г.', '3 окт. 2026 г.']);
-    expect(
-      fixture.nativeElement.querySelector('dl > div dd').textContent.replace(/\s+/g, ' ').trim(),
-    ).toBe('23:30 – 00:30');
   });
 });

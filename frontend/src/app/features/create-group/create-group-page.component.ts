@@ -7,7 +7,7 @@ import { MatInputModule } from '@angular/material/input';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { apiErrorMessage } from '../../core/api/api-errors';
-import { GroupsApiService } from '../group/groups-api.service';
+import { GroupsApiService } from '../../core/api/groups-api.service';
 
 @Component({
   selector: 'app-create-group-page',

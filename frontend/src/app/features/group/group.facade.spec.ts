@@ -8,7 +8,7 @@ import type { ParticipantInput, Workspace } from '../../core/api/api.types';
 import { ParticipantSessionService } from '../../core/session/participant-session.service';
 import { resolveGroupInviteCode } from './group.routes';
 import { GroupFacade } from './group.facade';
-import { GroupsApiService } from './groups-api.service';
+import { GroupsApiService } from '../../core/api/groups-api.service';
 import { ParticipantsApiService } from './participants-api.service';
 
 describe('GroupFacade', () => {

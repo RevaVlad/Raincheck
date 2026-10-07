@@ -8,6 +8,7 @@ import {
   convertToParamMap,
   provideRouter,
 } from '@angular/router';
+import { RouterTestingHarness } from '@angular/router/testing';
 import { GroupFacade } from './group.facade';
 import { GROUP_ROUTES, confirmGroupEntryLeave, confirmGroupSwitch } from './group.routes';
 
@@ -21,6 +22,12 @@ describe('group route leave guards', () => {
     expect(profile?.loadComponent).toBe(entry?.loadComponent);
     expect(profile?.data?.['profile']).toBe(true);
     expect(profile?.canDeactivate).toContain(confirmGroupEntryLeave);
+  });
+
+  it('keeps the facade route-scoped under the group shell', () => {
+    const route = GROUP_ROUTES[0];
+    expect(route?.loadComponent).toBeDefined();
+    expect(route?.providers).toContain(GroupFacade);
   });
 
   it('registers poll creation inside the group', () => {
@@ -112,5 +119,48 @@ describe('group route leave guards', () => {
     expect(navigated).toBe(false);
     expect(confirmLeave).toHaveBeenCalledOnce();
     expect(router.url).toBe('/g/old');
+  });
+
+  it('keeps an editor route active when its unsaved changes cannot be saved', async () => {
+    const canLeaveMock = vi.fn().mockResolvedValue(false);
+
+    @Component({ selector: 'app-guarded-editor', template: '', standalone: true })
+    class GuardedEditorPage {
+      canLeave = () => canLeaveMock();
+    }
+
+    @Component({
+      selector: 'app-nested-router-host',
+      imports: [RouterOutlet],
+      template: '<router-outlet />',
+      standalone: true,
+    })
+    class NestedRouterHost {}
+
+    @Component({ selector: 'app-next-page', template: 'Next page', standalone: true })
+    class NextPage {}
+
+    TestBed.configureTestingModule({
+      imports: [NestedRouterHost],
+      providers: [
+        provideRouter([
+          {
+            path: 'g/:inviteCode',
+            component: NestedRouterHost,
+            children: [
+              { path: '', component: GuardedEditorPage, canDeactivate: [confirmGroupEntryLeave] },
+              { path: 'next', component: NextPage },
+            ],
+          },
+        ]),
+      ],
+    });
+    await RouterTestingHarness.create('/g/invite-code');
+
+    const navigated = await TestBed.inject(Router).navigateByUrl('/g/invite-code/next');
+
+    expect(navigated).toBe(false);
+    expect(canLeaveMock).toHaveBeenCalledOnce();
+    expect(TestBed.inject(Router).url).toBe('/g/invite-code');
   });
 });

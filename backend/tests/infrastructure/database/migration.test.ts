@@ -48,7 +48,7 @@ void test('Prisma migration creates all domain tables without legacy tracking', 
   assert.doesNotMatch(prisma, /schema_migrations/i);
 });
 
-void test('participant color migration backfills gray before enforcing the palette constraint', async () => {
+void test('fills gray before enforcing the participant color palette', async () => {
   const sql = await readFile(
     resolve(
       import.meta.dirname,

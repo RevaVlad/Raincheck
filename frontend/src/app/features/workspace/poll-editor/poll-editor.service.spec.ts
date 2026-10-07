@@ -315,7 +315,7 @@ describe('PollEditorService', () => {
     expect(editor.responseId()).toBe('response-id');
   });
 
-  it('does not send a follow-up save to a new context after old draft creation finishes', async () => {
+  it('does not save to the new context after old draft creation finishes', async () => {
     const oldCreate = new Subject<typeof draft>();
     api.getMyResponse.mockReturnValueOnce(
       throwError(
@@ -357,7 +357,7 @@ describe('PollEditorService', () => {
     expect(editor.pendingChanges()).toBe(false);
   });
 
-  it('pauses a scheduled autosave during a leave prompt and resumes it on cancellation', async () => {
+  it('pauses autosave during a leave prompt and resumes it on cancellation', async () => {
     api.getMyResponse.mockReturnValue(of(draft));
     api.replaceMyResponse.mockReturnValue(of(draft));
     await editor.load('invite-code', poll, 'secret-token', vi.fn());

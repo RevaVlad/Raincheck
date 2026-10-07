@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { ErrorStateComponent } from './error-state.component';
 
 describe('ErrorStateComponent', () => {
-  it('announces feature-specific error copy without rendering a retry action by default', async () => {
+  it('announces error copy without rendering a retry action by default', async () => {
     await TestBed.configureTestingModule({ imports: [ErrorStateComponent] }).compileComponents();
     const fixture = TestBed.createComponent(ErrorStateComponent);
     fixture.componentRef.setInput('message', 'Не удалось загрузить результаты.');

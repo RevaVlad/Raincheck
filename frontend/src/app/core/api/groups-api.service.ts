@@ -3,8 +3,8 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import type { HttpResourceRef } from '@angular/common/http';
 import type { Observable } from 'rxjs';
-import { groupApiPath, participantTokenHeaders } from '../../core/api/api-http';
-import type { CreateGroupRequest, CreateGroupResponse, Workspace } from '../../core/api/api.types';
+import { groupApiPath, participantTokenHeaders } from './api-http';
+import type { CreateGroupRequest, CreateGroupResponse, Workspace } from './api.types';
 
 @Injectable({ providedIn: 'root' })
 export class GroupsApiService {

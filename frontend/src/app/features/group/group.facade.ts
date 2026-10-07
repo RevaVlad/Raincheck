@@ -1,12 +1,12 @@
 import { DestroyRef, Injectable, computed, effect, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { apiErrorCode, apiErrorMessage, isUnauthorized } from '../../core/api/api-errors';
+import { GroupsApiService } from '../../core/api/groups-api.service';
 import type { JoinResponse, ParticipantInput, Workspace } from '../../core/api/api.types';
 import {
   ParticipantSessionService,
   type ParticipantIdentity,
 } from '../../core/session/participant-session.service';
-import { GroupsApiService } from './groups-api.service';
 import { ParticipantsApiService } from './participants-api.service';
 
 interface ProfileContext {

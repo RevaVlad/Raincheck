@@ -105,7 +105,7 @@ describe('GroupEntryPageComponent', () => {
     expect(component.avatarColor).toBe('blue');
   });
 
-  it('renders the six accessible colors in palette order and supports arrow navigation', async () => {
+  it('renders accessible colors in order and supports arrow navigation', async () => {
     const { fixture, component } = await setup();
     const choices = [...fixture.nativeElement.querySelectorAll('mat-button-toggle')];
 
