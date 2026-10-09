@@ -1,5 +1,5 @@
 import type { PrismaDatabase } from '#infrastructure/database/prisma-database';
-import { timeFromPrisma, toResponse } from '#infrastructure/database/prisma-records';
+import { toResponse } from '#infrastructure/database/prisma-records';
 
 export class PrismaProbe {
   constructor(private readonly database: PrismaDatabase) {}
@@ -26,15 +26,6 @@ export class PrismaProbe {
     const record = await this.database.client.pollResponse.findUniqueOrThrow({ where: { id } });
     const { state, confirmedAt } = toResponse(record);
     return { state, confirmedAt };
-  }
-
-  async storedIntervals(responseId: string): Promise<{ startTime: string }[]> {
-    const records = await this.database.client.availabilityInterval.findMany({
-      where: { responseId },
-      orderBy: [{ localDate: 'asc' }, { startTime: 'asc' }],
-      select: { startTime: true },
-    });
-    return records.map(({ startTime }) => ({ startTime: timeFromPrisma(startTime) }));
   }
 
   async deletePoll(id: string): Promise<void> {

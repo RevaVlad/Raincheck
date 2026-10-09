@@ -13,7 +13,6 @@ model Group {
   id           String        @id @db.Uuid
   name         String        @db.VarChar(120)
   inviteCode   String        @unique(map: "groups_invite_code_key") @map("invite_code") @db.VarChar(64)
-  timezone     String        @db.VarChar(64)
   createdAt    DateTime      @map("created_at") @db.Timestamptz(6)
   participants Participant[]
   polls        Poll[]
@@ -26,6 +25,7 @@ model Participant {
   groupId               String         @map("group_id") @db.Uuid
   displayName           String         @map("display_name") @db.VarChar(80)
   displayNameNormalized String         @map("display_name_normalized") @db.VarChar(80)
+  avatarColor           String         @map("avatar_color") @db.VarChar(6)
   editTokenHash         String         @unique(map: "participants_edit_token_hash_key") @map("edit_token_hash") @db.Char(64)
   createdAt             DateTime       @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime       @map("updated_at") @db.Timestamptz(6)
@@ -47,6 +47,7 @@ model Poll {
   dayEnd                 DateTime       @map("day_end") @db.Time(6)
   slotMinutes            Int            @map("slot_minutes") @db.SmallInt
   meetingDurationMinutes Int            @map("meeting_duration_minutes") @db.SmallInt
+  timeZone               String         @map("time_zone") @db.VarChar(64)
   status                 String         @db.Text
   basedOnPollId          String?        @map("based_on_poll_id") @db.Uuid
   createdAt              DateTime       @map("created_at") @db.Timestamptz(6)
@@ -83,15 +84,14 @@ model PollResponse {
 model AvailabilityInterval {
   id                  String       @id @db.Uuid
   responseId          String       @map("response_id") @db.Uuid
-  localDate           DateTime     @map("local_date") @db.Date
-  startTime           DateTime     @map("start_time") @db.Time(6)
-  endTime             DateTime     @map("end_time") @db.Time(6)
+  startAt             DateTime     @map("start_at") @db.Timestamptz(6)
+  endAt               DateTime     @map("end_at") @db.Timestamptz(6)
   kind                String       @db.Text
   preferenceDirection String?      @map("preference_direction") @db.Text
   createdAt           DateTime     @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime     @map("updated_at") @db.Timestamptz(6)
   response            PollResponse @relation(fields: [responseId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "availability_intervals_response_id_fkey")
 
-  @@index([responseId, localDate, startTime], map: "availability_intervals_response_date_time_idx")
+  @@index([responseId, startAt], map: "availability_intervals_response_start_at_idx")
   @@map("availability_intervals")
 }

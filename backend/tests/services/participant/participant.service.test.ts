@@ -11,9 +11,10 @@ void test('stores a normalized name and only the token hash', async () => {
     const participants = new ParticipantService(database);
     const group = await groups.create({ name: 'Team' });
     const now = new Date('2026-10-01T12:00:00.000Z');
-    const result = await participants.create(group.id, '  Alice   Smith ', now);
+    const result = await participants.create(group.id, '  Alice   Smith ', 'green', now);
     const saved = await probe.participantToken(result.participant.id);
     assert.equal(result.participant.displayName, 'Alice Smith');
+    assert.equal(result.participant.avatarColor, 'green');
     assert.equal(result.participant.createdAt.toISOString(), now.toISOString());
     assert.equal(result.participant.updatedAt.toISOString(), now.toISOString());
     assert.match(result.editToken, /^[A-Za-z0-9_-]{43}$/);
@@ -27,8 +28,8 @@ void test('rejects duplicate normalized names in one group', async () => {
     const groups = new GroupService(database);
     const participants = new ParticipantService(database);
     const group = await groups.create({ name: 'Team' });
-    await participants.create(group.id, 'Alice');
-    await assert.rejects(() => participants.create(group.id, ' ALICE '), { code: 'P2002' });
+    await participants.create(group.id, 'Alice', 'green');
+    await assert.rejects(() => participants.create(group.id, ' ALICE ', 'blue'), { code: 'P2002' });
   });
 });
 
@@ -36,20 +37,25 @@ void test('rejects a participant for a missing group', async () => {
   await inPrismaTransaction(async ({ database }) => {
     const participants = new ParticipantService(database);
     await assert.rejects(
-      () => participants.create('00000000-0000-4000-8000-000000000000', 'Alice'),
+      () => participants.create('00000000-0000-4000-8000-000000000000', 'Alice', 'green'),
       { code: 'P2003' },
     );
   });
 });
 
-void test('renames a participant using normalized-name uniqueness', async () => {
+void test('updates a participant name and avatar color', async () => {
   await inPrismaTransaction(async ({ database }) => {
     const groups = new GroupService(database);
     const participants = new ParticipantService(database);
     const group = await groups.create({ name: 'Team' });
-    const created = await participants.create(group.id, 'Alice');
-    const renamed = await participants.rename(created.participant.id, ' Alice Smith ');
-    assert.equal(renamed.displayName, 'Alice Smith');
-    assert.equal(renamed.displayNameNormalized, 'alice smith');
+    const created = await participants.create(group.id, 'Alice', 'green');
+    const updated = await participants.updateProfile(
+      created.participant.id,
+      ' Alice Smith ',
+      'purple',
+    );
+    assert.equal(updated.displayName, 'Alice Smith');
+    assert.equal(updated.displayNameNormalized, 'alice smith');
+    assert.equal(updated.avatarColor, 'purple');
   });
 });

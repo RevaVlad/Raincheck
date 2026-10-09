@@ -14,6 +14,7 @@ interface PollFields {
   dayEnd: string;
   slotMinutes: SlotMinutes;
   meetingDurationMinutes: number;
+  timeZone: string;
   basedOnPollId: string | null;
   createdAt: Date;
 }
@@ -29,8 +30,14 @@ export interface PollInput {
   dayEnd: string;
   slotMinutes: SlotMinutes;
   meetingDurationMinutes: number;
+  timeZone: string;
 }
 
 export interface ValidPollInput extends Omit<PollInput, 'title'> {
   title: string | null;
+}
+
+export interface PollSlot {
+  startAt: string;
+  endAt: string;
 }

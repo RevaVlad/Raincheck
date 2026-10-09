@@ -76,7 +76,12 @@ void test('maps malformed JSON to INVALID_REQUEST', async () => {
 
 void test('requires a participant token and scopes it to the requested group', async () => {
   const token = 'safe-token';
-  const participant = { id: 'participant-1', groupId: 'group-1', displayName: 'Masha' };
+  const participant = {
+    id: 'participant-1',
+    groupId: 'group-1',
+    displayName: 'Masha',
+    avatarColor: 'green',
+  };
   const database = {
     client: {
       participant: {

@@ -16,6 +16,7 @@ const basePoll = {
   dayEnd: '20:00',
   slotMinutes: 30,
   meetingDurationMinutes: 60,
+  timeZone: 'UTC',
 };
 const nextPoll = { ...basePoll, startsOn: '2026-10-12', endsOn: '2026-10-18' };
 
@@ -38,9 +39,8 @@ async function submitResponse(
   url: string,
   token: string,
   interval: {
-    localDate: string;
-    startTime: string;
-    endTime: string;
+    startAt: string;
+    endAt: string;
     kind: string;
     preferenceDirection: string | null;
   },
@@ -54,18 +54,38 @@ async function createScenario() {
   const created = await app.inject({
     method: 'POST',
     url: '/api/groups',
-    payload: { name: 'Analytics team', creatorDisplayName: 'Alice', firstPoll: basePoll },
+    payload: { name: 'Analytics team' },
   });
   assert.equal(created.statusCode, 201, created.body);
-  const { group, currentPoll, participantEditToken: token } = created.json();
+  const { group } = created.json();
+  const joined = await app.inject({
+    method: 'POST',
+    url: `/api/groups/${group.inviteCode}/participants`,
+    payload: { displayName: 'Alice', avatarColor: 'green' },
+  });
+  assert.equal(joined.statusCode, 201, joined.body);
+  const token = joined.json().participantEditToken;
+  const firstCreated = await app.inject({
+    method: 'POST',
+    url: `/api/groups/${group.inviteCode}/polls`,
+    headers: { 'x-participant-token': token },
+    payload: basePoll,
+  });
+  assert.equal(firstCreated.statusCode, 201, firstCreated.body);
+  const currentPoll = firstCreated.json().poll;
   const responseUrl = `/api/groups/${group.inviteCode}/polls/${currentPoll.id}/responses/me`;
   await submitResponse(responseUrl, token, {
-    localDate: '2026-10-06',
-    startTime: '16:00',
-    endTime: '18:00',
+    startAt: '2026-10-06T16:00:00.000Z',
+    endAt: '2026-10-06T18:00:00.000Z',
     kind: 'PREFERRED',
     preferenceDirection: 'FLAT',
   });
+  const closed = await app.inject({
+    method: 'POST',
+    url: `/api/groups/${group.inviteCode}/polls/${currentPoll.id}/close`,
+    headers: { 'x-participant-token': token },
+  });
+  assert.equal(closed.statusCode, 200, closed.body);
   const createdNext = await app.inject({
     method: 'POST',
     url: `/api/groups/${group.inviteCode}/polls`,
@@ -76,9 +96,8 @@ async function createScenario() {
   const poll = createdNext.json().poll;
   const nextResponseUrl = `/api/groups/${group.inviteCode}/polls/${poll.id}/responses/me`;
   await submitResponse(nextResponseUrl, token, {
-    localDate: '2026-10-13',
-    startTime: '16:00',
-    endTime: '17:00',
+    startAt: '2026-10-13T16:00:00.000Z',
+    endAt: '2026-10-13T17:00:00.000Z',
     kind: 'UNAVAILABLE',
     preferenceDirection: null,
   });
@@ -92,50 +111,62 @@ void test(
     const { group, poll, token } = await createScenario();
     const response = await app.inject({
       method: 'GET',
-      url: `/api/groups/${group.inviteCode}/polls/${poll.id}/suggestions/me`,
+      url: `/api/groups/${group.inviteCode}/polls/${poll.id}/suggestions/me?timeZone=UTC`,
       headers: { 'x-participant-token': token },
     });
     assert.equal(response.statusCode, 200, response.body);
     assert.deepEqual(
       response
         .json()
-        .suggestions.map(
-          (suggestion: {
-            localDate: string;
-            startTime: string;
-            endTime: string;
-            kind: string;
-          }) => ({
-            localDate: suggestion.localDate,
-            startTime: suggestion.startTime,
-            endTime: suggestion.endTime,
-            kind: suggestion.kind,
-          }),
-        ),
-      [{ localDate: '2026-10-13', startTime: '17:00', endTime: '18:00', kind: 'PREFERRED' }],
+        .suggestions.map((suggestion: { startAt: string; endAt: string; kind: string }) => ({
+          startAt: suggestion.startAt,
+          endAt: suggestion.endAt,
+          kind: suggestion.kind,
+        })),
+      [
+        {
+          startAt: '2026-10-13T17:00:00.000Z',
+          endAt: '2026-10-13T17:30:00.000Z',
+          kind: 'PREFERRED',
+        },
+        {
+          startAt: '2026-10-13T17:30:00.000Z',
+          endAt: '2026-10-13T18:00:00.000Z',
+          kind: 'PREFERRED',
+        },
+      ],
     );
   },
 );
+
+void test('requires a valid viewer time zone for results and suggestions', async () => {
+  const { group, poll } = await createScenario();
+  for (const path of ['results', 'suggestions/me']) {
+    const baseUrl = `/api/groups/${group.inviteCode}/polls/${poll.id}/${path}`;
+    const missing = await app.inject(baseUrl);
+    assert.equal(missing.statusCode, 400, missing.body);
+    const invalid = await app.inject(`${baseUrl}?timeZone=No%2FSuchZone`);
+    assert.equal(invalid.statusCode, 400, invalid.body);
+  }
+});
 
 void test(
   'returns every heatmap cell and ranks the best meeting windows ' +
     'from confirmed responses only',
   async () => {
     const { group, poll } = await createScenario();
-    const response = await app.inject(`/api/groups/${group.inviteCode}/polls/${poll.id}/results`);
+    const response = await app.inject(
+      `/api/groups/${group.inviteCode}/polls/${poll.id}/results?timeZone=UTC`,
+    );
     assert.equal(response.statusCode, 200, response.body);
     const body = response.json();
     assert.deepEqual(body.participantSummary, { total: 1, confirmed: 1, pending: 0 });
     assert.equal(body.heatmap.length, 56);
     assert.deepEqual(
-      body.heatmap.find(
-        (cell: { localDate: string; startTime: string }) =>
-          cell.localDate === '2026-10-13' && cell.startTime === '16:00',
-      ),
+      body.heatmap.find((cell: { startAt: string }) => cell.startAt === '2026-10-13T16:00:00.000Z'),
       {
-        localDate: '2026-10-13',
-        startTime: '16:00',
-        endTime: '16:30',
+        startAt: '2026-10-13T16:00:00.000Z',
+        endAt: '2026-10-13T16:30:00.000Z',
         available: 0,
         ifNeeded: 0,
         preferred: 0,
@@ -144,9 +175,8 @@ void test(
       },
     );
     assert.deepEqual(body.bestSlots[0], {
-      localDate: '2026-10-12',
-      startTime: '16:00',
-      endTime: '17:00',
+      startAt: '2026-10-12T16:00:00.000Z',
+      endAt: '2026-10-12T17:00:00.000Z',
       available: 1,
       ifNeeded: 0,
       averageSoftScore: 0.5,
@@ -155,6 +185,43 @@ void test(
     assert.equal(body.bestSlots.length, 3);
   },
 );
+
+void test('returns the selected poll state for every group participant', async () => {
+  const { group, poll } = await createScenario();
+  const bob = await app.inject({
+    method: 'POST',
+    url: `/api/groups/${group.inviteCode}/participants`,
+    payload: { displayName: 'Bob', avatarColor: 'green' },
+  });
+  assert.equal(bob.statusCode, 201, bob.body);
+  const bobToken = bob.json().participantEditToken;
+  const bobResponseUrl = `/api/groups/${group.inviteCode}/polls/${poll.id}/responses/me`;
+  await request('POST', bobResponseUrl, bobToken);
+
+  const cara = await app.inject({
+    method: 'POST',
+    url: `/api/groups/${group.inviteCode}/participants`,
+    payload: { displayName: 'Cara', avatarColor: 'green' },
+  });
+  assert.equal(cara.statusCode, 201, cara.body);
+
+  const response = await app.inject(
+    `/api/groups/${group.inviteCode}/polls/${poll.id}/results?timeZone=UTC`,
+  );
+  assert.equal(response.statusCode, 200, response.body);
+  assert.deepEqual(response.json().participantSummary, { total: 3, confirmed: 1, pending: 2 });
+  assert.deepEqual(
+    Object.fromEntries(
+      response
+        .json()
+        .participants.map((participant: { displayName: string; state: string }) => [
+          participant.displayName,
+          participant.state,
+        ]),
+    ),
+    { Alice: 'CONFIRMED', Bob: 'DRAFT', Cara: 'NONE' },
+  );
+});
 
 void test('considers the final meeting window of the daily range', () => {
   const poll: Poll = {
@@ -168,6 +235,7 @@ void test('considers the final meeting window of the daily range', () => {
     dayEnd: '20:00',
     slotMinutes: 30,
     meetingDurationMinutes: 60,
+    timeZone: 'UTC',
     status: 'OPEN',
     basedOnPollId: null,
     createdAt: new Date('2026-10-01T00:00:00.000Z'),
@@ -176,9 +244,8 @@ void test('considers the final meeting window of the daily range', () => {
   const interval: AvailabilityInterval = {
     id: 'interval',
     responseId: 'response',
-    localDate: '2026-10-12',
-    startTime: '19:00',
-    endTime: '20:00',
+    startAt: '2026-10-12T19:00:00.000Z',
+    endAt: '2026-10-12T20:00:00.000Z',
     kind: 'PREFERRED',
     preferenceDirection: 'FLAT',
     createdAt: new Date(),
@@ -186,7 +253,7 @@ void test('considers the final meeting window of the daily range', () => {
   };
   assert.equal(
     calculateResults(poll, 1, [{ participantId: 'participant', intervals: [interval] }])
-      .bestSlots[0]?.startTime,
-    '19:00',
+      .bestSlots[0]?.startAt,
+    '2026-10-12T19:00:00.000Z',
   );
 });

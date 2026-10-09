@@ -1,0 +1,54 @@
+<form [formGroup]="form" class="grid gap-x-4 gap-y-2 sm:grid-cols-2" (ngSubmit)="submit()">
+  <mat-form-field class="sm:col-span-2">
+    <mat-label>Название опроса (необязательно)</mat-label>
+    <input matInput formControlName="title" maxlength="160" />
+  </mat-form-field>
+
+  <p class="-mb-1 text-supporting font-medium text-text sm:col-span-2">Даты</p>
+  <mat-form-field>
+    <mat-label>Начало</mat-label>
+    <input matInput type="date" formControlName="startsOn" required />
+  </mat-form-field>
+  <mat-form-field>
+    <mat-label>Конец</mat-label>
+    <input matInput type="date" formControlName="endsOn" required />
+  </mat-form-field>
+
+  <p class="-mb-1 text-supporting font-medium text-text sm:col-span-2">Время</p>
+  <mat-form-field>
+    <mat-label>Начало дня</mat-label>
+    <input matInput type="time" formControlName="dayStart" required />
+  </mat-form-field>
+  <mat-form-field>
+    <mat-label>Конец дня</mat-label>
+    <input matInput type="time" formControlName="dayEnd" required />
+  </mat-form-field>
+  <mat-form-field>
+    <mat-label>Шаг сетки</mat-label>
+    <mat-select formControlName="slotMinutes" required>
+      <mat-option [value]="30">30 минут</mat-option>
+      <mat-option [value]="60">60 минут</mat-option>
+    </mat-select>
+  </mat-form-field>
+  <mat-form-field>
+    <mat-label>Длительность встречи</mat-label>
+    <mat-select formControlName="meetingDurationMinutes" required>
+      @for (minutes of meetingDurations; track minutes) {
+        <mat-option [value]="minutes" [disabled]="minutes % form.controls.slotMinutes.value !== 0"
+          >{{ minutes }} минут</mat-option
+        >
+      }
+    </mat-select>
+  </mat-form-field>
+
+  @if (validationError() || errorMessage()) {
+    <p class="text-supporting text-danger sm:col-span-2" role="alert">
+      {{ validationError() || errorMessage() }}
+    </p>
+  }
+  <div class="flex items-end justify-end sm:col-span-2">
+    <button mat-flat-button type="submit" [disabled]="submitting()">
+      {{ submitting() ? 'Создаём…' : 'Создать опрос' }}
+    </button>
+  </div>
+</form>

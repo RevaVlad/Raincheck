@@ -10,7 +10,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node --env-file-if-exists=.env dist/server.js",
     "test": "npm run test:unit && npm run test:db",
-    "test:unit": "node --conditions=development --import tsx --test \"tests/*.test.ts\" \"tests/domain/**/*.test.ts\" \"tests/shared/**/*.test.ts\"",
+    "test:unit": "node --conditions=development --import tsx --test \"tests/*.test.ts\" \"tests/domain/**/*.test.ts\" \"tests/shared/**/*.test.ts\" \"tests/services/analytics/**/*.test.ts\"",
     "test:integration": "node --conditions=development --env-file-if-exists=.env --import tsx --test \"tests/infrastructure/**/*.test.ts\" \"tests/services/**/*.test.ts\"",
     "test:api": "node --conditions=development --env-file-if-exists=.env --import tsx --test \"tests/api/**/*.test.ts\"",
     "test:services": "node --conditions=development --env-file-if-exists=.env --import tsx --test \"tests/services/**/*.test.ts\"",

@@ -1,5 +1,5 @@
 import { INTERVAL_KIND, PREFERENCE_DIRECTION } from '#shared/constants';
-import { utcCalendarDate, utcTimeMinutes } from '#shared/time/utc';
+import { pollSlots } from '#shared/time/time-zone';
 import type {
   AvailabilityInterval,
   IntervalInput,
@@ -11,9 +11,7 @@ export function validateInterval(
   input: IntervalInput,
   poll: PollWindow,
 ): PreferenceDirection | null {
-  validateDate(input.localDate, poll);
-  const { start, end, dayStart } = validateTimeRange(input, poll);
-  validateSlotAlignment(start, end, dayStart, poll.slotMinutes);
+  validateGeneratedBounds(input, poll);
   validateKind(input.kind);
   return validatePreferenceDirection(input);
 }
@@ -28,33 +26,34 @@ export function validateIntervalSet(
   validateNoOverlaps(sorted);
 }
 
-function validateDate(localDate: string, poll: PollWindow): void {
-  const date = utcCalendarDate(localDate);
-  if (date < utcCalendarDate(poll.startsOn) || date > utcCalendarDate(poll.endsOn)) {
-    throw new RangeError('Interval date is outside the poll');
-  }
+function validateGeneratedBounds(input: IntervalInput, poll: PollWindow): void {
+  const start = validUtcInstant(input.startAt);
+  const end = validUtcInstant(input.endAt);
+  const slots = pollSlots(poll);
+  const first = slots.findIndex((slot) => slot.startAt === start);
+  const last = slots.findIndex((slot) => slot.endAt === end);
+  if (first < 0 || last < first) throw new RangeError('Interval is outside generated poll slots');
+  validateContiguousSlots(slots, first, last);
 }
 
-function validateTimeRange(input: IntervalInput, poll: PollWindow) {
-  const start = utcTimeMinutes(input.startTime);
-  const end = utcTimeMinutes(input.endTime);
-  const dayStart = utcTimeMinutes(poll.dayStart);
-  const dayEnd = utcTimeMinutes(poll.dayEnd);
-  if (end <= start) throw new RangeError('Interval start must precede end');
-  if (start < dayStart || end > dayEnd)
-    throw new RangeError('Interval is outside the daily window');
-  return { start, end, dayStart };
-}
-
-function validateSlotAlignment(
-  start: number,
-  end: number,
-  dayStart: number,
-  slotMinutes: number,
+function validateContiguousSlots(
+  slots: ReturnType<typeof pollSlots>,
+  first: number,
+  last: number,
 ): void {
-  if ((start - dayStart) % slotMinutes !== 0 || (end - dayStart) % slotMinutes !== 0) {
-    throw new RangeError('Interval boundaries must align to poll slots');
+  for (let index = first + 1; index <= last; index++) {
+    if (slots[index - 1]?.endAt !== slots[index]?.startAt) {
+      throw new RangeError('Interval must contain contiguous poll slots');
+    }
   }
+}
+
+function validUtcInstant(value: string): string {
+  const instant = new Date(value);
+  if (!Number.isFinite(instant.getTime()) || instant.toISOString() !== value) {
+    throw new RangeError('Interval bounds must be ISO UTC timestamps');
+  }
+  return value;
 }
 
 function validateKind(kind: string): void {
@@ -78,11 +77,7 @@ function validatePreferenceDirection(input: IntervalInput): PreferenceDirection 
 }
 
 function sortIntervals(intervals: readonly AvailabilityInterval[]): AvailabilityInterval[] {
-  return [...intervals].sort(
-    (left, right) =>
-      left.localDate.localeCompare(right.localDate) ||
-      left.startTime.localeCompare(right.startTime),
-  );
+  return [...intervals].sort((left, right) => left.startAt.localeCompare(right.startAt));
 }
 
 function validateResponseOwnership(intervals: readonly AvailabilityInterval[]): void {
@@ -95,7 +90,7 @@ function validateResponseOwnership(intervals: readonly AvailabilityInterval[]): 
 function validateNoOverlaps(intervals: readonly AvailabilityInterval[]): void {
   intervals.forEach((interval, index) => {
     const previous = intervals[index - 1];
-    if (previous?.localDate === interval.localDate && previous.endTime > interval.startTime) {
+    if (previous && previous.endAt > interval.startAt) {
       throw new RangeError('Intervals in one response must not overlap');
     }
   });

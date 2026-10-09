@@ -1,39 +1,39 @@
 import type { AvailabilityInterval } from '#domain/interval/interval';
 import type { Poll } from '#domain/poll/poll';
-import { utcCalendarDate, utcTimeMinutes } from '#shared/time/utc';
+import { pollSlots } from '#shared/time/time-zone';
+import type { PollSlot } from '#domain/poll/poll';
+
+const HALF_HOUR = 30 * 60_000;
 
 export interface GhostSuggestion {
   sourcePollId: string;
   sourceIntervalId: string;
-  localDate: string;
-  startTime: string;
-  endTime: string;
+  startAt: string;
+  endAt: string;
   kind: AvailabilityInterval['kind'];
   preferenceDirection: AvailabilityInterval['preferenceDirection'];
 }
-export interface HeatmapCell {
-  localDate: string;
-  startTime: string;
-  endTime: string;
+
+export interface HeatmapCell extends PollSlot {
   available: number;
   ifNeeded: number;
   preferred: number;
   unavailable: number;
   averageSoftScore: number;
 }
-export interface BestSlot {
-  localDate: string;
-  startTime: string;
-  endTime: string;
+
+export interface BestSlot extends PollSlot {
   available: number;
   ifNeeded: number;
   averageSoftScore: number;
   stars: number;
 }
+
 interface ConfirmedResponse {
   participantId: string;
   intervals: readonly AvailabilityInterval[];
 }
+
 interface CellState {
   availability: 'UNAVAILABLE' | 'IF_NEEDED' | 'AVAILABLE';
   preferred: boolean;
@@ -45,25 +45,63 @@ export function buildSuggestions(
   sourcePollId: string,
   sourceIntervals: readonly AvailabilityInterval[],
   currentIntervals: readonly AvailabilityInterval[],
+  timeZone: string,
 ): GhostSuggestion[] {
-  const suggestions = sourceIntervals.flatMap((interval) =>
-    targetDates(target, interval.localDate).flatMap((localDate) => {
-      const clipped = fitToWindow(interval.startTime, interval.endTime, target);
-      if (!clipped) return [];
-      return subtract(
-        {
-          sourcePollId,
-          sourceIntervalId: interval.id,
-          localDate,
-          ...clipped,
-          kind: interval.kind,
-          preferenceDirection: interval.preferenceDirection,
-        },
-        currentIntervals,
-      );
-    }),
-  );
-  return suggestions.sort(compareDateTime);
+  const coverage = sourceCoverage(sourceIntervals, timeZone);
+  return pollSlots(target)
+    .flatMap(
+      (slot) => suggestionForSlot(slot, coverage, currentIntervals, sourcePollId, timeZone) ?? [],
+    )
+    .sort((left, right) => left.startAt.localeCompare(right.startAt));
+}
+
+function sourceCoverage(
+  intervals: readonly AvailabilityInterval[],
+  timeZone: string,
+): Map<string, AvailabilityInterval> {
+  const coverage = new Map<string, AvailabilityInterval>();
+  for (const interval of intervals) {
+    for (
+      let start = Date.parse(interval.startAt);
+      start < Date.parse(interval.endAt);
+      start += HALF_HOUR
+    ) {
+      const key = localSlotKey(timeZone, new Date(start), new Date(start + HALF_HOUR));
+      coverage.set(key, interval);
+    }
+  }
+  return coverage;
+}
+
+function suggestionForSlot(
+  slot: PollSlot,
+  coverage: ReadonlyMap<string, AvailabilityInterval>,
+  currentIntervals: readonly AvailabilityInterval[],
+  sourcePollId: string,
+  timeZone: string,
+): GhostSuggestion | null {
+  const segments = [];
+  for (let start = Date.parse(slot.startAt); start < Date.parse(slot.endAt); start += HALF_HOUR) {
+    segments.push(
+      coverage.get(localSlotKey(timeZone, new Date(start), new Date(start + HALF_HOUR))),
+    );
+  }
+  const source = segments[0];
+  if (!source || segments.some((segment) => segment?.id !== source.id)) return null;
+  if (
+    currentIntervals.some(
+      (interval) => interval.startAt < slot.endAt && interval.endAt > slot.startAt,
+    )
+  ) {
+    return null;
+  }
+  return {
+    sourcePollId,
+    sourceIntervalId: source.id,
+    ...slot,
+    kind: source.kind,
+    preferenceDirection: source.preferenceDirection,
+  };
 }
 
 export function calculateResults(
@@ -71,7 +109,7 @@ export function calculateResults(
   total: number,
   responses: readonly ConfirmedResponse[],
 ) {
-  const cells = gridCells(poll);
+  const cells = pollSlots(poll);
   const byParticipant = new Map(
     responses.map((response) => [response.participantId, response.intervals]),
   );
@@ -82,16 +120,18 @@ export function calculateResults(
       heatmap,
       bestSlots: [] as BestSlot[],
     };
-  const bestSlots = candidateCells(poll)
-    .map((candidate) => summarizeCandidate(candidate, byParticipant, poll.slotMinutes))
+
+  const bestSlots = meetingWindows(poll, cells)
+    .map(({ slot, cells: window }) => summarizeCandidate(slot, window, byParticipant))
     .sort(
       (left, right) =>
         right.available - left.available ||
         left.ifNeeded - right.ifNeeded ||
         right.averageSoftScore - left.averageSoftScore ||
-        compareDateTime(left, right),
+        left.startAt.localeCompare(right.startAt),
     )
     .slice(0, 3);
+
   return {
     participantSummary: {
       total,
@@ -103,82 +143,24 @@ export function calculateResults(
   };
 }
 
-function targetDates(poll: Poll, sourceDate: string): string[] {
-  const weekday = isoWeekday(sourceDate);
-  return dates(poll.startsOn, poll.endsOn).filter((date) => isoWeekday(date) === weekday);
+function meetingWindows(poll: Poll, slots: PollSlot[]) {
+  const length = poll.meetingDurationMinutes / poll.slotMinutes;
+  return slots.flatMap((slot, index) => {
+    const cells = slots.slice(index, index + length);
+    const lastCell = cells.at(-1);
+    if (
+      cells.length !== length ||
+      !lastCell ||
+      cells.some((cell, offset) => offset > 0 && cells[offset - 1]?.endAt !== cell.startAt)
+    ) {
+      return [];
+    }
+    return [{ slot: { startAt: slot.startAt, endAt: lastCell.endAt }, cells }];
+  });
 }
-function subtract(
-  suggestion: GhostSuggestion,
-  intervals: readonly AvailabilityInterval[],
-): GhostSuggestion[] {
-  let fragments = [suggestion];
-  for (const interval of intervals)
-    if (interval.localDate === suggestion.localDate)
-      fragments = fragments.flatMap((fragment) => subtractOne(fragment, interval));
-  return fragments;
-}
-function subtractOne(fragment: GhostSuggestion, interval: AvailabilityInterval): GhostSuggestion[] {
-  const start = utcTimeMinutes(fragment.startTime);
-  const end = utcTimeMinutes(fragment.endTime);
-  const cutStart = utcTimeMinutes(interval.startTime);
-  const cutEnd = utcTimeMinutes(interval.endTime);
-  if (cutEnd <= start || cutStart >= end) return [fragment];
-  return [
-    cutStart > start ? { ...fragment, endTime: clock(cutStart) } : null,
-    cutEnd < end ? { ...fragment, startTime: clock(cutEnd) } : null,
-  ].filter((value): value is GhostSuggestion => value !== null);
-}
-function fitToWindow(
-  startTime: string,
-  endTime: string,
-  poll: Poll,
-): Pick<GhostSuggestion, 'startTime' | 'endTime'> | null {
-  const dayStart = utcTimeMinutes(poll.dayStart);
-  const dayEnd = utcTimeMinutes(poll.dayEnd);
-  const start = Math.max(utcTimeMinutes(startTime), dayStart);
-  const end = Math.min(utcTimeMinutes(endTime), dayEnd);
-  const roundedStart =
-    dayStart + Math.ceil((start - dayStart) / poll.slotMinutes) * poll.slotMinutes;
-  const roundedEnd = dayStart + Math.floor((end - dayStart) / poll.slotMinutes) * poll.slotMinutes;
-  return roundedStart < roundedEnd
-    ? { startTime: clock(roundedStart), endTime: clock(roundedEnd) }
-    : null;
-}
-function gridCells(poll: Poll): Array<Pick<HeatmapCell, 'localDate' | 'startTime' | 'endTime'>> {
-  return dates(poll.startsOn, poll.endsOn).flatMap((localDate) =>
-    timeCells(
-      localDate,
-      utcTimeMinutes(poll.dayStart),
-      utcTimeMinutes(poll.dayEnd),
-      poll.slotMinutes,
-    ),
-  );
-}
-function candidateCells(poll: Poll): Array<Pick<BestSlot, 'localDate' | 'startTime' | 'endTime'>> {
-  return dates(poll.startsOn, poll.endsOn).flatMap((localDate) =>
-    timeCells(
-      localDate,
-      utcTimeMinutes(poll.dayStart),
-      utcTimeMinutes(poll.dayEnd),
-      poll.slotMinutes,
-      poll.meetingDurationMinutes,
-    ),
-  );
-}
-function timeCells(
-  localDate: string,
-  start: number,
-  end: number,
-  slotMinutes: number,
-  duration = slotMinutes,
-) {
-  const cells = [];
-  for (let minute = start; minute + duration <= end; minute += slotMinutes)
-    cells.push({ localDate, startTime: clock(minute), endTime: clock(minute + duration) });
-  return cells;
-}
+
 function summarizeCell(
-  cell: Pick<HeatmapCell, 'localDate' | 'startTime' | 'endTime'>,
+  cell: PollSlot,
   participants: ReadonlyMap<string, readonly AvailabilityInterval[]>,
 ): HeatmapCell {
   const states = [...participants.values()].map((intervals) => classify(cell, intervals));
@@ -191,18 +173,14 @@ function summarizeCell(
     averageSoftScore: average(states.map((state) => state.softScore)),
   };
 }
+
 function summarizeCandidate(
-  candidate: Pick<BestSlot, 'localDate' | 'startTime' | 'endTime'>,
+  candidate: PollSlot,
+  cells: readonly PollSlot[],
   participants: ReadonlyMap<string, readonly AvailabilityInterval[]>,
-  slotMinutes: number,
 ): BestSlot {
   const states = [...participants.values()].map((intervals) => {
-    const covered = timeCells(
-      candidate.localDate,
-      utcTimeMinutes(candidate.startTime),
-      utcTimeMinutes(candidate.endTime) - slotMinutes,
-      slotMinutes,
-    ).map((cell) => classify(cell, intervals));
+    const covered = cells.map((cell) => classify(cell, intervals));
     if (covered.some((cell) => cell.availability === 'UNAVAILABLE'))
       return { availability: 'UNAVAILABLE' as const, softScore: 0 };
     if (covered.some((cell) => cell.availability === 'IF_NEEDED'))
@@ -224,15 +202,10 @@ function summarizeCandidate(
     stars: Math.max(1, Math.min(5, Math.round(1 + averageSoftScore * 4))),
   };
 }
-function classify(
-  cell: Pick<HeatmapCell, 'localDate' | 'startTime' | 'endTime'>,
-  intervals: readonly AvailabilityInterval[],
-): CellState {
+
+function classify(cell: PollSlot, intervals: readonly AvailabilityInterval[]): CellState {
   const interval = intervals.find(
-    (value) =>
-      value.localDate === cell.localDate &&
-      utcTimeMinutes(value.startTime) <= utcTimeMinutes(cell.startTime) &&
-      utcTimeMinutes(value.endTime) >= utcTimeMinutes(cell.endTime),
+    (value) => value.startAt <= cell.startAt && value.endAt >= cell.endAt,
   );
   if (!interval) return { availability: 'AVAILABLE', preferred: false, softScore: 0.5 };
   if (interval.kind === 'UNAVAILABLE')
@@ -241,43 +214,48 @@ function classify(
     return { availability: 'IF_NEEDED', preferred: false, softScore: 0.25 };
   return { availability: 'AVAILABLE', preferred: true, softScore: preferenceScore(cell, interval) };
 }
-function preferenceScore(
-  cell: Pick<HeatmapCell, 'startTime' | 'endTime'>,
-  interval: AvailabilityInterval,
-): number {
+
+function preferenceScore(cell: PollSlot, interval: AvailabilityInterval): number {
   if (interval.preferenceDirection === 'FLAT') return 1;
-  const start = utcTimeMinutes(interval.startTime);
+  const start = Date.parse(interval.startAt);
   const ratio =
-    ((utcTimeMinutes(cell.startTime) + utcTimeMinutes(cell.endTime)) / 2 - start) /
-    (utcTimeMinutes(interval.endTime) - start);
+    ((Date.parse(cell.startAt) + Date.parse(cell.endAt)) / 2 - start) /
+    (Date.parse(interval.endAt) - start);
   return interval.preferenceDirection === 'EARLIER' ? 1 - ratio * 0.25 : 0.75 + ratio * 0.25;
 }
-function dates(start: string, end: string): string[] {
-  const values = [];
-  for (
-    let value = utcCalendarDate(start), limit = utcCalendarDate(end);
-    value <= limit;
-    value += 86_400_000
-  )
-    values.push(new Date(value).toISOString().slice(0, 10));
-  return values;
+
+function localSlotKey(timeZone: string, start: Date, end: Date): string {
+  const startLocal = localDateTime(timeZone, start);
+  const endLocal = localDateTime(timeZone, end);
+  const startKey = `${isoWeekday(startLocal.date)}:${startLocal.minute}`;
+  const endKey = `${isoWeekday(endLocal.date)}:${endLocal.minute}`;
+  return `${startKey}:${endKey}`;
 }
-function isoWeekday(value: string): number {
-  return new Date(utcCalendarDate(value)).getUTCDay() || 7;
+
+function localDateTime(timeZone: string, instant: Date): { date: string; minute: number } {
+  const parts = new Intl.DateTimeFormat('en', {
+    timeZone,
+    calendar: 'gregory',
+    numberingSystem: 'latn',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(instant);
+  const value = (type: string) => parts.find((part) => part.type === type)?.value ?? '';
+  return {
+    date: `${value('year')}-${value('month')}-${value('day')}`,
+    minute: Number(value('hour')) * 60 + Number(value('minute')),
+  };
 }
-function clock(minutes: number): string {
-  const hours = String(Math.floor(minutes / 60)).padStart(2, '0');
-  const remainder = String(minutes % 60).padStart(2, '0');
-  return `${hours}:${remainder}`;
+
+function isoWeekday(date: string): number {
+  const weekday = new Date(`${date}T00:00:00.000Z`).getUTCDay();
+  return weekday || 7;
 }
+
 function average(values: readonly number[]): number {
-  return values.reduce((sum, value) => sum + value, 0) / values.length;
-}
-function compareDateTime(
-  left: { localDate: string; startTime: string },
-  right: { localDate: string; startTime: string },
-): number {
-  return (
-    left.localDate.localeCompare(right.localDate) || left.startTime.localeCompare(right.startTime)
-  );
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
 }

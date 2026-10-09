@@ -2,9 +2,10 @@ import type { FastifyInstance } from 'fastify';
 import type { PrismaDatabase } from '#infrastructure/database/prisma-database';
 import { GroupService } from '#services/group/group.service';
 import { ParticipantService } from '#services/participant/participant.service';
-import { PollService } from '#services/poll/poll.service';
-import { validatePoll } from '#domain/poll/poll.validation';
+import { AVATAR_COLORS, type AvatarColor } from '#domain/participant/participant';
+import { validateAvatarColor } from '#domain/participant/participant.validation';
 import { toPoll } from '#infrastructure/database/prisma-records';
+import { pollSlots } from '#shared/time/time-zone';
 import { AppError } from './errors.js';
 import {
   inviteCodeParams,
@@ -13,49 +14,38 @@ import {
 } from './schemas.js';
 import { resolveParticipant } from './participant-identity.js';
 
-const pollBody = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['startsOn', 'endsOn', 'dayStart', 'dayEnd', 'slotMinutes', 'meetingDurationMinutes'],
-  properties: {
-    title: { type: ['string', 'null'], maxLength: 160 },
-    startsOn: { type: 'string' },
-    endsOn: { type: 'string' },
-    dayStart: { type: 'string' },
-    dayEnd: { type: 'string' },
-    slotMinutes: { type: 'integer', enum: [30, 60] },
-    meetingDurationMinutes: { type: 'integer', minimum: 30, maximum: 240 },
-  },
-} as const;
-
 const groupBody = {
   type: 'object',
   additionalProperties: false,
-  required: ['name', 'creatorDisplayName', 'firstPoll'],
+  required: ['name'],
   properties: {
     name: { type: 'string', minLength: 1, maxLength: 120 },
-    creatorDisplayName: { type: 'string', minLength: 1, maxLength: 80 },
-    timezone: { type: 'string' },
-    firstPoll: pollBody,
   },
 } as const;
 const participantBody = {
   type: 'object',
   additionalProperties: false,
-  required: ['displayName'],
-  properties: { displayName: { type: 'string', minLength: 1, maxLength: 80 } },
+  required: ['displayName', 'avatarColor'],
+  properties: {
+    displayName: { type: 'string', minLength: 1, maxLength: 80 },
+    avatarColor: { type: 'string', enum: AVATAR_COLORS },
+  },
 } as const;
 
 const asCode = (params: unknown) => (params as { inviteCode: string }).inviteCode;
 const asToken = (headers: unknown) =>
   (headers as Record<string, string | undefined>)['x-participant-token'];
-function groupDto(group: { id: string; name: string; inviteCode: string; timezone: string }) {
-  return { id: group.id, name: group.name, inviteCode: group.inviteCode, timezone: group.timezone };
+function groupDto(group: { id: string; name: string; inviteCode: string }) {
+  return { id: group.id, name: group.name, inviteCode: group.inviteCode };
 }
-function participantDto(participant: { id: string; displayName: string }) {
-  return { id: participant.id, displayName: participant.displayName };
+function participantDto(participant: { id: string; displayName: string; avatarColor: string }) {
+  return {
+    id: participant.id,
+    displayName: participant.displayName,
+    avatarColor: validateAvatarColor(participant.avatarColor),
+  };
 }
-function pollDto(poll: ReturnType<typeof toPoll>) {
+function pollDto(poll: ReturnType<typeof toPoll>, includeSlots = false) {
   return {
     id: poll.id,
     sequenceNo: poll.sequenceNo,
@@ -66,6 +56,8 @@ function pollDto(poll: ReturnType<typeof toPoll>) {
     dayEnd: poll.dayEnd,
     slotMinutes: poll.slotMinutes,
     meetingDurationMinutes: poll.meetingDurationMinutes,
+    timeZone: poll.timeZone,
+    ...(includeSlots ? { slots: pollSlots(poll) } : {}),
     status: poll.status,
     basedOnPollId: poll.basedOnPollId,
     createdAt: poll.createdAt.toISOString(),
@@ -102,34 +94,31 @@ async function resolveOptionalParticipant(
 // Keep the route table together so all group endpoints are visible in one place.
 // eslint-disable-next-line max-lines-per-function
 export function registerGroupRoutes(app: FastifyInstance, database: PrismaDatabase): void {
-  app.post('/api/groups', { schema: { body: groupBody } }, async (request, reply) => {
-    const body = request.body as {
-      name: string;
-      creatorDisplayName: string;
-      timezone?: string;
-      firstPoll: Parameters<PollService['create']>[2];
-    };
-    if (body.timezone !== undefined && body.timezone !== 'UTC')
-      throw new AppError('INVALID_REQUEST', 400, 'Only UTC timezone is supported');
-    try {
-      validatePoll(1, body.firstPoll);
-    } catch (error) {
-      if (error instanceof RangeError) throw new AppError('INVALID_SCHEDULE', 422, error.message);
-      throw error;
-    }
-    const created = await database.transaction(async (tx) => {
-      const group = await new GroupService(tx).create({ name: body.name });
-      const creator = await new ParticipantService(tx).create(group.id, body.creatorDisplayName);
-      const currentPoll = await new PollService(tx).create(group.id, 1, body.firstPoll);
-      return { group, creator, currentPoll };
-    });
-    return reply.code(201).send({
-      group: groupDto(created.group),
-      participant: participantDto(created.creator.participant),
-      participantEditToken: created.creator.editToken,
-      currentPoll: pollDto(created.currentPoll),
-    });
-  });
+  app.post(
+    '/api/groups',
+    {
+      schema: { body: groupBody },
+      preValidation: async (request) => {
+        const body = request.body;
+        if (
+          typeof body === 'object' &&
+          body !== null &&
+          Object.keys(body).some((key) => key !== 'name')
+        ) {
+          throw new AppError('INVALID_REQUEST', 400, 'Only the group name is accepted');
+        }
+      },
+    },
+    async (request, reply) => {
+      const group = await new GroupService(database).create({
+        name: (request.body as { name: string }).name,
+      });
+      return reply.code(201).send({
+        group: groupDto(group),
+        currentPoll: null,
+      });
+    },
+  );
 
   app.get('/api/groups/:inviteCode', { schema: { params: inviteCodeParams } }, async (request) => {
     const group = await new GroupService(database).findByInviteCode(asCode(request.params));
@@ -138,7 +127,7 @@ export function registerGroupRoutes(app: FastifyInstance, database: PrismaDataba
       where: { groupId: group.id, status: 'OPEN' },
     });
     return {
-      group: { name: group.name, timezone: group.timezone },
+      group: { name: group.name },
       currentPoll: current
         ? {
             id: current.id,
@@ -160,6 +149,7 @@ export function registerGroupRoutes(app: FastifyInstance, database: PrismaDataba
         const participant = await new ParticipantService(database).create(
           group.id,
           (request.body as { displayName: string }).displayName,
+          (request.body as { avatarColor: AvatarColor }).avatarColor,
         );
         return reply.code(201).send({
           participant: participantDto(participant.participant),
@@ -182,9 +172,10 @@ export function registerGroupRoutes(app: FastifyInstance, database: PrismaDataba
       if (!group) throw new AppError('GROUP_NOT_FOUND', 404, 'Group not found');
       const me = await resolveParticipant(database, asToken(request.headers), group.id);
       try {
-        const participant = await new ParticipantService(database).rename(
+        const participant = await new ParticipantService(database).updateProfile(
           me.id,
           (request.body as { displayName: string }).displayName,
+          (request.body as { avatarColor: AvatarColor }).avatarColor,
         );
         return { participant: participantDto(participant) };
       } catch (error) {
@@ -211,7 +202,10 @@ export function registerGroupRoutes(app: FastifyInstance, database: PrismaDataba
         database.client.participant.findMany({
           where: { groupId: group.id },
           include: {
-            responses: current ? { where: { pollId: current.id }, select: { state: true } } : false,
+            responses: {
+              where: current ? { pollId: current.id } : { pollId: { in: [] } },
+              select: { state: true },
+            },
           },
           orderBy: { createdAt: 'asc' },
         }),
@@ -226,7 +220,7 @@ export function registerGroupRoutes(app: FastifyInstance, database: PrismaDataba
           currentPollState: participant.responses[0]?.state ?? 'NONE',
         })),
         polls: polls.map((poll) => pollDto(toPoll(poll))),
-        currentPoll: current ? pollDto(toPoll(current)) : null,
+        currentPoll: current ? pollDto(toPoll(current), true) : null,
       };
     },
   );

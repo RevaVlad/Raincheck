@@ -1,0 +1,176 @@
+import { Component, DestroyRef, computed, effect, inject } from '@angular/core';
+import { NavigationCancel, NavigationError, Router, RouterLink } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { filter } from 'rxjs';
+import { MatButtonModule } from '@angular/material/button';
+
+import { ParticipantSessionService } from '../../model/participant-session/participant-session.service';
+import type { WorkspacePoll, Workspace, WorkspaceParticipant } from '@shared/api';
+import { GroupFacade } from '../../model/group-facade/group.facade';
+import { GroupSidebarContext } from '../../model/group-sidebar-context/group-sidebar-context.service';
+import {
+  AvailabilityIntervalsService,
+  ConfirmResponseButtonComponent,
+  PollEditorService,
+  PollEntryEditorComponent,
+} from '@features/respond-to-poll';
+import { PollCloseControlComponent } from '../poll-close-control/poll-close-control.component';
+import { PollHeaderComponent } from '../poll-header/poll-header.component';
+
+interface EditorContext {
+  inviteCode: string;
+  poll: WorkspacePoll;
+}
+
+@Component({
+  selector: 'app-workspace-page',
+  imports: [
+    PollHeaderComponent,
+    PollCloseControlComponent,
+    PollEntryEditorComponent,
+    ConfirmResponseButtonComponent,
+    MatButtonModule,
+    RouterLink,
+  ],
+  providers: [PollEditorService, AvailabilityIntervalsService],
+  templateUrl: './group-workspace.component.html',
+})
+export class GroupWorkspaceComponent {
+  readonly group = inject(GroupFacade);
+  private readonly session = inject(ParticipantSessionService);
+  private readonly editor = inject(PollEditorService);
+  private readonly router = inject(Router);
+  private readonly sidebarContext = inject(GroupSidebarContext);
+  private readonly destroyRef = inject(DestroyRef);
+
+  private leaveAttempt: Promise<boolean> | null = null;
+
+  readonly workspace = computed<Workspace>(() => {
+    const workspace = this.group.workspace();
+
+    if (!workspace) {
+      throw new Error('Workspace data is not available.');
+    }
+
+    return workspace;
+  });
+
+  readonly currentPoll = computed(() => this.group.workspace()?.currentPoll ?? null);
+
+  readonly sidebarParticipants = computed<WorkspaceParticipant[]>(() => {
+    const workspace = this.group.workspace();
+    if (!workspace) return [];
+
+    const identity = this.session.get(this.group.inviteCode());
+    if (!identity || !workspace.currentPoll || !this.editor.responseLoaded()) {
+      return workspace.participants;
+    }
+
+    const currentPollState = this.editor.responseId() ? this.editor.responseState() : 'NONE';
+    return workspace.participants.map((participant) =>
+      participant.id === identity.participantId
+        ? { ...participant, currentPollState }
+        : participant,
+    );
+  });
+
+  private readonly editorContext = computed<EditorContext | null>(() => {
+    const inviteCode = this.group.inviteCode();
+    const workspace = this.group.workspace();
+    const poll = workspace?.currentPoll;
+
+    if (!inviteCode || !workspace?.me || !poll) {
+      return null;
+    }
+
+    return {
+      inviteCode,
+      poll,
+    };
+  });
+
+  constructor() {
+    this.destroyRef.onDestroy(
+      this.sidebarContext.setPresentationOverride(() => ({
+        participants: this.sidebarParticipants(),
+      })),
+    );
+    this.registerLeaveCheck();
+    this.watchCancelledNavigation();
+    this.watchEditorContext();
+  }
+
+  canLeave(): Promise<boolean> {
+    if (!this.editor.pendingChanges()) {
+      return Promise.resolve(true);
+    }
+
+    return (this.leaveAttempt ??= this.saveBeforeLeaving());
+  }
+
+  private registerLeaveCheck(): void {
+    const unregister = this.group.registerLeaveCheck(() => this.canLeave());
+
+    this.destroyRef.onDestroy(unregister);
+  }
+
+  private watchCancelledNavigation(): void {
+    this.router.events
+      .pipe(
+        filter((event) => event instanceof NavigationCancel || event instanceof NavigationError),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe(() => this.editor.cancelLeaving());
+  }
+
+  private watchEditorContext(): void {
+    effect((onCleanup) => {
+      const context = this.editorContext();
+
+      if (!context) {
+        return;
+      }
+
+      let cancelled = false;
+
+      onCleanup(() => {
+        cancelled = true;
+      });
+
+      void this.loadEditor(context, () => cancelled);
+    });
+  }
+
+  private async saveBeforeLeaving(): Promise<boolean> {
+    try {
+      await this.editor.saveNow();
+
+      this.editor.beginLeaving();
+
+      return true;
+    } catch {
+      return false;
+    } finally {
+      this.leaveAttempt = null;
+    }
+  }
+
+  private async loadEditor(
+    { inviteCode, poll }: EditorContext,
+    isCancelled: () => boolean,
+  ): Promise<void> {
+    if (isCancelled()) {
+      return;
+    }
+
+    const identity = this.session.get(inviteCode);
+
+    if (!identity) {
+      return;
+    }
+
+    void this.editor.load(inviteCode, poll, identity.token, () =>
+      this.group.invalidateIdentity(inviteCode),
+    );
+  }
+}

@@ -1,0 +1,14 @@
+<div
+  class="flex flex-row items-center justify-between gap-3 border-b border-border bg-surface px-4 py-3"
+>
+  <mat-button-toggle-group
+    [value]="selectedKind()"
+    (change)="selectKind.emit($event.value)"
+    aria-label="Отметить доступность"
+  >
+    <mat-button-toggle value="UNAVAILABLE">Не могу</mat-button-toggle>
+    <mat-button-toggle value="IF_NEEDED">Если понадобится</mat-button-toggle>
+    <mat-button-toggle value="PREFERRED">Удобно</mat-button-toggle>
+    <mat-button-toggle value="CLEAR">Очистить</mat-button-toggle>
+  </mat-button-toggle-group>
+</div>

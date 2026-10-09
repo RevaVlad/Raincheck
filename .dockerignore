@@ -1,0 +1,13 @@
+.git
+.worktrees
+.superpowers
+**/node_modules
+**/dist
+**/.angular
+**/coverage
+**/.env
+**/.env.*
+!**/.env.example
+backend/src/generated/prisma
+.playwright-cli
+output/

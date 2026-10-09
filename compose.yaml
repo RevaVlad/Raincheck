@@ -1,5 +1,6 @@
 services:
   postgres:
+    profiles: [local-db]
     image: postgres:17-alpine
     environment:
       POSTGRES_DB: raincheck
@@ -15,5 +16,70 @@ services:
       timeout: 3s
       retries: 10
 
+  app-postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: raincheck
+      POSTGRES_USER: raincheck
+      POSTGRES_PASSWORD: raincheck
+    volumes:
+      - app_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U raincheck -d raincheck"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  migrate:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: build
+    environment:
+      DATABASE_URL: postgres://raincheck:raincheck@app-postgres:5432/raincheck
+    depends_on:
+      app-postgres:
+        condition: service_healthy
+    command: ["npm", "run", "prisma:deploy"]
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: runtime
+    environment:
+      DATABASE_URL: postgres://raincheck:raincheck@app-postgres:5432/raincheck
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      app-postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:3000:3000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/health/ready').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  web:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      target: runtime
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:4200:80"
+
 volumes:
   postgres_data:
+  app_postgres_data:

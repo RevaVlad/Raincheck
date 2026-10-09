@@ -8,7 +8,12 @@ function hasSourcePoll<T extends { basedOnPollId: string | null }>(
   return poll !== null && poll.basedOnPollId !== null;
 }
 
-async function loadSuggestions(database: PrismaDatabase, pollId: string, participantId: string) {
+async function loadSuggestions(
+  database: PrismaDatabase,
+  pollId: string,
+  participantId: string,
+  timeZone: string,
+) {
   const poll = await database.client.poll.findUnique({ where: { id: pollId } });
   if (!hasSourcePoll(poll)) return [];
   const [source, current] = await Promise.all([
@@ -27,32 +32,50 @@ async function loadSuggestions(database: PrismaDatabase, pollId: string, partici
     poll.basedOnPollId,
     source.intervals.map(toInterval),
     current?.intervals.map(toInterval) ?? [],
+    timeZone,
   );
 }
 
 export class AnalyticsService {
   constructor(private readonly database: PrismaDatabase) {}
 
-  async suggestions(pollId: string, participantId: string) {
-    return loadSuggestions(this.database, pollId, participantId);
+  async suggestions(pollId: string, participantId: string, timeZone: string) {
+    return loadSuggestions(this.database, pollId, participantId, timeZone);
   }
 
-  async results(pollId: string, groupId: string) {
-    const [poll, total, responses] = await Promise.all([
+  async results(pollId: string, groupId: string, timeZone: string) {
+    const [poll, participants] = await Promise.all([
       this.database.client.poll.findUniqueOrThrow({ where: { id: pollId } }),
-      this.database.client.participant.count({ where: { groupId } }),
-      this.database.client.pollResponse.findMany({
-        where: { pollId, state: 'CONFIRMED' },
-        include: { intervals: true },
+      this.database.client.participant.findMany({
+        where: { groupId },
+        include: {
+          responses: {
+            where: { pollId },
+            include: { intervals: true },
+          },
+        },
+        orderBy: { createdAt: 'asc' },
       }),
     ]);
-    return calculateResults(
-      toPoll(poll),
-      total,
-      responses.map((response) => ({
-        participantId: response.participantId,
-        intervals: response.intervals.map(toInterval),
-      })),
+    const confirmedResponses = participants.flatMap((participant) =>
+      participant.responses
+        .filter((response) => response.state === 'CONFIRMED')
+        .map((response) => ({
+          participantId: participant.id,
+          intervals: response.intervals.map(toInterval),
+        })),
     );
+    const results = calculateResults(toPoll(poll), participants.length, confirmedResponses);
+    return {
+      ...results,
+      participants: participants.map((participant) => {
+        const state = participant.responses[0]?.state;
+        return {
+          id: participant.id,
+          displayName: participant.displayName,
+          state: state === 'CONFIRMED' || state === 'DRAFT' ? state : 'NONE',
+        };
+      }),
+    };
   }
 }

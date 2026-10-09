@@ -5,6 +5,18 @@ import type { Poll, PollInput } from '#domain/poll/poll';
 import { validatePoll } from '#domain/poll/poll.validation';
 import { POLL_STATUS } from '#shared/constants';
 
+function assertPreviousPollIsClosed(
+  previous: (Pick<Poll, 'id' | 'sequenceNo'> & { status: string }) | undefined,
+): void {
+  if (previous?.status === POLL_STATUS.OPEN) throw new Error('Poll state conflict');
+}
+
+function nextPollMetadata(previous: Pick<Poll, 'id' | 'sequenceNo'> | undefined) {
+  return previous
+    ? { sequenceNo: previous.sequenceNo + 1, basedOnPollId: previous.id }
+    : { sequenceNo: 1, basedOnPollId: null };
+}
+
 export class PollService {
   constructor(private readonly db: PrismaDatabase) {}
 
@@ -28,6 +40,7 @@ export class PollService {
         dayEnd: timeToPrisma(valid.dayEnd),
         slotMinutes: valid.slotMinutes,
         meetingDurationMinutes: valid.meetingDurationMinutes,
+        timeZone: valid.timeZone,
         status: POLL_STATUS.OPEN,
         basedOnPollId,
         createdAt: now,
@@ -36,12 +49,17 @@ export class PollService {
     });
     return toPoll(record);
   }
-  async close(pollId: string, now = new Date()): Promise<Poll> {
+  async close(groupId: string, pollId: string, now = new Date()): Promise<Poll> {
+    const existing = await this.db.client.poll.findFirst({
+      where: { id: pollId, groupId },
+      select: { id: true },
+    });
+    if (!existing) throw new Error('Poll not found');
     const [record] = await this.db.client.poll.updateManyAndReturn({
-      where: { id: pollId, status: POLL_STATUS.OPEN },
+      where: { id: pollId, groupId, status: POLL_STATUS.OPEN },
       data: { status: POLL_STATUS.CLOSED, closedAt: now },
     });
-    if (!record) throw new Error('Poll not found');
+    if (!record) throw new Error('Poll state conflict');
     return toPoll(record);
   }
 
@@ -57,23 +75,30 @@ export class PollService {
   }
 
   async createNext(groupId: string, input: PollInput, now = new Date()): Promise<Poll> {
-    return this.db.transaction(async (transaction) => {
-      const current = await transaction.client.poll.findFirst({
-        where: { groupId, status: POLL_STATUS.OPEN },
-      });
-      if (!current) throw new Error('Poll state conflict');
-      const [closed] = await transaction.client.poll.updateManyAndReturn({
-        where: { id: current.id, status: POLL_STATUS.OPEN },
-        data: { status: POLL_STATUS.CLOSED, closedAt: now },
-      });
-      if (!closed) throw new Error('Poll state conflict');
-      return new PollService(transaction).create(
-        groupId,
-        current.sequenceNo + 1,
-        input,
-        current.id,
-        now,
-      );
+    return this.db.transaction((transaction) =>
+      this.createNextInTransaction(transaction, groupId, input, now),
+    );
+  }
+
+  private async createNextInTransaction(
+    transaction: PrismaDatabase,
+    groupId: string,
+    input: PollInput,
+    now: Date,
+  ): Promise<Poll> {
+    const [previous] = await transaction.client.poll.findMany({
+      where: { groupId },
+      orderBy: { sequenceNo: 'desc' },
+      take: 1,
     });
+    assertPreviousPollIsClosed(previous);
+    const metadata = nextPollMetadata(previous);
+    return new PollService(transaction).create(
+      groupId,
+      metadata.sequenceNo,
+      input,
+      metadata.basedOnPollId,
+      now,
+    );
   }
 }

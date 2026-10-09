@@ -9,12 +9,11 @@ async function createGroup(groups: GroupService) {
   return groups.create({ name: '  CRM Team  ' }, now);
 }
 
-void test('creates and stores a normalized UTC group', async () => {
+void test('creates and stores a normalized group', async () => {
   await inPrismaTransaction(async ({ database, probe }) => {
     const groups = new GroupService(database);
     const group = await createGroup(groups);
     assert.equal(group.name, 'CRM Team');
-    assert.equal(group.timezone, 'UTC');
     assert.match(group.inviteCode, /^[A-Za-z0-9_-]{43}$/);
     assert.equal(group.createdAt.toISOString(), now.toISOString());
     assert.equal(await probe.groupExists(group.id), true);

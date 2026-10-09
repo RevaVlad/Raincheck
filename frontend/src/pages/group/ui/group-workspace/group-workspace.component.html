@@ -1,0 +1,26 @@
+<section class="min-w-0 p-5 sm:p-8">
+  @if (currentPoll(); as poll) {
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <app-poll-header [poll]="poll" />
+      <app-poll-close-control [poll]="poll" />
+    </div>
+    <app-poll-entry-editor />
+    <app-confirm-response-button [inviteCode]="group.inviteCode()" [pollId]="poll.id" />
+  } @else {
+    <section class="rounded-2xl border border-border bg-surface p-6">
+      <h1 class="text-page-title-compact font-semibold">Нет активного опроса</h1>
+      <p class="mt-2 text-secondary">
+        Создайте следующий опрос, чтобы участники отметили удобное время.
+      </p>
+      @if (workspace().me) {
+        <a mat-flat-button class="mt-5" [routerLink]="['/g', group.inviteCode(), 'polls', 'new']">
+          Создать опрос
+        </a>
+      } @else {
+        <a mat-button class="mt-5" [routerLink]="['/g', group.inviteCode(), 'profile']">
+          Заполнить профиль
+        </a>
+      }
+    </section>
+  }
+</section>

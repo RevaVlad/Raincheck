@@ -10,6 +10,7 @@ const pollInput = {
   endsOn: '2026-10-12',
   dayStart: '16:00',
   dayEnd: '23:00',
+  timeZone: 'Europe/Berlin',
   slotMinutes: 30 as const,
   meetingDurationMinutes: 60,
 };
@@ -38,7 +39,7 @@ void test('creates and closes a poll through its service contract', async () => 
     const polls = new PollService(database);
     const group = await groups.create({ name: 'Team' });
     const poll = await polls.create(group.id, 1, pollInput, null, now);
-    const closed = await polls.close(poll.id, now);
+    const closed = await polls.close(group.id, poll.id, now);
     assert.equal(poll.status, 'OPEN');
     assert.equal(poll.startsOn, '2026-10-06');
     assert.equal(poll.endsOn, '2026-10-12');
@@ -82,10 +83,11 @@ void test(
       const polls = new PollService(database);
       const group = await groups.create({ name: 'Team' });
       const poll = await polls.create(group.id, 1, pollInput);
-      await polls.close(poll.id, now);
-      await assert.rejects(() => polls.close(poll.id, new Date('2026-10-02T12:00:00.000Z')), {
-        message: 'Poll not found',
-      });
+      await polls.close(group.id, poll.id, now);
+      await assert.rejects(
+        () => polls.close(group.id, poll.id, new Date('2026-10-02T12:00:00.000Z')),
+        { message: 'Poll state conflict' },
+      );
       const saved = await database.client.poll.findUniqueOrThrow({ where: { id: poll.id } });
       assert.equal(saved.closedAt?.toISOString(), now.toISOString());
     });
@@ -95,9 +97,11 @@ void test(
 void test('rejects closing a missing poll with the existing domain error', async () => {
   await inPrismaTransaction(async ({ database }) => {
     const polls = new PollService(database);
-    await assert.rejects(() => polls.close('00000000-0000-4000-8000-000000000000'), {
-      message: 'Poll not found',
-    });
+    await assert.rejects(
+      () =>
+        polls.close('00000000-0000-4000-8000-000000000000', '00000000-0000-4000-8000-000000000000'),
+      { message: 'Poll not found' },
+    );
   });
 });
 
@@ -107,10 +111,32 @@ void test('clears a reference when its previous poll is deleted', async () => {
     const polls = new PollService(database);
     const group = await groups.create({ name: 'Team' });
     const previous = await polls.create(group.id, 1, pollInput);
-    await polls.close(previous.id);
+    await polls.close(group.id, previous.id);
     const current = await polls.create(group.id, 2, pollInput, previous.id);
     await probe.deletePoll(previous.id);
     const saved = await probe.pollReference(current.id);
     assert.equal(saved.basedOnPollId, null);
+  });
+});
+
+void test('creates the first poll without closing an active one', async () => {
+  await inPrismaTransaction(async ({ database }) => {
+    const group = await new GroupService(database).create({ name: 'First poll' });
+    const polls = new PollService(database);
+
+    const first = await polls.createNext(group.id, pollInput, now);
+    assert.equal(first.sequenceNo, 1);
+    assert.equal(first.status, 'OPEN');
+    assert.equal(first.basedOnPollId, null);
+    await assert.rejects(() => polls.createNext(group.id, pollInput, now), {
+      message: 'Poll state conflict',
+    });
+
+    const stillOpen = await database.client.poll.findUniqueOrThrow({ where: { id: first.id } });
+    assert.equal(stillOpen.status, 'OPEN');
+    const closed = await polls.close(group.id, first.id, now);
+    const next = await polls.createNext(group.id, pollInput, now);
+    assert.equal(next.sequenceNo, 2);
+    assert.equal(next.basedOnPollId, closed.id);
   });
 });

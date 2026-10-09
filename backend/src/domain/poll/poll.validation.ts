@@ -1,14 +1,24 @@
 import { LIMITS, POLL_STATUS } from '#shared/constants';
+import { timeZoneOffsetMinutes } from '#shared/time/time-zone';
 import { daysInclusive, utcTimeMinutes } from '#shared/time/utc';
 import type { PollInput, PollStatus, ValidPollInput } from './poll.js';
 
 export function validatePoll(sequenceNo: number, input: PollInput): ValidPollInput {
   validateSequenceNumber(sequenceNo);
   validateDateRange(input.startsOn, input.endsOn);
+  validateTimeZone(input.timeZone);
   const windowMinutes = validateDailyWindow(input.dayStart, input.dayEnd);
   validateSlotMinutes(input.slotMinutes);
   validateMeetingDuration(input, windowMinutes);
   return { ...input, title: normalizeTitle(input.title) };
+}
+
+function validateTimeZone(timeZone: string): void {
+  try {
+    timeZoneOffsetMinutes(timeZone, new Date());
+  } catch {
+    throw new RangeError('Poll time zone must be a valid IANA time zone');
+  }
 }
 
 export function ensurePollOpen(status: PollStatus): void {

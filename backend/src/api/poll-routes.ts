@@ -4,13 +4,21 @@ import { toPoll } from '#infrastructure/database/prisma-records';
 import { GroupService } from '#services/group/group.service';
 import { PollService } from '#services/poll/poll.service';
 import { AppError } from './errors.js';
-import { inviteCodeParams } from './schemas.js';
+import { inviteCodeParams, optionalParticipantTokenHeaders } from './schemas.js';
 import { resolveParticipant } from './participant-identity.js';
 
 const pollBody = {
   type: 'object',
   additionalProperties: false,
-  required: ['startsOn', 'endsOn', 'dayStart', 'dayEnd', 'slotMinutes', 'meetingDurationMinutes'],
+  required: [
+    'startsOn',
+    'endsOn',
+    'dayStart',
+    'dayEnd',
+    'slotMinutes',
+    'meetingDurationMinutes',
+    'timeZone',
+  ],
   properties: {
     title: { type: ['string', 'null'], maxLength: 160 },
     startsOn: { type: 'string' },
@@ -19,6 +27,7 @@ const pollBody = {
     dayEnd: { type: 'string' },
     slotMinutes: { type: 'integer', enum: [30, 60] },
     meetingDurationMinutes: { type: 'integer', minimum: 30, maximum: 240 },
+    timeZone: { type: 'string', minLength: 1, maxLength: 64 },
   },
 } as const;
 const pollParams = {
@@ -37,6 +46,7 @@ const dto = (poll: ReturnType<typeof toPoll>) => ({
   dayEnd: poll.dayEnd,
   slotMinutes: poll.slotMinutes,
   meetingDurationMinutes: poll.meetingDurationMinutes,
+  timeZone: poll.timeZone,
   status: poll.status,
   basedOnPollId: poll.basedOnPollId,
   createdAt: poll.createdAt.toISOString(),
@@ -54,6 +64,14 @@ function mapPollCreationError(error: unknown): void {
     throw new AppError('POLL_STATE_CONFLICT', 409, error.message);
   if (isUniqueConstraintError(error))
     throw new AppError('POLL_STATE_CONFLICT', 409, 'Poll state conflict');
+}
+
+function mapPollCloseError(error: unknown): never {
+  if (error instanceof Error && error.message === 'Poll not found')
+    throw new AppError('POLL_NOT_FOUND', 404, 'Poll not found');
+  if (error instanceof Error && error.message === 'Poll state conflict')
+    throw new AppError('POLL_STATE_CONFLICT', 409, error.message);
+  throw error;
 }
 
 // Keep the route table together so all poll endpoints are visible in one place.
@@ -115,6 +133,28 @@ export function registerPollRoutes(app: FastifyInstance, database: PrismaDatabas
       } catch (error) {
         mapPollCreationError(error);
         throw error;
+      }
+    },
+  );
+  app.post(
+    '/api/groups/:inviteCode/polls/:pollId/close',
+    { schema: { params: pollParams, headers: optionalParticipantTokenHeaders } },
+    async (request) => {
+      const group = await new GroupService(database).findByInviteCode(code(request.params));
+      if (!group) throw new AppError('GROUP_NOT_FOUND', 404, 'Group not found');
+      await resolveParticipant(
+        database,
+        (request.headers as Record<string, string | undefined>)['x-participant-token'],
+        group.id,
+      );
+      try {
+        const poll = await new PollService(database).close(
+          group.id,
+          (request.params as { pollId: string }).pollId,
+        );
+        return { poll: dto(poll) };
+      } catch (error) {
+        mapPollCloseError(error);
       }
     },
   );

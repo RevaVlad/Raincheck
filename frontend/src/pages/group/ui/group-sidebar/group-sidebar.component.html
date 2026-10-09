@@ -1,0 +1,36 @@
+@if (group.workspace()) {
+  <aside class="flex h-full min-w-0 flex-col border-r border-border bg-surface p-5">
+    <h2 class="mt-3 text-xl font-semibold tracking-tight">{{ groupName() }}</h2>
+    <section class="mt-8 min-w-0 overflow-hidden">
+      <h3 class="text-xs font-semibold uppercase tracking-wide text-secondary">
+        Ссылка для команды
+      </h3>
+      <app-invite-link [inviteLink]="inviteLink()" />
+    </section>
+
+    <section class="mt-8">
+      <h3 class="text-xs font-semibold uppercase tracking-wide text-secondary">
+        Участники ({{ participants().length }})
+      </h3>
+      <app-group-participant-list
+        [participants]="participants()"
+        [inviteCode]="group.inviteCode()"
+        [currentParticipantId]="currentParticipantId()"
+        [showStatuses]="showParticipantStatuses()"
+      />
+    </section>
+
+    <app-poll-list
+      class="block border-t border-border mt-8"
+      [inviteCode]="group.inviteCode()"
+      [polls]="polls()"
+    />
+  </aside>
+} @else {
+  <aside
+    class="border-b border-border bg-surface p-5 text-supporting text-secondary lg:h-[calc(100dvh-3.5rem)] lg:border-b-0 lg:border-r"
+    aria-label="Group sidebar"
+  >
+    {{ group.loading() ? 'Загружаем группу…' : group.loadError() || 'Группа не найдена.' }}
+  </aside>
+}

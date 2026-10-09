@@ -1,0 +1,21 @@
+:host {
+  display: block;
+  height: 34px;
+  border-bottom: 1px solid var(--theme-border);
+  border-left: 1px solid var(--theme-border);
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+}
+
+:host(.unavailable) {
+  background: var(--theme-availability-unavailable);
+}
+
+:host(.if-needed) {
+  background: var(--theme-availability-if-needed);
+}
+
+:host(.preferred) {
+  background: var(--theme-availability-preferred);
+}

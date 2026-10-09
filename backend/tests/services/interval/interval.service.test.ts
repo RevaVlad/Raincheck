@@ -11,12 +11,15 @@ const createdAt = new Date('2026-10-01T10:00:00.000Z');
 const confirmedAt = new Date('2026-10-01T11:00:00.000Z');
 const changedAt = new Date('2026-10-01T12:00:00.000Z');
 const firstInterval = {
-  localDate: '2026-10-06',
-  startTime: '18:00',
-  endTime: '19:00',
+  startAt: '2026-10-06T18:00:00.000Z',
+  endAt: '2026-10-06T19:00:00.000Z',
   kind: 'PREFERRED' as const,
 };
-const laterInterval = { ...firstInterval, startTime: '20:00', endTime: '21:00' };
+const laterInterval = {
+  ...firstInterval,
+  startAt: '2026-10-06T20:00:00.000Z',
+  endAt: '2026-10-06T21:00:00.000Z',
+};
 
 async function createParticipant(database: PrismaDatabase) {
   const group = await database.client.group.create({
@@ -24,7 +27,6 @@ async function createParticipant(database: PrismaDatabase) {
       id: randomUUID(),
       name: 'Team',
       inviteCode: randomUUID(),
-      timezone: 'UTC',
       createdAt,
     },
   });
@@ -34,6 +36,7 @@ async function createParticipant(database: PrismaDatabase) {
       groupId: group.id,
       displayName: 'Alice',
       displayNameNormalized: 'alice',
+      avatarColor: 'green',
       editTokenHash: randomUUID().replaceAll('-', '').repeat(2),
       createdAt,
       updatedAt: createdAt,
@@ -41,7 +44,10 @@ async function createParticipant(database: PrismaDatabase) {
   });
 }
 
-async function fixture(database: PrismaDatabase) {
+async function fixture(
+  database: PrismaDatabase,
+  options: { timeZone?: string; dayStart?: string; dayEnd?: string } = {},
+) {
   const participant = await createParticipant(database);
   const poll = await database.client.poll.create({
     data: {
@@ -51,10 +57,11 @@ async function fixture(database: PrismaDatabase) {
       title: 'Team meeting',
       startsOn: dateToPrisma('2026-10-06'),
       endsOn: dateToPrisma('2026-10-12'),
-      dayStart: timeToPrisma('16:00'),
-      dayEnd: timeToPrisma('23:00'),
+      dayStart: timeToPrisma(options.dayStart ?? '16:00'),
+      dayEnd: timeToPrisma(options.dayEnd ?? '23:00'),
       slotMinutes: 30,
       meetingDurationMinutes: 60,
+      timeZone: options.timeZone ?? 'UTC',
       status: 'OPEN',
       createdAt,
     },
@@ -83,7 +90,7 @@ async function saved(database: PrismaDatabase, responseId: string) {
     response: await database.client.pollResponse.findUniqueOrThrow({ where: { id: responseId } }),
     intervals: await database.client.availabilityInterval.findMany({
       where: { responseId },
-      orderBy: [{ localDate: 'asc' }, { startTime: 'asc' }, { id: 'asc' }],
+      orderBy: [{ startAt: 'asc' }, { id: 'asc' }],
     }),
   };
 }
@@ -108,6 +115,26 @@ void test('changed replacement resets confirmation and persists timestamps', asy
     assert.deepEqual(replacement[0]?.createdAt, changedAt);
     assert.deepEqual(replacement[0]?.updatedAt, changedAt);
     assert.equal(replacement[0]?.preferenceDirection, null);
+  });
+});
+
+void test('UTC intervals crossing midnight persist and reopen unchanged', async () => {
+  await inPrismaTransaction(async ({ database }) => {
+    const { response, intervals } = await fixture(database, {
+      timeZone: 'America/Los_Angeles',
+      dayStart: '16:00',
+      dayEnd: '17:00',
+    });
+    const input = {
+      startAt: '2026-10-06T23:30:00.000Z',
+      endAt: '2026-10-07T00:00:00.000Z',
+      kind: 'PREFERRED' as const,
+    };
+    const savedIntervals = await intervals.replace(response.id, [input], createdAt);
+    const persisted = await saved(database, response.id);
+    assert.deepEqual(savedIntervals, persisted.intervals.map(toInterval));
+    assert.equal(persisted.intervals[0]?.startAt.toISOString(), input.startAt);
+    assert.equal(persisted.intervals[0]?.endAt.toISOString(), input.endAt);
   });
 });
 
@@ -158,23 +185,28 @@ void test('clearing stored availability returns the confirmed response to draft'
 const invalidReplacements: { name: string; inputs: IntervalInput[]; error: RegExp }[] = [
   {
     name: 'overlapping intervals',
-    inputs: [firstInterval, { ...firstInterval, startTime: '18:30', endTime: '19:30' }],
+    inputs: [
+      firstInterval,
+      { ...firstInterval, startAt: '2026-10-06T18:30:00.000Z', endAt: '2026-10-06T19:30:00.000Z' },
+    ],
     error: /overlap/i,
   },
   {
-    name: 'date outside the poll',
-    inputs: [{ ...firstInterval, localDate: '2026-10-13' }],
-    error: /outside the poll/i,
+    name: 'bounds outside the poll',
+    inputs: [
+      { ...firstInterval, startAt: '2026-10-13T18:00:00.000Z', endAt: '2026-10-13T19:00:00.000Z' },
+    ],
+    error: /outside generated poll slots/i,
   },
   {
     name: 'time outside the daily window',
-    inputs: [{ ...firstInterval, startTime: '15:00' }],
-    error: /daily window/i,
+    inputs: [{ ...firstInterval, startAt: '2026-10-06T15:00:00.000Z' }],
+    error: /generated poll slots/i,
   },
   {
     name: 'unaligned slot boundary',
-    inputs: [{ ...firstInterval, endTime: '19:15' }],
-    error: /align/i,
+    inputs: [{ ...firstInterval, endAt: '2026-10-06T19:15:00.000Z' }],
+    error: /poll slots/i,
   },
 ];
 

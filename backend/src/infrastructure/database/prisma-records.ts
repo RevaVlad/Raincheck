@@ -1,6 +1,6 @@
 import type { Group } from '#domain/group/group';
 import type { AvailabilityInterval, PreferenceDirection } from '#domain/interval/interval';
-import type { Participant } from '#domain/participant/participant';
+import type { AvatarColor, Participant } from '#domain/participant/participant';
 import type { Poll, SlotMinutes } from '#domain/poll/poll';
 import type { PollResponse } from '#domain/response/response';
 import { utcCalendarDate, utcTimeMinutes } from '#shared/time/utc';
@@ -29,11 +29,11 @@ export function timeFromPrisma(value: Date): string {
 }
 
 export function toGroup(record: GroupRecord): Group {
-  return { ...record, timezone: record.timezone as Group['timezone'] };
+  return record;
 }
 
 export function toParticipant(record: ParticipantRecord): Participant {
-  return { ...record };
+  return { ...record, avatarColor: record.avatarColor as AvatarColor };
 }
 
 export function toPoll(record: PollRecord): Poll {
@@ -44,6 +44,7 @@ export function toPoll(record: PollRecord): Poll {
     dayStart: timeFromPrisma(record.dayStart),
     dayEnd: timeFromPrisma(record.dayEnd),
     slotMinutes: record.slotMinutes as SlotMinutes,
+    timeZone: record.timeZone,
   };
   if (record.status === 'OPEN') return { ...fields, status: 'OPEN', closedAt: null };
   if (!record.closedAt) throw new Error('Closed poll is missing closed_at');
@@ -59,9 +60,8 @@ export function toResponse(record: ResponseRecord): PollResponse {
 export function toInterval(record: IntervalRecord): AvailabilityInterval {
   const fields = {
     ...record,
-    localDate: dateFromPrisma(record.localDate),
-    startTime: timeFromPrisma(record.startTime),
-    endTime: timeFromPrisma(record.endTime),
+    startAt: record.startAt.toISOString(),
+    endAt: record.endAt.toISOString(),
   };
   if (record.kind !== 'PREFERRED') {
     return {

@@ -1,0 +1,27 @@
+<main
+  class="mx-auto flex min-h-[calc(100dvh_-_3.5rem)] max-w-2xl flex-col justify-center px-5 py-10 sm:px-8"
+>
+  <section class="mb-7 text-center">
+    <h1 class="text-page-title font-semibold tracking-tight">Создать группу</h1>
+    <p class="mt-2 text-secondary">
+      У группы будет постоянная ссылка. Первый опрос можно создать после заполнения профиля.
+    </p>
+  </section>
+
+  <mat-card class="p-5 sm:p-7">
+    <form [formGroup]="form" class="grid gap-4" (ngSubmit)="submit()">
+      <mat-form-field>
+        <mat-label>Название группы</mat-label>
+        <input matInput formControlName="groupName" required maxlength="120" />
+      </mat-form-field>
+      @if (errorMessage()) {
+        <p class="-mt-3 text-supporting text-danger" role="alert">{{ errorMessage() }}</p>
+      }
+      <div class="flex justify-end">
+        <button mat-flat-button type="submit" [disabled]="submitting() || created()">
+          {{ submitting() ? 'Создаём…' : 'Создать группу' }}
+        </button>
+      </div>
+    </form>
+  </mat-card>
+</main>

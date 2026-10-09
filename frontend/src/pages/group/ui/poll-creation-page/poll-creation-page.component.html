@@ -1,0 +1,28 @@
+<section class="min-w-0 p-5 sm:p-8">
+  @if (ready()) {
+    <div class="mx-auto max-w-3xl">
+      <header class="mb-6">
+        <h1 class="text-page-title-compact font-semibold">Создать опрос</h1>
+        <p class="mt-2 max-w-2xl text-secondary">
+          Даты предложены на ближайшие семь дней. Проверьте время и длительность встречи; ответы на
+          прошлые опросы не переносятся.
+        </p>
+      </header>
+
+      <mat-card class="p-5 sm:p-7">
+        <app-poll-schedule-form
+          [previousPoll]="previousPoll()"
+          [submitting]="submitting()"
+          [errorMessage]="errorMessage()"
+          (save)="submitInput($event)"
+        />
+      </mat-card>
+    </div>
+  } @else if (group.notFound()) {
+    <app-error-state message="Группа не найдена." />
+  } @else if (group.loadError()) {
+    <app-error-state [message]="group.loadError()!" (retry)="group.reload()" />
+  } @else {
+    <app-loading-state layout="group" statusText="Проверяем доступ к группе…" />
+  }
+</section>
