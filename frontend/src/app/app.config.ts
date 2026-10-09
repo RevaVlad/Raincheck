@@ -6,8 +6,8 @@ import {
 } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
-import { BrowserTimeZoneService } from './core/dates/browser-timezone.service';
-import { routes } from './app.routes';
+import { BrowserTimeZoneService } from '@shared/lib/dates';
+import { routes } from './routes/app.routes';
 
 export const appConfig: ApplicationConfig = {
   providers: [
