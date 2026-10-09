@@ -2,17 +2,11 @@ design/*
 spec/*
 node_modules/
 dist/
-coverage/
 .angular/
 .env
-.env.*
 !.env.example
-*.log
-*.tsbuildinfo
 .DS_Store
 .playwright-cli/
-output/playwright/
-.worktrees/
 backend/src/generated/prisma/
 output/
 docs/
