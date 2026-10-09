@@ -94,7 +94,9 @@ async function expectClosedPollCanContinue(
   assert.ok(closed.json().poll.closedAt);
   assert.equal(conflict.json().error.code, 'POLL_STATE_CONFLICT');
 
-  const archivedResults = await app.inject(`/api/groups/${inviteCode}/polls/${pollId}/results`);
+  const archivedResults = await app.inject(
+    `/api/groups/${inviteCode}/polls/${pollId}/results?timeZone=UTC`,
+  );
   assert.equal(archivedResults.statusCode, 200, archivedResults.body);
   const next = await createPoll(inviteCode, token);
   assert.equal(next.statusCode, 201, next.body);
