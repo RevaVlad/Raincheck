@@ -51,7 +51,10 @@ function mapClosedPollWrite(error: unknown): void {
 
 // Keep the route table together so all response endpoints are visible in one place.
 // eslint-disable-next-line max-lines-per-function
-export function registerResponseRoutes(app: FastifyInstance, database: Prisma.TransactionClient): void {
+export function registerResponseRoutes(
+  app: FastifyInstance,
+  database: Prisma.TransactionClient,
+): void {
   const context = async (request: { params: unknown; headers: unknown }) => {
     const value = key(request);
     const group = await new GroupService(database).findByInviteCode(value.inviteCode);

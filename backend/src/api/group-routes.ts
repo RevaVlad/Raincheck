@@ -92,7 +92,10 @@ async function resolveOptionalParticipant(
 }
 
 // eslint-disable-next-line max-lines-per-function
-export function registerGroupRoutes(app: FastifyInstance, database: Prisma.TransactionClient): void {
+export function registerGroupRoutes(
+  app: FastifyInstance,
+  database: Prisma.TransactionClient,
+): void {
   app.post(
     '/api/groups',
     {

@@ -140,10 +140,7 @@ void test('mappers cover the constrained state branches the round trip cannot re
     () => toPoll(pollRecord({ status: 'CLOSED', closedAt: null })),
     /Closed poll is missing closed_at/,
   );
-  assert.throws(
-    () => toPoll(pollRecord({ status: 'INVALID', closedAt })),
-    /invalid status/,
-  );
+  assert.throws(() => toPoll(pollRecord({ status: 'INVALID', closedAt })), /invalid status/);
   assert.throws(() => toPoll(pollRecord({ status: 'OPEN', closedAt, slotMinutes: 15 })), /slot/);
 
   assert.equal(toResponse(responseRecord({ state: 'DRAFT', confirmedAt: null })).confirmedAt, null);

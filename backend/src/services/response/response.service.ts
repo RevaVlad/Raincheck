@@ -54,8 +54,7 @@ export class ResponseService {
       });
       if (!poll) throw new Error('Response requires an open poll');
       return (
-        (await transaction.pollResponse.deleteMany({ where: { pollId, participantId } }))
-          .count > 0
+        (await transaction.pollResponse.deleteMany({ where: { pollId, participantId } })).count > 0
       );
     });
   }

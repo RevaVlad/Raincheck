@@ -102,10 +102,7 @@ async function expectClosedPollCanContinue(
   assert.equal(next.statusCode, 201, next.body);
   assert.equal(next.json().poll.sequenceNo, 2);
   assert.equal(next.json().poll.basedOnPollId, pollId);
-  assert.equal(
-    await database.pollResponse.count({ where: { pollId: next.json().poll.id } }),
-    0,
-  );
+  assert.equal(await database.pollResponse.count({ where: { pollId: next.json().poll.id } }), 0);
   assert.equal(await database.poll.count({ where: { groupId } }), 2);
 }
 

@@ -157,9 +157,7 @@ void test('Prisma migration keeps partial uniqueness and uses Prisma tracking', 
         "\\(group_id\\) WHERE \\(status = 'OPEN'::text\\)",
     ),
   );
-  const tracking = await database.$queryRaw<
-    { old: string | null; current: string | null }[]
-  >`
+  const tracking = await database.$queryRaw<{ old: string | null; current: string | null }[]>`
       SELECT to_regclass('public.schema_migrations')::text AS old,
         to_regclass('public._prisma_migrations')::text AS current
     `;

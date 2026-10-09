@@ -30,7 +30,10 @@ function asTimeZone(query: unknown): string {
     throw new AppError('INVALID_REQUEST', 400, 'A valid IANA time zone is required');
   }
 }
-export function registerAnalyticsRoutes(app: FastifyInstance, database: Prisma.TransactionClient): void {
+export function registerAnalyticsRoutes(
+  app: FastifyInstance,
+  database: Prisma.TransactionClient,
+): void {
   const pollContext = async (request: { params: unknown }) => {
     const { inviteCode, pollId } = request.params as { inviteCode: string; pollId: string };
     const group = await new GroupService(database).findByInviteCode(inviteCode);
