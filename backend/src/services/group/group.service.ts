@@ -3,7 +3,7 @@ import type { PrismaDatabase } from '#infrastructure/database/prisma-database';
 import { toGroup } from '#infrastructure/database/prisma-records';
 import type { Group, GroupInput } from '#domain/group/group';
 import { validateGroup } from '#domain/group/group.validation';
-import { LIMITS, UTC_TIMEZONE } from '#shared/constants';
+import { LIMITS } from '#shared/constants';
 
 export class GroupService {
   constructor(private readonly db: PrismaDatabase) {}
@@ -20,7 +20,6 @@ export class GroupService {
         id: randomUUID(),
         name,
         inviteCode: randomBytes(LIMITS.TOKEN_BYTES).toString('base64url'),
-        timezone: UTC_TIMEZONE,
         createdAt: now,
       },
     });

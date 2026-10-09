@@ -2,16 +2,16 @@ import { ApplicationRef, signal } from '@angular/core';
 import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { GroupsApiService } from '../../core/api/groups-api.service';
 import { apiErrorCode, apiErrorMessage, isUnauthorized } from '../../core/api/api-errors';
-import type { CreateGroupRequest, PollResults, Workspace } from '../../core/api/api.types';
-import { ParticipantsApiService } from './participants-api.service';
-import { PollsApiService } from './polls-api.service';
-import { PollResultsApiService } from '../results/poll-results-api.service';
-import { PollResponsesApiService } from '../workspace/poll-editor/poll-responses-api.service';
+import type { PollResults, Workspace } from '../../core/api/api.types';
+import { ParticipantsApiService } from './entry/participants-api.service';
+import { PollsApiService } from './poll-creation/polls-api.service';
+import { PollResultsApiService } from './results/poll-results-api.service';
+import { PollResponsesApiService } from './workspace/poll-editor/poll-responses-api.service';
+import { GroupWorkspaceApiService } from './workspace/group-workspace-api.service';
 
 describe('feature API services', () => {
-  let groups: GroupsApiService;
+  let workspaceApi: GroupWorkspaceApiService;
   let polls: PollsApiService;
   let participants: ParticipantsApiService;
   let results: PollResultsApiService;
@@ -23,14 +23,14 @@ describe('feature API services', () => {
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
-        GroupsApiService,
+        GroupWorkspaceApiService,
         PollsApiService,
         ParticipantsApiService,
         PollResultsApiService,
         PollResponsesApiService,
       ],
     });
-    groups = TestBed.inject(GroupsApiService);
+    workspaceApi = TestBed.inject(GroupWorkspaceApiService);
     polls = TestBed.inject(PollsApiService);
     participants = TestBed.inject(ParticipantsApiService);
     results = TestBed.inject(PollResultsApiService);
@@ -40,20 +40,9 @@ describe('feature API services', () => {
 
   afterEach(() => http.verify());
 
-  it('creates a group without poll or participant data', () => {
-    const body: CreateGroupRequest = { name: 'Team' };
-
-    groups.createGroup(body).subscribe();
-
-    const call = http.expectOne('/api/groups');
-    expect(call.request.method).toBe('POST');
-    expect(call.request.body).toEqual(body);
-    expect(call.request.headers.has('X-Participant-Token')).toBe(false);
-    call.flush({ group: {}, currentPoll: null });
-  });
-
   it('creates and closes polls with the explicit participant token', () => {
     const input = {
+      timeZone: 'Asia/Yekaterinburg',
       startsOn: '2026-10-07',
       endsOn: '2026-10-13',
       dayStart: '16:00',
@@ -81,7 +70,7 @@ describe('feature API services', () => {
   it('starts workspace reads only when enabled and cancels superseded reads', async () => {
     const parameters = signal<{ inviteCode: string; token?: string } | undefined>(undefined);
     const resource = TestBed.runInInjectionContext(() =>
-      groups.workspaceResource(() => parameters()),
+      workspaceApi.workspaceResource(() => parameters()),
     );
     TestBed.tick();
     http.expectNone(() => true);
@@ -97,7 +86,7 @@ describe('feature API services', () => {
     const currentRequest = http.expectOne('/api/groups/new%2Fcode/workspace');
     expect(currentRequest.request.headers.has('X-Participant-Token')).toBe(false);
     const body: Workspace = {
-      group: { id: 'group', name: 'Group', inviteCode: 'new/code', timezone: 'UTC' },
+      group: { id: 'group', name: 'Group', inviteCode: 'new/code' },
       me: null,
       participants: [],
       polls: [],
@@ -109,7 +98,7 @@ describe('feature API services', () => {
   });
 
   it('fetches fresh workspace data with the current participant token', () => {
-    groups.getWorkspace('group/code', 'secret-token').subscribe();
+    workspaceApi.getWorkspace('group/code', 'secret-token').subscribe();
 
     const call = http.expectOne('/api/groups/group%2Fcode/workspace');
     expect(call.request.method).toBe('GET');
@@ -148,10 +137,14 @@ describe('feature API services', () => {
 
   it('loads public results without participant credentials', () => {
     const resource = TestBed.runInInjectionContext(() =>
-      results.resultsResource(() => ({ inviteCode: 'group a', pollId: 'poll/a' })),
+      results.resultsResource(() => ({ inviteCode: 'group a', pollId: 'poll/a', timeZone: 'UTC' })),
     );
     TestBed.tick();
-    const call = http.expectOne('/api/groups/group%20a/polls/poll%2Fa/results');
+    const call = http.expectOne(
+      (request) =>
+        request.url === '/api/groups/group%20a/polls/poll%2Fa/results' &&
+        request.params.get('timeZone') === 'UTC',
+    );
     expect(call.request.method).toBe('GET');
     expect(call.request.headers.has('X-Participant-Token')).toBe(false);
     const body: PollResults = {

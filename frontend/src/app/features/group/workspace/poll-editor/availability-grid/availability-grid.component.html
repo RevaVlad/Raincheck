@@ -1,0 +1,34 @@
+<div class="overflow-x-auto bg-surface">
+  <div
+    class="schedule-grid"
+    [style.grid-template-columns]="gridTemplateColumns()"
+    (pointerdown)="onPointerDown($event)"
+    (pointermove)="onPointerMove($event)"
+    (pointerup)="onPointerUp($event)"
+    (pointercancel)="onPointerCancel($event)"
+    (lostpointercapture)="onPointerCancel($event)"
+  >
+    <div class="corner"></div>
+    @for (day of days(); track day.date) {
+      <div class="day">
+        <strong>{{ day.weekday }}</strong>
+        <span>{{ dateLabel(day.date) }}</span>
+      </div>
+    }
+    @for (row of rows(); track row.id) {
+      <div class="time">{{ row.time }}</div>
+      @for (slot of row.slots; track $index) {
+        @if (slot) {
+          <app-availability-grid-cell
+            [startAt]="slot.startAt"
+            [date]="days()[$index].date"
+            [time]="row.time"
+            [kind]="state(slot.startAt)"
+          />
+        } @else {
+          <div class="cell empty" aria-hidden="true"></div>
+        }
+      }
+    }
+  </div>
+</div>

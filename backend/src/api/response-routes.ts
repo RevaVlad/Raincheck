@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { PrismaDatabase } from '#infrastructure/database/prisma-database';
 import { toInterval } from '#infrastructure/database/prisma-records';
+import type { IntervalInput } from '#domain/interval/interval';
 import { GroupService } from '#services/group/group.service';
 import { IntervalService } from '#services/interval/interval.service';
 import { ResponseService } from '#services/response/response.service';
@@ -26,11 +27,10 @@ const intervals = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['localDate', 'startTime', 'endTime', 'kind', 'preferenceDirection'],
+        required: ['startAt', 'endAt', 'kind', 'preferenceDirection'],
         properties: {
-          localDate: { type: 'string' },
-          startTime: { type: 'string' },
-          endTime: { type: 'string' },
+          startAt: { type: 'string', format: 'date-time', pattern: 'Z$' },
+          endAt: { type: 'string', format: 'date-time', pattern: 'Z$' },
           kind: { type: 'string', enum: ['UNAVAILABLE', 'IF_NEEDED', 'PREFERRED'] },
           preferenceDirection: { type: ['string', 'null'] },
         },
@@ -70,7 +70,7 @@ export function registerResponseRoutes(app: FastifyInstance, database: PrismaDat
     intervals: (
       await database.client.availabilityInterval.findMany({
         where: { responseId: response.id },
-        orderBy: [{ localDate: 'asc' }, { startTime: 'asc' }],
+        orderBy: [{ startAt: 'asc' }],
       })
     ).map(toInterval),
   });
@@ -116,7 +116,7 @@ export function registerResponseRoutes(app: FastifyInstance, database: PrismaDat
       try {
         await new IntervalService(database).replace(
           response.id,
-          (request.body as { intervals: [] }).intervals,
+          (request.body as { intervals: IntervalInput[] }).intervals,
         );
         const updated = await new ResponseService(database).findForParticipant(pollId, me.id);
         if (!updated) throw new AppError('RESPONSE_NOT_FOUND', 404, 'Response not found');

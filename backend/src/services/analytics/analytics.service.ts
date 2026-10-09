@@ -8,7 +8,12 @@ function hasSourcePoll<T extends { basedOnPollId: string | null }>(
   return poll !== null && poll.basedOnPollId !== null;
 }
 
-async function loadSuggestions(database: PrismaDatabase, pollId: string, participantId: string) {
+async function loadSuggestions(
+  database: PrismaDatabase,
+  pollId: string,
+  participantId: string,
+  timeZone: string,
+) {
   const poll = await database.client.poll.findUnique({ where: { id: pollId } });
   if (!hasSourcePoll(poll)) return [];
   const [source, current] = await Promise.all([
@@ -27,17 +32,18 @@ async function loadSuggestions(database: PrismaDatabase, pollId: string, partici
     poll.basedOnPollId,
     source.intervals.map(toInterval),
     current?.intervals.map(toInterval) ?? [],
+    timeZone,
   );
 }
 
 export class AnalyticsService {
   constructor(private readonly database: PrismaDatabase) {}
 
-  async suggestions(pollId: string, participantId: string) {
-    return loadSuggestions(this.database, pollId, participantId);
+  async suggestions(pollId: string, participantId: string, timeZone: string) {
+    return loadSuggestions(this.database, pollId, participantId, timeZone);
   }
 
-  async results(pollId: string, groupId: string) {
+  async results(pollId: string, groupId: string, timeZone: string) {
     const [poll, participants] = await Promise.all([
       this.database.client.poll.findUniqueOrThrow({ where: { id: pollId } }),
       this.database.client.participant.findMany({

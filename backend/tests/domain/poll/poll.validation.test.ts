@@ -9,6 +9,7 @@ const validPoll: PollInput = {
   endsOn: '2026-10-12',
   dayStart: '16:00',
   dayEnd: '23:00',
+  timeZone: 'Europe/Berlin',
   slotMinutes: 30,
   meetingDurationMinutes: 60,
 };
@@ -27,6 +28,10 @@ void test('rejects an invalid date range', () => {
 
 void test('rejects an invalid daily window', () => {
   assert.throws(() => validatePoll(1, { ...validPoll, dayEnd: '16:00' }), /day end/i);
+});
+
+void test('rejects an invalid poll time zone', () => {
+  assert.throws(() => validatePoll(1, { ...validPoll, timeZone: 'No/SuchZone' }), /time zone/i);
 });
 
 void test('rejects an unsupported slot size', () => {

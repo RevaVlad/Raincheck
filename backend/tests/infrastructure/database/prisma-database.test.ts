@@ -11,7 +11,6 @@ const groupData = () => ({
   id: randomUUID(),
   name: 'Prisma foundation',
   inviteCode: randomUUID(),
-  timezone: 'UTC',
   createdAt: new Date('2026-10-02T09:12:34.567Z'),
 });
 
@@ -26,6 +25,7 @@ const pollData = (groupId: string, sequenceNo: number, basedOnPollId: string | n
   dayEnd: timeToPrisma('23:00'),
   slotMinutes: 30,
   meetingDurationMinutes: 60,
+  timeZone: 'UTC',
   status: 'CLOSED',
   basedOnPollId,
   createdAt: new Date('2026-10-02T09:12:34.567Z'),

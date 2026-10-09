@@ -1,20 +1,20 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { throwError, of } from 'rxjs';
-import { GroupsApiService } from '../../core/api/groups-api.service';
+import { CreateGroupApiService } from './create-group-api.service';
 import { CreateGroupPageComponent } from './create-group-page.component';
 
 describe('CreateGroupPageComponent', () => {
   it('creates only the group and opens the profile route', async () => {
     const createGroup = vi.fn().mockReturnValue(
       of({
-        group: { id: 'group-id', name: 'Team', inviteCode: 'invite-code', timezone: 'UTC' },
+        group: { id: 'group-id', name: 'Team', inviteCode: 'invite-code' },
         currentPoll: null,
       }),
     );
     await TestBed.configureTestingModule({
       imports: [CreateGroupPageComponent],
-      providers: [provideRouter([]), { provide: GroupsApiService, useValue: { createGroup } }],
+      providers: [provideRouter([]), { provide: CreateGroupApiService, useValue: { createGroup } }],
     }).compileComponents();
 
     const router = TestBed.inject(Router);
@@ -33,7 +33,7 @@ describe('CreateGroupPageComponent', () => {
     const createGroup = vi.fn().mockReturnValue(of({}));
     await TestBed.configureTestingModule({
       imports: [CreateGroupPageComponent],
-      providers: [provideRouter([]), { provide: GroupsApiService, useValue: { createGroup } }],
+      providers: [provideRouter([]), { provide: CreateGroupApiService, useValue: { createGroup } }],
     }).compileComponents();
 
     const fixture = TestBed.createComponent(CreateGroupPageComponent);
@@ -46,7 +46,7 @@ describe('CreateGroupPageComponent', () => {
     const createGroup = vi.fn().mockReturnValue(throwError(() => new Error('offline')));
     await TestBed.configureTestingModule({
       imports: [CreateGroupPageComponent],
-      providers: [provideRouter([]), { provide: GroupsApiService, useValue: { createGroup } }],
+      providers: [provideRouter([]), { provide: CreateGroupApiService, useValue: { createGroup } }],
     }).compileComponents();
 
     const router = TestBed.inject(Router);

@@ -1,11 +1,17 @@
 import { TestBed } from '@angular/core/testing';
 import { App } from './app';
+import { appConfig } from './app.config';
+import { BrowserTimeZoneService } from './core/dates/browser-timezone.service';
 
 describe('App', () => {
   it('renders the routed application shell', async () => {
-    await TestBed.configureTestingModule({ imports: [App] }).compileComponents();
+    await TestBed.configureTestingModule({
+      imports: [App],
+      providers: appConfig.providers,
+    }).compileComponents();
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('router-outlet')).toBeTruthy();
+    expect(TestBed.inject(BrowserTimeZoneService).timeZone).toBeTruthy();
   });
 });

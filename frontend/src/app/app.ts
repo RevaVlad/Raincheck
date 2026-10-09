@@ -1,11 +1,10 @@
 import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
-import { AppHeaderComponent } from './core/header/app-header.component';
-import { TimezoneConfirmationComponent } from './core/timezone/timezone-confirmation.component';
+import { AppHeaderComponent } from './shared/header/app-header.component';
 
 @Component({
   selector: 'app-root',
-  imports: [AppHeaderComponent, RouterOutlet, TimezoneConfirmationComponent],
+  imports: [AppHeaderComponent, RouterOutlet],
   templateUrl: './app.html',
   styleUrl: './app.css',
 })

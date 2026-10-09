@@ -31,7 +31,6 @@ services:
       retries: 10
 
   migrate:
-    profiles: [setup]
     build:
       context: .
       dockerfile: backend/Dockerfile
@@ -51,6 +50,8 @@ services:
     environment:
       DATABASE_URL: postgres://raincheck:raincheck@app-postgres:5432/raincheck
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       app-postgres:
         condition: service_healthy
     ports:

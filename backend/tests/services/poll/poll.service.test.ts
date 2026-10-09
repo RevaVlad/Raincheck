@@ -10,6 +10,7 @@ const pollInput = {
   endsOn: '2026-10-12',
   dayStart: '16:00',
   dayEnd: '23:00',
+  timeZone: 'Europe/Berlin',
   slotMinutes: 30 as const,
   meetingDurationMinutes: 60,
 };

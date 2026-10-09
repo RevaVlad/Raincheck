@@ -11,6 +11,8 @@ export function toPollWindow(poll: Poll): PollWindow {
     dayStart: poll.dayStart,
     dayEnd: poll.dayEnd,
     slotMinutes: poll.slotMinutes,
+    timeZone: poll.timeZone,
+    createdAt: poll.createdAt,
   };
 }
 
@@ -44,9 +46,8 @@ function createInterval(
   const fields = {
     id: randomUUID(),
     responseId,
-    localDate: input.localDate,
-    startTime: input.startTime,
-    endTime: input.endTime,
+    startAt: input.startAt,
+    endAt: input.endAt,
     createdAt: now,
     updatedAt: now,
   };
@@ -58,11 +59,7 @@ function createInterval(
 }
 
 function intervalKey(interval: AvailabilityInterval): string {
-  return [
-    interval.localDate,
-    interval.startTime,
-    interval.endTime,
-    interval.kind,
-    interval.preferenceDirection ?? '',
-  ].join('|');
+  return [interval.startAt, interval.endAt, interval.kind, interval.preferenceDirection ?? ''].join(
+    '|',
+  );
 }

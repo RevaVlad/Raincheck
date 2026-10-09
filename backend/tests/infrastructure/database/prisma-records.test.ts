@@ -5,7 +5,7 @@ import type { PrismaDatabase } from '#infrastructure/database/prisma-database';
 import * as mappers from '#infrastructure/database/prisma-records';
 import { inPrismaTransaction } from '../../support/prisma-database.js';
 
-void test('Prisma round trips preserve dates and times under a non-UTC TZ', async () => {
+void test('Prisma round trips preserve UTC intervals under a non-UTC TZ', async () => {
   const originalTimezone = process.env['TZ'];
   process.env['TZ'] = 'America/Los_Angeles';
   try {
@@ -26,7 +26,6 @@ const group = {
   id: randomUUID(),
   name: 'Team',
   inviteCode: randomUUID(),
-  timezone: 'UTC' as const,
   createdAt,
 };
 const participant = {
@@ -50,6 +49,7 @@ const poll = {
   dayEnd: '23:30',
   slotMinutes: 30 as const,
   meetingDurationMinutes: 60,
+  timeZone: 'UTC',
   status: 'OPEN' as const,
   basedOnPollId: null,
   createdAt,
@@ -66,9 +66,8 @@ const response = {
 const interval = {
   id: randomUUID(),
   responseId: response.id,
-  localDate: '2026-10-06',
-  startTime: '00:30',
-  endTime: '23:30',
+  startAt: '2026-10-06T00:30:00.000Z',
+  endAt: '2026-10-06T23:30:00.000Z',
   kind: 'PREFERRED' as const,
   preferenceDirection: 'EARLIER' as const,
   createdAt,
@@ -118,9 +117,8 @@ async function assertResponseAndIntervalRecords(database: PrismaDatabase, record
       await database.client.availabilityInterval.create({
         data: {
           ...interval,
-          localDate: records.dateToPrisma(interval.localDate),
-          startTime: records.timeToPrisma(interval.startTime),
-          endTime: records.timeToPrisma(interval.endTime),
+          startAt: new Date(interval.startAt),
+          endAt: new Date(interval.endAt),
         },
       }),
     ),
@@ -199,9 +197,8 @@ function intervalRecord(overrides: {
     ...interval,
     kind: overrides.kind,
     preferenceDirection: overrides.preferenceDirection,
-    localDate: mappers.dateToPrisma(interval.localDate),
-    startTime: mappers.timeToPrisma(interval.startTime),
-    endTime: mappers.timeToPrisma(interval.endTime),
+    startAt: new Date(interval.startAt),
+    endAt: new Date(interval.endAt),
   };
 }
 

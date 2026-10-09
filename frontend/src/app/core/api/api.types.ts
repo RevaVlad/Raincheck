@@ -15,7 +15,7 @@ export type ApiErrorResponse = {
   error: { code: ApiErrorCode; message: string; requestId: string };
 };
 
-export type Group = { id: string; name: string; inviteCode: string; timezone: 'UTC' };
+export type Group = { id: string; name: string; inviteCode: string };
 export type AvatarColor = 'green' | 'blue' | 'purple' | 'rose' | 'yellow' | 'gray';
 export type Participant = { id: string; displayName: string; avatarColor: AvatarColor };
 export type ParticipantInput = { displayName: string; avatarColor: AvatarColor };
@@ -28,6 +28,7 @@ export type WorkspaceParticipant = {
 };
 
 export type PollInput = {
+  timeZone: string;
   title?: string | null;
   startsOn: string;
   endsOn: string;
@@ -41,6 +42,7 @@ export type Poll = {
   id: string;
   sequenceNo: number;
   title?: string | null;
+  timeZone: string;
   startsOn: string;
   endsOn: string;
   dayStart: string;
@@ -53,10 +55,12 @@ export type Poll = {
   closedAt: string | null;
 };
 
+export type PollSlot = { startAt: string; endAt: string };
+export type WorkspacePoll = Poll & { slots: PollSlot[] };
+
 export type IntervalInput = {
-  localDate: string;
-  startTime: string;
-  endTime: string;
+  startAt: string;
+  endAt: string;
   kind: 'UNAVAILABLE' | 'IF_NEEDED' | 'PREFERRED';
   preferenceDirection: 'EARLIER' | 'FLAT' | 'LATER' | null;
 };
@@ -79,7 +83,7 @@ export type CreateGroupResponse = {
 export type PollMutationResponse = { poll: Poll };
 export type JoinResponse = { participant: Participant; participantEditToken: string };
 
-export type PublicGroupDto = { name: string; timezone: 'UTC' };
+export type PublicGroupDto = { name: string };
 export type PublicCurrentPollDto = {
   id: string;
   sequenceNo: number;
@@ -96,13 +100,12 @@ export type Workspace = {
   me: Participant | null;
   participants: WorkspaceParticipant[];
   polls: Poll[];
-  currentPoll: Poll | null;
+  currentPoll: WorkspacePoll | null;
 };
 
 export type HeatmapCell = {
-  localDate: string;
-  startTime: string;
-  endTime: string;
+  startAt: string;
+  endAt: string;
   available: number;
   ifNeeded: number;
   preferred: number;
@@ -110,9 +113,8 @@ export type HeatmapCell = {
   averageSoftScore: number;
 };
 export type BestSlot = {
-  localDate: string;
-  startTime: string;
-  endTime: string;
+  startAt: string;
+  endAt: string;
   available: number;
   ifNeeded: number;
   averageSoftScore: number;

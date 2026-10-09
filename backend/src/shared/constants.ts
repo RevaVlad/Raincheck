@@ -7,8 +7,6 @@ export const LIMITS = {
   TOKEN_BYTES: 32,
 } as const;
 
-export const UTC_TIMEZONE = 'UTC' as const;
-
 export const POLL_STATUS = { OPEN: 'OPEN', CLOSED: 'CLOSED' } as const;
 export const RESPONSE_STATE = { DRAFT: 'DRAFT', CONFIRMED: 'CONFIRMED' } as const;
 export const INTERVAL_KIND = {

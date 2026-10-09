@@ -46,6 +46,7 @@ void test('creates a group without creating a poll or participant', async () => 
   });
   assert.equal(response.statusCode, 201);
   const created = response.json();
+  assert.equal('timezone' in created.group, false);
   assert.deepEqual(Object.keys(created).sort(), ['currentPoll', 'group']);
   assert.equal(created.currentPoll, null);
 
@@ -73,6 +74,7 @@ void test(
     const context = await app.inject(`/api/groups/${created.group.inviteCode}`);
     assert.equal(context.statusCode, 200);
     assert.equal(context.json().group.name, 'Team');
+    assert.equal('timezone' in context.json().group, false);
     const joined = await app.inject({
       method: 'POST',
       url: `/api/groups/${created.group.inviteCode}/participants`,

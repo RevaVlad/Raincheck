@@ -5,6 +5,7 @@ import { ParticipantService } from '#services/participant/participant.service';
 import { AVATAR_COLORS, type AvatarColor } from '#domain/participant/participant';
 import { validateAvatarColor } from '#domain/participant/participant.validation';
 import { toPoll } from '#infrastructure/database/prisma-records';
+import { pollSlots } from '#shared/time/time-zone';
 import { AppError } from './errors.js';
 import {
   inviteCodeParams,
@@ -34,8 +35,8 @@ const participantBody = {
 const asCode = (params: unknown) => (params as { inviteCode: string }).inviteCode;
 const asToken = (headers: unknown) =>
   (headers as Record<string, string | undefined>)['x-participant-token'];
-function groupDto(group: { id: string; name: string; inviteCode: string; timezone: string }) {
-  return { id: group.id, name: group.name, inviteCode: group.inviteCode, timezone: group.timezone };
+function groupDto(group: { id: string; name: string; inviteCode: string }) {
+  return { id: group.id, name: group.name, inviteCode: group.inviteCode };
 }
 function participantDto(participant: { id: string; displayName: string; avatarColor: string }) {
   return {
@@ -44,7 +45,7 @@ function participantDto(participant: { id: string; displayName: string; avatarCo
     avatarColor: validateAvatarColor(participant.avatarColor),
   };
 }
-function pollDto(poll: ReturnType<typeof toPoll>) {
+function pollDto(poll: ReturnType<typeof toPoll>, includeSlots = false) {
   return {
     id: poll.id,
     sequenceNo: poll.sequenceNo,
@@ -55,6 +56,8 @@ function pollDto(poll: ReturnType<typeof toPoll>) {
     dayEnd: poll.dayEnd,
     slotMinutes: poll.slotMinutes,
     meetingDurationMinutes: poll.meetingDurationMinutes,
+    timeZone: poll.timeZone,
+    ...(includeSlots ? { slots: pollSlots(poll) } : {}),
     status: poll.status,
     basedOnPollId: poll.basedOnPollId,
     createdAt: poll.createdAt.toISOString(),
@@ -124,7 +127,7 @@ export function registerGroupRoutes(app: FastifyInstance, database: PrismaDataba
       where: { groupId: group.id, status: 'OPEN' },
     });
     return {
-      group: { name: group.name, timezone: group.timezone },
+      group: { name: group.name },
       currentPoll: current
         ? {
             id: current.id,
@@ -217,7 +220,7 @@ export function registerGroupRoutes(app: FastifyInstance, database: PrismaDataba
           currentPollState: participant.responses[0]?.state ?? 'NONE',
         })),
         polls: polls.map((poll) => pollDto(toPoll(poll))),
-        currentPoll: current ? pollDto(toPoll(current)) : null,
+        currentPoll: current ? pollDto(toPoll(current), true) : null,
       };
     },
   );

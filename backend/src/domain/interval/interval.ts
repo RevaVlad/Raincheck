@@ -1,16 +1,18 @@
 import type { INTERVAL_KIND, PREFERENCE_DIRECTION } from '#shared/constants';
 import type { Poll } from '#domain/poll/poll';
 
-export type PollWindow = Pick<Poll, 'startsOn' | 'endsOn' | 'dayStart' | 'dayEnd' | 'slotMinutes'>;
+export type PollWindow = Pick<
+  Poll,
+  'startsOn' | 'endsOn' | 'dayStart' | 'dayEnd' | 'slotMinutes' | 'timeZone' | 'createdAt'
+>;
 export type IntervalKind = (typeof INTERVAL_KIND)[keyof typeof INTERVAL_KIND];
 export type PreferenceDirection = (typeof PREFERENCE_DIRECTION)[keyof typeof PREFERENCE_DIRECTION];
 
 interface IntervalFields {
   id: string;
   responseId: string;
-  localDate: string;
-  startTime: string;
-  endTime: string;
+  startAt: string;
+  endAt: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -22,9 +24,8 @@ export type AvailabilityInterval = IntervalFields &
   );
 
 export interface IntervalInput {
-  localDate: string;
-  startTime: string;
-  endTime: string;
+  startAt: string;
+  endAt: string;
   kind: IntervalKind;
   preferenceDirection?: PreferenceDirection | null;
 }

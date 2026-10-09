@@ -171,7 +171,6 @@ async function responseFixture(database: PrismaDatabase) {
       id: randomUUID(),
       name: 'Response team',
       inviteCode: randomUUID(),
-      timezone: 'UTC',
       createdAt: now,
     },
   });
@@ -199,6 +198,7 @@ async function responseFixture(database: PrismaDatabase) {
       dayEnd: timeToPrisma('23:00'),
       slotMinutes: 30,
       meetingDurationMinutes: 60,
+      timeZone: 'UTC',
       status: 'OPEN',
       createdAt: now,
       closedAt: null,

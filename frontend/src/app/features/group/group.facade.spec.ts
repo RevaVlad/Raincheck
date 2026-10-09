@@ -8,13 +8,13 @@ import type { ParticipantInput, Workspace } from '../../core/api/api.types';
 import { ParticipantSessionService } from '../../core/session/participant-session.service';
 import { resolveGroupInviteCode } from './group.routes';
 import { GroupFacade } from './group.facade';
-import { GroupsApiService } from '../../core/api/groups-api.service';
-import { ParticipantsApiService } from './participants-api.service';
+import { GroupWorkspaceApiService } from './workspace/group-workspace-api.service';
+import { ParticipantsApiService } from './entry/participants-api.service';
 
 describe('GroupFacade', () => {
   function workspace(inviteCode: string, me: Workspace['me'] = null): Workspace {
     return {
-      group: { id: inviteCode, name: inviteCode, inviteCode, timezone: 'UTC' },
+      group: { id: inviteCode, name: inviteCode, inviteCode },
       me,
       participants: [],
       polls: [],
@@ -33,7 +33,7 @@ describe('GroupFacade', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         GroupFacade,
-        GroupsApiService,
+        GroupWorkspaceApiService,
         {
           provide: ParticipantsApiService,
           useValue: { joinGroup, updateProfile },

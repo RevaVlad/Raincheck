@@ -40,6 +40,7 @@ export class PollService {
         dayEnd: timeToPrisma(valid.dayEnd),
         slotMinutes: valid.slotMinutes,
         meetingDurationMinutes: valid.meetingDurationMinutes,
+        timeZone: valid.timeZone,
         status: POLL_STATUS.OPEN,
         basedOnPollId,
         createdAt: now,

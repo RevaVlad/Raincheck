@@ -7,7 +7,7 @@ import { MatInputModule } from '@angular/material/input';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { apiErrorMessage } from '../../core/api/api-errors';
-import { GroupsApiService } from '../../core/api/groups-api.service';
+import { CreateGroupApiService } from './create-group-api.service';
 
 @Component({
   selector: 'app-create-group-page',
@@ -22,7 +22,7 @@ import { GroupsApiService } from '../../core/api/groups-api.service';
   styleUrl: './create-group-page.component.css',
 })
 export class CreateGroupPageComponent {
-  private readonly api = inject(GroupsApiService);
+  private readonly api = inject(CreateGroupApiService);
   private readonly router = inject(Router);
   readonly submitting = signal(false);
   readonly created = signal(false);

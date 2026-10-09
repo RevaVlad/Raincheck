@@ -8,7 +8,7 @@ import { GroupSidebarContext } from './group-sidebar-context.service';
 import { GroupShellComponent } from './group-shell.component';
 
 const workspace: Workspace = {
-  group: { id: 'group-id', name: 'Team', inviteCode: 'invite-code', timezone: 'UTC' },
+  group: { id: 'group-id', name: 'Team', inviteCode: 'invite-code' },
   me: null,
   participants: [
     {

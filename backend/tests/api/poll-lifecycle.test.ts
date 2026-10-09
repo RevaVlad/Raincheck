@@ -15,6 +15,7 @@ const pollInput = {
   dayEnd: '23:00',
   slotMinutes: 30,
   meetingDurationMinutes: 60,
+  timeZone: 'UTC',
 };
 
 async function createGroup() {
@@ -123,9 +124,8 @@ async function createSavedResponse() {
     payload: {
       intervals: [
         {
-          localDate: '2026-10-07',
-          startTime: '16:00',
-          endTime: '17:00',
+          startAt: '2026-10-07T16:00:00.000Z',
+          endAt: '2026-10-07T17:00:00.000Z',
           kind: 'PREFERRED',
           preferenceDirection: 'FLAT',
         },
@@ -133,6 +133,16 @@ async function createSavedResponse() {
     },
   });
   assert.equal(saved.statusCode, 200, saved.body);
+  assert.deepEqual(
+    saved.json().intervals.map((interval: { startAt: string; endAt: string }) => ({
+      startAt: interval.startAt,
+      endAt: interval.endAt,
+    })),
+    [{ startAt: '2026-10-07T16:00:00.000Z', endAt: '2026-10-07T17:00:00.000Z' }],
+  );
+  const reopened = await app.inject({ method: 'GET', url: responseUrl, headers });
+  assert.equal(reopened.statusCode, 200, reopened.body);
+  assert.deepEqual(reopened.json().intervals, saved.json().intervals);
   return { created, member, poll, responseUrl, headers };
 }
 
@@ -172,6 +182,11 @@ void test('creates a group without a poll and creates its first poll separately'
   assert.equal(first.statusCode, 201, first.body);
   assert.equal(first.json().poll.sequenceNo, 1);
   assert.equal(first.json().poll.basedOnPollId, null);
+  assert.equal(first.json().poll.timeZone, 'UTC');
+  const activeWorkspace = await app.inject(`/api/groups/${created.group.inviteCode}/workspace`);
+  assert.equal(activeWorkspace.statusCode, 200, activeWorkspace.body);
+  assert.equal(activeWorkspace.json().currentPoll.timeZone, 'UTC');
+  assert.equal(activeWorkspace.json().currentPoll.slots[0].startAt, '2026-10-07T16:00:00.000Z');
 
   const duplicate = await createPoll(created.group.inviteCode, member.participantEditToken);
   assert.equal(duplicate.statusCode, 409, duplicate.body);
@@ -180,6 +195,29 @@ void test('creates a group without a poll and creates its first poll separately'
     where: { groupId: created.group.id, status: 'OPEN' },
   });
   assert.equal(current.id, first.json().poll.id);
+});
+
+void test('requires a valid IANA time zone when creating a poll', async () => {
+  const { created } = await createGroup();
+  const member = await join(created.group.inviteCode);
+  const withoutTimeZone: Record<string, unknown> = { ...pollInput };
+  delete withoutTimeZone['timeZone'];
+  const missing = await app.inject({
+    method: 'POST',
+    url: `/api/groups/${created.group.inviteCode}/polls`,
+    headers: { 'x-participant-token': member.participantEditToken },
+    payload: withoutTimeZone,
+  });
+  assert.equal(missing.statusCode, 400, missing.body);
+
+  const invalid = await app.inject({
+    method: 'POST',
+    url: `/api/groups/${created.group.inviteCode}/polls`,
+    headers: { 'x-participant-token': member.participantEditToken },
+    payload: { ...pollInput, timeZone: 'No/SuchZone' },
+  });
+  assert.equal(invalid.statusCode, 422, invalid.body);
+  assert.equal(invalid.json().error.code, 'INVALID_SCHEDULE');
 });
 
 void test('requires a group participant to create a poll', async () => {

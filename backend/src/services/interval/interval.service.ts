@@ -1,5 +1,5 @@
 import type { PrismaDatabase } from '#infrastructure/database/prisma-database';
-import { dateToPrisma, timeToPrisma, toInterval } from '#infrastructure/database/prisma-records';
+import { toInterval } from '#infrastructure/database/prisma-records';
 import type { AvailabilityInterval, IntervalInput } from '#domain/interval/interval';
 import { POLL_STATUS, RESPONSE_STATE } from '#shared/constants';
 import { createIntervals, sameIntervals, toPollWindow } from './interval.operations.js';
@@ -20,7 +20,7 @@ export class IntervalService {
       const existing = (
         await transaction.client.availabilityInterval.findMany({
           where: { responseId },
-          orderBy: [{ localDate: 'asc' }, { startTime: 'asc' }, { id: 'asc' }],
+          orderBy: [{ startAt: 'asc' }, { id: 'asc' }],
         })
       ).map(toInterval);
       if (sameIntervals(existing, replacement)) return existing;
@@ -28,9 +28,8 @@ export class IntervalService {
       await transaction.client.availabilityInterval.createMany({
         data: replacement.map((interval) => ({
           ...interval,
-          localDate: dateToPrisma(interval.localDate),
-          startTime: timeToPrisma(interval.startTime),
-          endTime: timeToPrisma(interval.endTime),
+          startAt: new Date(interval.startAt),
+          endAt: new Date(interval.endAt),
         })),
       });
       await transaction.client.pollResponse.update({

@@ -1,13 +1,13 @@
 import { DestroyRef, Injectable, computed, effect, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { apiErrorCode, apiErrorMessage, isUnauthorized } from '../../core/api/api-errors';
-import { GroupsApiService } from '../../core/api/groups-api.service';
 import type { JoinResponse, ParticipantInput, Workspace } from '../../core/api/api.types';
 import {
   ParticipantSessionService,
   type ParticipantIdentity,
 } from '../../core/session/participant-session.service';
-import { ParticipantsApiService } from './participants-api.service';
+import { ParticipantsApiService } from './entry/participants-api.service';
+import { GroupWorkspaceApiService } from './workspace/group-workspace-api.service';
 
 interface ProfileContext {
   inviteCode: string;
@@ -25,7 +25,7 @@ export class GroupFacade {
   readonly savingProfile = signal(false);
   readonly profileError = signal<string | null>(null);
 
-  private readonly groupsApi = inject(GroupsApiService);
+  private readonly groupsApi = inject(GroupWorkspaceApiService);
   private readonly participantsApi = inject(ParticipantsApiService);
   private readonly session = inject(ParticipantSessionService);
   private readonly loadVersion = signal(0);

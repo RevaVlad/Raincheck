@@ -19,7 +19,6 @@ const EXPECTED_INDEXES = [
 ] as const;
 const EXPECTED_CONSTRAINTS = [
   'availability_interval_direction_valid',
-  'groups_timezone_utc',
   'participants_avatar_color_valid',
   'polls_based_on_same_group_fk',
 ] as const;
@@ -32,7 +31,6 @@ void test('database keeps the domain invariants after the Prisma migration', asy
   ]);
   assert.deepEqual(await existingConstraintNames(), [
     'availability_interval_direction_valid',
-    'groups_timezone_utc',
     'participants_avatar_color_valid',
     'polls_based_on_same_group_fk',
   ]);
@@ -63,7 +61,6 @@ const CHECK_NAMES = [
   'availability_interval_kind_valid',
   'availability_interval_time_valid',
   'groups_name_not_blank',
-  'groups_timezone_utc',
   'participants_avatar_color_valid',
   'participants_name_not_blank',
   'poll_responses_confirmation_consistent',
@@ -95,7 +92,7 @@ void test('Prisma migration installs every named CHECK and index', async () => {
     indexes.map(({ indexname }) => indexname),
     [
       'availability_intervals_pkey',
-      'availability_intervals_response_date_time_idx',
+      'availability_intervals_response_start_at_idx',
       'groups_invite_code_key',
       'groups_pkey',
       'participants_edit_token_hash_key',
@@ -189,16 +186,15 @@ void test('Prisma migration preserves native column types without database defau
     const type = length === null ? row.data_type : `${row.data_type}(${length})`;
     return `${row.table_name}.${row.column_name}: ${type}`;
   });
-  assert.deepEqual(actual, expectedColumns());
+  assert.deepEqual(actual.sort(), expectedColumns().sort());
 });
 
 const COLUMN_TYPES: Record<string, Record<string, string>> = {
   availability_intervals: {
     id: 'uuid',
     response_id: 'uuid',
-    local_date: 'date',
-    start_time: 'time without time zone',
-    end_time: 'time without time zone',
+    start_at: 'timestamp with time zone',
+    end_at: 'timestamp with time zone',
     kind: 'text',
     preference_direction: 'text',
     created_at: 'timestamp with time zone',
@@ -208,7 +204,6 @@ const COLUMN_TYPES: Record<string, Record<string, string>> = {
     id: 'uuid',
     name: 'character varying(120)',
     invite_code: 'character varying(64)',
-    timezone: 'character varying(64)',
     created_at: 'timestamp with time zone',
   },
   participants: {
@@ -240,6 +235,7 @@ const COLUMN_TYPES: Record<string, Record<string, string>> = {
     day_end: 'time without time zone',
     slot_minutes: 'smallint',
     meeting_duration_minutes: 'smallint',
+    time_zone: 'character varying(64)',
     status: 'text',
     based_on_poll_id: 'uuid',
     created_at: 'timestamp with time zone',

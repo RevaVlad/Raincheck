@@ -1,7 +1,7 @@
 import { inject } from '@angular/core';
 import { ActivatedRouteSnapshot, CanActivateFn, ResolveFn, Routes } from '@angular/router';
 import { GroupFacade } from './group.facade';
-import type { GroupEntryPageComponent } from '../group-entry/group-entry-page.component';
+import type { GroupEntryPageComponent } from './entry/group-entry-page.component';
 
 export const confirmGroupSwitch: CanActivateFn = (route) => {
   const facade = inject(GroupFacade);
@@ -19,9 +19,7 @@ export const resolveGroupInviteCode: ResolveFn<boolean> = (route: ActivatedRoute
 };
 
 const loadGroupEntryPage = () =>
-  import('../group-entry/group-entry-page.component').then(
-    (module) => module.GroupEntryPageComponent,
-  );
+  import('./entry/group-entry-page.component').then((module) => module.GroupEntryPageComponent);
 
 const loadGroupShell = () =>
   import('./group-shell.component').then((module) => module.GroupShellComponent);
@@ -50,14 +48,14 @@ export const GROUP_ROUTES: Routes = [
       {
         path: 'polls/new',
         loadComponent: () =>
-          import('./poll-creation-page.component').then(
+          import('./poll-creation/poll-creation-page.component').then(
             (module) => module.PollCreationPageComponent,
           ),
       },
       {
         path: 'polls/:pollId/results',
         loadComponent: () =>
-          import('../results/poll-results-page.component').then(
+          import('./results/poll-results-page.component').then(
             (module) => module.PollResultsPageComponent,
           ),
       },

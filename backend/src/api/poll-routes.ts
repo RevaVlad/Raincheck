@@ -10,7 +10,15 @@ import { resolveParticipant } from './participant-identity.js';
 const pollBody = {
   type: 'object',
   additionalProperties: false,
-  required: ['startsOn', 'endsOn', 'dayStart', 'dayEnd', 'slotMinutes', 'meetingDurationMinutes'],
+  required: [
+    'startsOn',
+    'endsOn',
+    'dayStart',
+    'dayEnd',
+    'slotMinutes',
+    'meetingDurationMinutes',
+    'timeZone',
+  ],
   properties: {
     title: { type: ['string', 'null'], maxLength: 160 },
     startsOn: { type: 'string' },
@@ -19,6 +27,7 @@ const pollBody = {
     dayEnd: { type: 'string' },
     slotMinutes: { type: 'integer', enum: [30, 60] },
     meetingDurationMinutes: { type: 'integer', minimum: 30, maximum: 240 },
+    timeZone: { type: 'string', minLength: 1, maxLength: 64 },
   },
 } as const;
 const pollParams = {
@@ -37,6 +46,7 @@ const dto = (poll: ReturnType<typeof toPoll>) => ({
   dayEnd: poll.dayEnd,
   slotMinutes: poll.slotMinutes,
   meetingDurationMinutes: poll.meetingDurationMinutes,
+  timeZone: poll.timeZone,
   status: poll.status,
   basedOnPollId: poll.basedOnPollId,
   createdAt: poll.createdAt.toISOString(),

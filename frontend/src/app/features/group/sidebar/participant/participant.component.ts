@@ -1,7 +1,7 @@
 import { Component, computed, input } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { RouterLink } from '@angular/router';
-import { avatarColorHex } from '../../../../core/api/avatar-colors';
+import { avatarColorHex } from '../../../../shared/presentation/avatar-colors';
 import type { WorkspaceParticipant } from '../../../../core/api/api.types';
 
 const STATUS_LABELS: Record<WorkspaceParticipant['currentPollState'], string> = {
