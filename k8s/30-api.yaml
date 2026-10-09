@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: raincheck
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      containers:
+        - name: api
+          image: raincheck-api:dev
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 3000
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: raincheck-env
+                  key: K8S_DATABASE_URL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  namespace: raincheck
+spec:
+  type: ClusterIP
+  selector:
+    app: api
+  ports:
+    - port: 3000
+      targetPort: 3000
