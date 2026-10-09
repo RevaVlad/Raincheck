@@ -1,0 +1,21 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrate
+  namespace: raincheck
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: raincheck-migrate:dev
+          imagePullPolicy: Never
+          command: ["npm", "run", "prisma:deploy"]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: raincheck-env
+                  key: K8S_DATABASE_URL
