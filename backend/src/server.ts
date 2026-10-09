@@ -1,9 +1,9 @@
 import { buildApp } from './app.js';
 import { loadConfig } from '#config/config';
-import { PrismaDatabase } from '#infrastructure/database/prisma-database';
+import { createPrismaClient } from '#infrastructure/database/prisma-database';
 
 const config = loadConfig();
-const database = PrismaDatabase.create(config);
+const database = createPrismaClient(config);
 const app = buildApp(config, database);
 
 let shuttingDown = false;

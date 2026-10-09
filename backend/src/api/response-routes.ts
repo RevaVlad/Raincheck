@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import type { PrismaDatabase } from '#infrastructure/database/prisma-database';
+import type { Prisma } from '../generated/prisma/client.js';
 import { toInterval } from '#infrastructure/database/prisma-records';
 import type { IntervalInput } from '#domain/interval/interval';
 import { GroupService } from '#services/group/group.service';
@@ -51,13 +51,16 @@ function mapClosedPollWrite(error: unknown): void {
 
 // Keep the route table together so all response endpoints are visible in one place.
 // eslint-disable-next-line max-lines-per-function
-export function registerResponseRoutes(app: FastifyInstance, database: PrismaDatabase): void {
+export function registerResponseRoutes(
+  app: FastifyInstance,
+  database: Prisma.TransactionClient,
+): void {
   const context = async (request: { params: unknown; headers: unknown }) => {
     const value = key(request);
     const group = await new GroupService(database).findByInviteCode(value.inviteCode);
     if (!group) throw new AppError('GROUP_NOT_FOUND', 404, 'Group not found');
     const me = await resolveParticipant(database, value.token, group.id);
-    const poll = await database.client.poll.findFirst({
+    const poll = await database.poll.findFirst({
       where: { id: value.pollId, groupId: group.id },
     });
     if (!poll) throw new AppError('POLL_NOT_FOUND', 404, 'Poll not found');
@@ -68,7 +71,7 @@ export function registerResponseRoutes(app: FastifyInstance, database: PrismaDat
     state: response.state,
     confirmedAt: response.confirmedAt?.toISOString() ?? null,
     intervals: (
-      await database.client.availabilityInterval.findMany({
+      await database.availabilityInterval.findMany({
         where: { responseId: response.id },
         orderBy: [{ startAt: 'asc' }],
       })

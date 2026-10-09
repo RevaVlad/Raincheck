@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { test } from 'node:test';
-import type { PrismaDatabase } from '#infrastructure/database/prisma-database';
+import type { PrismaConnection } from '#infrastructure/database/prisma-database';
 import { dateToPrisma, timeToPrisma } from '#infrastructure/database/prisma-records';
 import { ResponseService } from '#services/response/response.service';
 import { blockResponseInsert, blockResponseUpdate } from '../../support/concurrency.js';
-import { inPrismaTransaction, sharedPrismaDatabase } from '../../support/prisma-database.js';
+import { inPrismaTransaction, sharedPrismaClient } from '../../support/prisma-database.js';
 import { PrismaProbe } from '../../support/prisma-probe.js';
 
 const now = new Date('2026-10-01T12:00:00.000Z');
@@ -33,7 +33,7 @@ void test('rejects a participant from another group', async () => {
       () => responses.create(first.poll.id, second.participant.id),
       /same group/i,
     );
-    assert.equal(await database.client.pollResponse.count({ where: { pollId: first.poll.id } }), 0);
+    assert.equal(await database.pollResponse.count({ where: { pollId: first.poll.id } }), 0);
   });
 });
 
@@ -48,7 +48,7 @@ void test('does not create or edit responses after a poll closes', async () => {
 });
 
 void test('finishes response creation before a concurrent poll close', async () => {
-  const database = sharedPrismaDatabase();
+  const database = sharedPrismaClient();
   const probe = new PrismaProbe(database);
   const { group, participant, poll } = await responseFixture(database);
 
@@ -66,9 +66,9 @@ void test('finishes response creation before a concurrent poll close', async () 
       await insertBlock.release();
       await Promise.all([create, close]);
       assert.deepEqual(completionOrder, ['create', 'close']);
-      assert.equal(await database.client.pollResponse.count({ where: { pollId: poll.id } }), 1);
+      assert.equal(await database.pollResponse.count({ where: { pollId: poll.id } }), 1);
       assert.equal(
-        (await database.client.poll.findUniqueOrThrow({ where: { id: poll.id } })).status,
+        (await database.poll.findUniqueOrThrow({ where: { id: poll.id } })).status,
         'CLOSED',
       );
     } finally {
@@ -80,7 +80,7 @@ void test('finishes response creation before a concurrent poll close', async () 
 });
 
 void test('finishes response confirmation before a concurrent poll close', async () => {
-  const database = sharedPrismaDatabase();
+  const database = sharedPrismaClient();
   const responses = new ResponseService(database);
   const probe = new PrismaProbe(database);
   const { group, poll, response } = await persistedResponse({ database, responses });
@@ -133,13 +133,13 @@ void test('requires both a poll and participant and rejects missing responses', 
     await assert.rejects(() => responses.create(poll.id, randomUUID()), /open poll/i);
     await assert.rejects(() => responses.confirm(randomUUID()), /open poll/i);
     await assert.rejects(() => responses.markDraft(randomUUID()), /open poll/i);
-    assert.equal(await database.client.pollResponse.count({ where: { pollId: poll.id } }), 0);
+    assert.equal(await database.pollResponse.count({ where: { pollId: poll.id } }), 0);
   });
 });
 
 function inTransaction(
   run: (context: {
-    database: PrismaDatabase;
+    database: PrismaConnection;
     probe: PrismaProbe;
     responses: ResponseService;
   }) => Promise<void>,
@@ -153,7 +153,7 @@ function inTransaction(
 }
 
 async function persistedResponse(context: {
-  database: PrismaDatabase;
+  database: PrismaConnection;
   responses: ResponseService;
 }) {
   const fixture = await responseFixture(context.database);
@@ -161,12 +161,12 @@ async function persistedResponse(context: {
   return { ...fixture, response };
 }
 
-function closePoll(database: PrismaDatabase, id: string) {
-  return database.client.poll.update({ where: { id }, data: { status: 'CLOSED', closedAt: now } });
+function closePoll(database: PrismaConnection, id: string) {
+  return database.poll.update({ where: { id }, data: { status: 'CLOSED', closedAt: now } });
 }
 
-async function responseFixture(database: PrismaDatabase) {
-  const group = await database.client.group.create({
+async function responseFixture(database: PrismaConnection) {
+  const group = await database.group.create({
     data: {
       id: randomUUID(),
       name: 'Response team',
@@ -174,7 +174,7 @@ async function responseFixture(database: PrismaDatabase) {
       createdAt: now,
     },
   });
-  const participant = await database.client.participant.create({
+  const participant = await database.participant.create({
     data: {
       id: randomUUID(),
       groupId: group.id,
@@ -186,7 +186,7 @@ async function responseFixture(database: PrismaDatabase) {
       updatedAt: now,
     },
   });
-  const poll = await database.client.poll.create({
+  const poll = await database.poll.create({
     data: {
       id: randomUUID(),
       groupId: group.id,

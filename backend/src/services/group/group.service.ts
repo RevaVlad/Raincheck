@@ -1,21 +1,19 @@
 import { randomBytes, randomUUID } from 'node:crypto';
-import type { PrismaDatabase } from '#infrastructure/database/prisma-database';
-import { toGroup } from '#infrastructure/database/prisma-records';
-import type { Group, GroupInput } from '#domain/group/group';
+import type { Prisma } from '../../generated/prisma/client.js';
+import type { GroupInput } from '#domain/group/group';
 import { validateGroup } from '#domain/group/group.validation';
 import { LIMITS } from '#shared/constants';
 
 export class GroupService {
-  constructor(private readonly db: PrismaDatabase) {}
+  constructor(private readonly db: Prisma.TransactionClient) {}
 
-  async findByInviteCode(inviteCode: string): Promise<Group | null> {
-    const record = await this.db.client.group.findUnique({ where: { inviteCode } });
-    return record ? toGroup(record) : null;
+  async findByInviteCode(inviteCode: string) {
+    return this.db.group.findUnique({ where: { inviteCode } });
   }
 
-  async create(input: GroupInput, now = new Date()): Promise<Group> {
+  async create(input: GroupInput, now = new Date()) {
     const { name } = validateGroup(input);
-    const record = await this.db.client.group.create({
+    return this.db.group.create({
       data: {
         id: randomUUID(),
         name,
@@ -23,6 +21,5 @@ export class GroupService {
         createdAt: now,
       },
     });
-    return toGroup(record);
   }
 }

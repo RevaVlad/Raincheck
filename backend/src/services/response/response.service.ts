@@ -1,20 +1,21 @@
 import { randomUUID } from 'node:crypto';
-import type { PrismaDatabase } from '#infrastructure/database/prisma-database';
+import { withTransaction, type PrismaConnection } from '#infrastructure/database/prisma-database';
+import type { Prisma } from '../../generated/prisma/client.js';
 import type { PollResponse } from '#domain/response/response';
 import { changeStateForOpenPoll, insertForOpenPoll } from './response.queries.js';
 import { toResponse } from '#infrastructure/database/prisma-records';
 
 export class ResponseService {
-  constructor(private readonly db: PrismaDatabase) {}
+  constructor(private readonly db: PrismaConnection) {}
 
   async create(pollId: string, participantId: string, now = new Date()): Promise<PollResponse> {
-    return this.db.transaction(async (transaction) => {
+    return withTransaction(this.db, async (transaction) => {
       const [poll, participant] = await Promise.all([
-        transaction.client.poll.findUnique({
+        transaction.poll.findUnique({
           where: { id: pollId },
           select: { groupId: true, status: true },
         }),
-        transaction.client.participant.findUnique({
+        transaction.participant.findUnique({
           where: { id: participantId },
           select: { groupId: true },
         }),
@@ -25,36 +26,35 @@ export class ResponseService {
       if (poll.groupId !== participant.groupId) {
         throw new Error('Response participant must belong to the same group as the poll');
       }
-      return insertForOpenPoll(transaction.client, randomUUID(), pollId, participantId, now);
+      return insertForOpenPoll(transaction, randomUUID(), pollId, participantId, now);
     });
   }
 
   confirm(responseId: string, now = new Date()): Promise<PollResponse> {
-    return changeStateForOpenPoll(this.db.client, responseId, 'CONFIRMED', now);
+    return changeStateForOpenPoll(this.db, responseId, 'CONFIRMED', now);
   }
 
   markDraft(responseId: string, now = new Date()): Promise<PollResponse> {
-    return changeStateForOpenPoll(this.db.client, responseId, 'DRAFT', now);
+    return changeStateForOpenPoll(this.db, responseId, 'DRAFT', now);
   }
 
   async findForParticipant(pollId: string, participantId: string): Promise<PollResponse | null> {
-    const record = await this.db.client.pollResponse.findUnique({
+    const record = await this.db.pollResponse.findUnique({
       where: { pollId_participantId: { pollId, participantId } },
     });
     return record ? toResponse(record) : null;
   }
 
   async deleteForOpenPoll(pollId: string, participantId: string): Promise<boolean> {
-    return this.db.transaction(async (transaction) => {
+    return withTransaction(this.db, async (transaction) => {
       // The no-op update locks the poll row so deletion serializes with closure.
-      const [poll] = await transaction.client.poll.updateManyAndReturn({
+      const [poll] = await transaction.poll.updateManyAndReturn({
         where: { id: pollId, status: 'OPEN' },
         data: { status: 'OPEN' },
       });
       if (!poll) throw new Error('Response requires an open poll');
       return (
-        (await transaction.client.pollResponse.deleteMany({ where: { pollId, participantId } }))
-          .count > 0
+        (await transaction.pollResponse.deleteMany({ where: { pollId, participantId } })).count > 0
       );
     });
   }

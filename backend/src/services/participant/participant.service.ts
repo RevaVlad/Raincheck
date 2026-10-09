@@ -1,5 +1,5 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import type { PrismaDatabase } from '#infrastructure/database/prisma-database';
+import type { Prisma } from '../../generated/prisma/client.js';
 import { toParticipant } from '#infrastructure/database/prisma-records';
 import type { AvatarColor, Participant } from '#domain/participant/participant';
 import {
@@ -13,7 +13,7 @@ export interface CreatedParticipant {
 }
 
 export class ParticipantService {
-  constructor(private readonly db: PrismaDatabase) {}
+  constructor(private readonly db: Prisma.TransactionClient) {}
 
   async updateProfile(
     id: string,
@@ -24,7 +24,7 @@ export class ParticipantService {
     const name = validateParticipant(displayName);
     const color = validateAvatarColor(avatarColor);
     return toParticipant(
-      await this.db.client.participant.update({
+      await this.db.participant.update({
         where: { id },
         data: { ...name, avatarColor: color, updatedAt: now },
       }),
@@ -40,7 +40,7 @@ export class ParticipantService {
     const name = validateParticipant(displayName);
     const color = validateAvatarColor(avatarColor);
     const editToken = randomBytes(LIMITS.TOKEN_BYTES).toString('base64url');
-    const record = await this.db.client.participant.create({
+    const record = await this.db.participant.create({
       data: {
         id: randomUUID(),
         groupId,

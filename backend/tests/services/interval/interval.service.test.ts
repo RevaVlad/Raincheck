@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { test } from 'node:test';
 import type { IntervalInput } from '#domain/interval/interval';
-import type { PrismaDatabase } from '#infrastructure/database/prisma-database';
+import type { PrismaConnection } from '#infrastructure/database/prisma-database';
 import { dateToPrisma, timeToPrisma, toInterval } from '#infrastructure/database/prisma-records';
 import { IntervalService } from '#services/interval/interval.service';
 import { inPrismaTransaction } from '../../support/prisma-database.js';
@@ -21,8 +21,8 @@ const laterInterval = {
   endAt: '2026-10-06T21:00:00.000Z',
 };
 
-async function createParticipant(database: PrismaDatabase) {
-  const group = await database.client.group.create({
+async function createParticipant(database: PrismaConnection) {
+  const group = await database.group.create({
     data: {
       id: randomUUID(),
       name: 'Team',
@@ -30,7 +30,7 @@ async function createParticipant(database: PrismaDatabase) {
       createdAt,
     },
   });
-  return database.client.participant.create({
+  return database.participant.create({
     data: {
       id: randomUUID(),
       groupId: group.id,
@@ -45,11 +45,11 @@ async function createParticipant(database: PrismaDatabase) {
 }
 
 async function fixture(
-  database: PrismaDatabase,
+  database: PrismaConnection,
   options: { timeZone?: string; dayStart?: string; dayEnd?: string } = {},
 ) {
   const participant = await createParticipant(database);
-  const poll = await database.client.poll.create({
+  const poll = await database.poll.create({
     data: {
       id: randomUUID(),
       groupId: participant.groupId,
@@ -66,7 +66,7 @@ async function fixture(
       createdAt,
     },
   });
-  const response = await database.client.pollResponse.create({
+  const response = await database.pollResponse.create({
     data: {
       id: randomUUID(),
       pollId: poll.id,
@@ -78,17 +78,17 @@ async function fixture(
   return { poll, response, intervals: new IntervalService(database) };
 }
 
-async function confirm(database: PrismaDatabase, id: string) {
-  await database.client.pollResponse.update({
+async function confirm(database: PrismaConnection, id: string) {
+  await database.pollResponse.update({
     where: { id },
     data: { state: 'CONFIRMED', confirmedAt, updatedAt: confirmedAt },
   });
 }
 
-async function saved(database: PrismaDatabase, responseId: string) {
+async function saved(database: PrismaConnection, responseId: string) {
   return {
-    response: await database.client.pollResponse.findUniqueOrThrow({ where: { id: responseId } }),
-    intervals: await database.client.availabilityInterval.findMany({
+    response: await database.pollResponse.findUniqueOrThrow({ where: { id: responseId } }),
+    intervals: await database.availabilityInterval.findMany({
       where: { responseId },
       orderBy: [{ startAt: 'asc' }, { id: 'asc' }],
     }),
@@ -228,7 +228,7 @@ void test('closed poll rejects replacements and preserves intervals and confirma
     const { poll, response, intervals } = await fixture(database);
     await intervals.replace(response.id, [firstInterval], createdAt);
     await confirm(database, response.id);
-    await database.client.poll.update({
+    await database.poll.update({
       where: { id: poll.id },
       data: { status: 'CLOSED', closedAt: changedAt },
     });
