@@ -1,4 +1,4 @@
-import type { PrismaDatabase } from '#infrastructure/database/prisma-database';
+import type { Prisma } from '../../generated/prisma/client.js';
 import { toInterval, toPoll } from '#infrastructure/database/prisma-records';
 import { buildSuggestions, calculateResults } from './analytics.js';
 
@@ -9,19 +9,19 @@ function hasSourcePoll<T extends { basedOnPollId: string | null }>(
 }
 
 async function loadSuggestions(
-  database: PrismaDatabase,
+  database: Prisma.TransactionClient,
   pollId: string,
   participantId: string,
   timeZone: string,
 ) {
-  const poll = await database.client.poll.findUnique({ where: { id: pollId } });
+  const poll = await database.poll.findUnique({ where: { id: pollId } });
   if (!hasSourcePoll(poll)) return [];
   const [source, current] = await Promise.all([
-    database.client.pollResponse.findUnique({
+    database.pollResponse.findUnique({
       where: { pollId_participantId: { pollId: poll.basedOnPollId, participantId } },
       include: { intervals: true },
     }),
-    database.client.pollResponse.findUnique({
+    database.pollResponse.findUnique({
       where: { pollId_participantId: { pollId, participantId } },
       include: { intervals: true },
     }),
@@ -37,7 +37,7 @@ async function loadSuggestions(
 }
 
 export class AnalyticsService {
-  constructor(private readonly database: PrismaDatabase) {}
+  constructor(private readonly database: Prisma.TransactionClient) {}
 
   async suggestions(pollId: string, participantId: string, timeZone: string) {
     return loadSuggestions(this.database, pollId, participantId, timeZone);
@@ -45,8 +45,8 @@ export class AnalyticsService {
 
   async results(pollId: string, groupId: string, timeZone: string) {
     const [poll, participants] = await Promise.all([
-      this.database.client.poll.findUniqueOrThrow({ where: { id: pollId } }),
-      this.database.client.participant.findMany({
+      this.database.poll.findUniqueOrThrow({ where: { id: pollId } }),
+      this.database.participant.findMany({
         where: { groupId },
         include: {
           responses: {

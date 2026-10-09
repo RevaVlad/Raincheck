@@ -9,10 +9,8 @@ interface ParticipantRecord {
 }
 
 interface ParticipantLookup {
-  client: {
-    participant: {
-      findUnique(input: { where: { editTokenHash: string } }): Promise<ParticipantRecord | null>;
-    };
+  participant: {
+    findUnique(input: { where: { editTokenHash: string } }): Promise<ParticipantRecord | null>;
   };
 }
 
@@ -23,7 +21,7 @@ export async function resolveParticipant(
 ): Promise<ParticipantRecord> {
   if (!token) throw new AppError('UNAUTHORIZED', 401, 'Participant token is required');
   const editTokenHash = createHash('sha256').update(token).digest('hex');
-  const participant = await database.client.participant.findUnique({ where: { editTokenHash } });
+  const participant = await database.participant.findUnique({ where: { editTokenHash } });
   if (!participant || participant.groupId !== groupId) {
     throw new AppError('UNAUTHORIZED', 401, 'Invalid participant token');
   }

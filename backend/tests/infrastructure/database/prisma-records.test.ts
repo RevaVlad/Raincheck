@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { test } from 'node:test';
-import type { PrismaDatabase } from '#infrastructure/database/prisma-database';
+import type { PrismaConnection } from '#infrastructure/database/prisma-database';
 import * as mappers from '#infrastructure/database/prisma-records';
 import { inPrismaTransaction } from '../../support/prisma-database.js';
 
@@ -74,11 +74,11 @@ const interval = {
   updatedAt: createdAt,
 };
 
-async function assertIdentityRecords(database: PrismaDatabase, records: typeof mappers) {
-  assert.deepEqual(records.toGroup(await database.client.group.create({ data: group })), group);
+async function assertIdentityRecords(database: PrismaConnection, records: typeof mappers) {
+  assert.deepEqual(await database.group.create({ data: group }), group);
   assert.deepEqual(
     records.toParticipant(
-      await database.client.participant.create({
+      await database.participant.create({
         data: participant,
       }),
     ),
@@ -86,10 +86,10 @@ async function assertIdentityRecords(database: PrismaDatabase, records: typeof m
   );
 }
 
-async function assertPollRecord(database: PrismaDatabase, records: typeof mappers) {
+async function assertPollRecord(database: PrismaConnection, records: typeof mappers) {
   assert.deepEqual(
     records.toPoll(
-      await database.client.poll.create({
+      await database.poll.create({
         data: {
           ...poll,
           startsOn: records.dateToPrisma(poll.startsOn),
@@ -103,10 +103,13 @@ async function assertPollRecord(database: PrismaDatabase, records: typeof mapper
   );
 }
 
-async function assertResponseAndIntervalRecords(database: PrismaDatabase, records: typeof mappers) {
+async function assertResponseAndIntervalRecords(
+  database: PrismaConnection,
+  records: typeof mappers,
+) {
   assert.deepEqual(
     records.toResponse(
-      await database.client.pollResponse.create({
+      await database.pollResponse.create({
         data: response,
       }),
     ),
@@ -114,7 +117,7 @@ async function assertResponseAndIntervalRecords(database: PrismaDatabase, record
   );
   assert.deepEqual(
     records.toInterval(
-      await database.client.availabilityInterval.create({
+      await database.availabilityInterval.create({
         data: {
           ...interval,
           startAt: new Date(interval.startAt),
@@ -137,6 +140,11 @@ void test('mappers cover the constrained state branches the round trip cannot re
     () => toPoll(pollRecord({ status: 'CLOSED', closedAt: null })),
     /Closed poll is missing closed_at/,
   );
+  assert.throws(
+    () => toPoll(pollRecord({ status: 'INVALID', closedAt })),
+    /invalid status/,
+  );
+  assert.throws(() => toPoll(pollRecord({ status: 'OPEN', closedAt, slotMinutes: 15 })), /slot/);
 
   assert.equal(toResponse(responseRecord({ state: 'DRAFT', confirmedAt: null })).confirmedAt, null);
   assert.deepEqual(
@@ -146,6 +154,10 @@ void test('mappers cover the constrained state branches the round trip cannot re
   assert.throws(
     () => toResponse(responseRecord({ state: 'CONFIRMED', confirmedAt: null })),
     /Confirmed response is missing confirmed_at/,
+  );
+  assert.throws(
+    () => toResponse(responseRecord({ state: 'INVALID', confirmedAt: closedAt })),
+    /invalid state/,
   );
 
   for (const kind of ['UNAVAILABLE', 'IF_NEEDED'] as const) {
@@ -164,14 +176,24 @@ void test('mappers cover the constrained state branches the round trip cannot re
     () => toInterval(intervalRecord({ kind: 'PREFERRED', preferenceDirection: null })),
     /Preferred interval is missing a direction/,
   );
+  assert.throws(
+    () => toInterval(intervalRecord({ kind: 'INVALID', preferenceDirection: null })),
+    /invalid kind/,
+  );
+  assert.throws(
+    () => toInterval(intervalRecord({ kind: 'PREFERRED', preferenceDirection: 'INVALID' })),
+    /invalid direction/,
+  );
 });
 
 function pollRecord(overrides: {
   status: string;
   closedAt: Date | null;
+  slotMinutes?: number;
 }): Parameters<typeof mappers.toPoll>[0] {
   return {
     ...poll,
+    slotMinutes: overrides.slotMinutes ?? poll.slotMinutes,
     status: overrides.status,
     startsOn: mappers.dateToPrisma(poll.startsOn),
     endsOn: mappers.dateToPrisma(poll.endsOn),

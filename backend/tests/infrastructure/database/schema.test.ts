@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { sharedPrismaDatabase } from '../../support/prisma-database.js';
+import { sharedPrismaClient } from '../../support/prisma-database.js';
 
-const database = sharedPrismaDatabase();
+const database = sharedPrismaClient();
 
 interface IndexRow {
   indexname: string;
@@ -37,7 +37,7 @@ void test('database keeps the domain invariants after the Prisma migration', asy
 });
 
 async function existingIndexNames(): Promise<string[]> {
-  const result = await database.client.$queryRaw<IndexRow[]>`
+  const result = await database.$queryRaw<IndexRow[]>`
       SELECT indexname
       FROM pg_indexes
       WHERE schemaname = 'public' AND indexname = ANY(${EXPECTED_INDEXES}::text[])
@@ -47,7 +47,7 @@ async function existingIndexNames(): Promise<string[]> {
 }
 
 async function existingConstraintNames(): Promise<string[]> {
-  const result = await database.client.$queryRaw<ConstraintRow[]>`
+  const result = await database.$queryRaw<ConstraintRow[]>`
       SELECT conname
       FROM pg_constraint
       WHERE conname = ANY(${EXPECTED_CONSTRAINTS}::text[])
@@ -76,7 +76,7 @@ const CHECK_NAMES = [
 ];
 
 void test('Prisma migration installs every named CHECK and index', async () => {
-  const checks = await database.client.$queryRaw<{ conname: string }[]>`
+  const checks = await database.$queryRaw<{ conname: string }[]>`
     SELECT conname FROM pg_constraint
     WHERE connamespace = 'public'::regnamespace AND contype = 'c' ORDER BY conname
   `;
@@ -84,7 +84,7 @@ void test('Prisma migration installs every named CHECK and index', async () => {
     checks.map(({ conname }) => conname),
     CHECK_NAMES,
   );
-  const indexes = await database.client.$queryRaw<{ indexname: string }[]>`
+  const indexes = await database.$queryRaw<{ indexname: string }[]>`
     SELECT indexname FROM pg_indexes WHERE schemaname = 'public'
       AND tablename <> '_prisma_migrations' ORDER BY indexname
   `;
@@ -111,7 +111,7 @@ void test('Prisma migration installs every named CHECK and index', async () => {
 });
 
 void test('Prisma migration keeps cascades and column-subset SET NULL', async () => {
-  const foreignKeys = await database.client.$queryRaw<{ conname: string; definition: string }[]>`
+  const foreignKeys = await database.$queryRaw<{ conname: string; definition: string }[]>`
       SELECT conname, pg_get_constraintdef(oid) AS definition FROM pg_constraint
       WHERE connamespace = 'public'::regnamespace AND contype = 'f' ORDER BY conname
     `;
@@ -146,7 +146,7 @@ void test('Prisma migration keeps cascades and column-subset SET NULL', async ()
 });
 
 void test('Prisma migration keeps partial uniqueness and uses Prisma tracking', async () => {
-  const index = await database.client.$queryRaw<{ indexdef: string }[]>`
+  const index = await database.$queryRaw<{ indexdef: string }[]>`
       SELECT indexdef FROM pg_indexes WHERE schemaname = 'public'
         AND indexname = 'polls_one_open_per_group_idx'
     `;
@@ -157,7 +157,7 @@ void test('Prisma migration keeps partial uniqueness and uses Prisma tracking', 
         "\\(group_id\\) WHERE \\(status = 'OPEN'::text\\)",
     ),
   );
-  const tracking = await database.client.$queryRaw<
+  const tracking = await database.$queryRaw<
     { old: string | null; current: string | null }[]
   >`
       SELECT to_regclass('public.schema_migrations')::text AS old,
@@ -167,7 +167,7 @@ void test('Prisma migration keeps partial uniqueness and uses Prisma tracking', 
 });
 
 void test('Prisma migration preserves native column types without database defaults', async () => {
-  const columns = await database.client.$queryRaw<
+  const columns = await database.$queryRaw<
     {
       table_name: string;
       column_name: string;

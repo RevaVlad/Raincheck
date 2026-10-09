@@ -1,8 +1,8 @@
-import type { PrismaDatabase } from '#infrastructure/database/prisma-database';
+import type { Prisma } from '../../generated/prisma/client.js';
 import { toPoll, toResponse } from '#infrastructure/database/prisma-records';
 
-export async function lockResponseContext(database: PrismaDatabase, responseId: string) {
-  const rows = await database.client.$queryRaw<{ id: string }[]>`
+export async function lockResponseContext(client: Prisma.TransactionClient, responseId: string) {
+  const rows = await client.$queryRaw<{ id: string }[]>`
     SELECT response.id
     FROM poll_responses AS response
     JOIN polls AS poll ON poll.id = response.poll_id
@@ -10,7 +10,7 @@ export async function lockResponseContext(database: PrismaDatabase, responseId: 
     FOR UPDATE OF response, poll
   `;
   if (!rows[0]) throw new Error('Response not found');
-  const record = await database.client.pollResponse.findUniqueOrThrow({
+  const record = await client.pollResponse.findUniqueOrThrow({
     where: { id: responseId },
     include: { poll: true },
   });

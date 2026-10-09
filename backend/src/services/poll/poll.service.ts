@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import type { PrismaDatabase } from '#infrastructure/database/prisma-database';
+import { withTransaction, type PrismaConnection } from '#infrastructure/database/prisma-database';
+import type { Prisma } from '../../generated/prisma/client.js';
 import { dateToPrisma, timeToPrisma, toPoll } from '#infrastructure/database/prisma-records';
 import type { Poll, PollInput } from '#domain/poll/poll';
 import { validatePoll } from '#domain/poll/poll.validation';
@@ -18,7 +19,7 @@ function nextPollMetadata(previous: Pick<Poll, 'id' | 'sequenceNo'> | undefined)
 }
 
 export class PollService {
-  constructor(private readonly db: PrismaDatabase) {}
+  constructor(private readonly db: PrismaConnection) {}
 
   async create(
     groupId: string,
@@ -28,7 +29,7 @@ export class PollService {
     now = new Date(),
   ): Promise<Poll> {
     const valid = validatePoll(sequenceNo, input);
-    const record = await this.db.client.poll.create({
+    const record = await this.db.poll.create({
       data: {
         id: randomUUID(),
         groupId,
@@ -50,12 +51,12 @@ export class PollService {
     return toPoll(record);
   }
   async close(groupId: string, pollId: string, now = new Date()): Promise<Poll> {
-    const existing = await this.db.client.poll.findFirst({
+    const existing = await this.db.poll.findFirst({
       where: { id: pollId, groupId },
       select: { id: true },
     });
     if (!existing) throw new Error('Poll not found');
-    const [record] = await this.db.client.poll.updateManyAndReturn({
+    const [record] = await this.db.poll.updateManyAndReturn({
       where: { id: pollId, groupId, status: POLL_STATUS.OPEN },
       data: { status: POLL_STATUS.CLOSED, closedAt: now },
     });
@@ -65,28 +66,28 @@ export class PollService {
 
   async list(groupId: string): Promise<Poll[]> {
     return (
-      await this.db.client.poll.findMany({ where: { groupId }, orderBy: { createdAt: 'desc' } })
+      await this.db.poll.findMany({ where: { groupId }, orderBy: { createdAt: 'desc' } })
     ).map(toPoll);
   }
 
   async findInGroup(groupId: string, pollId: string): Promise<Poll | null> {
-    const record = await this.db.client.poll.findFirst({ where: { id: pollId, groupId } });
+    const record = await this.db.poll.findFirst({ where: { id: pollId, groupId } });
     return record ? toPoll(record) : null;
   }
 
   async createNext(groupId: string, input: PollInput, now = new Date()): Promise<Poll> {
-    return this.db.transaction((transaction) =>
+    return withTransaction(this.db, (transaction) =>
       this.createNextInTransaction(transaction, groupId, input, now),
     );
   }
 
   private async createNextInTransaction(
-    transaction: PrismaDatabase,
+    transaction: Prisma.TransactionClient,
     groupId: string,
     input: PollInput,
     now: Date,
   ): Promise<Poll> {
-    const [previous] = await transaction.client.poll.findMany({
+    const [previous] = await transaction.poll.findMany({
       where: { groupId },
       orderBy: { sequenceNo: 'desc' },
       take: 1,

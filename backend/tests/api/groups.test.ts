@@ -3,9 +3,9 @@ import { randomUUID } from 'node:crypto';
 import test from 'node:test';
 import { buildApp } from '../../src/app.js';
 import { loadConfig } from '#config/config';
-import { sharedPrismaDatabase } from '../support/prisma-database.js';
+import { sharedPrismaClient } from '../support/prisma-database.js';
 
-const database = sharedPrismaDatabase();
+const database = sharedPrismaClient();
 const app = buildApp({ ...loadConfig(), logLevel: 'silent' }, database);
 const poll = {
   title: 'Planning',
@@ -63,7 +63,7 @@ void test('creates a group without creating a poll or participant', async () => 
   });
   assert.equal(withCreator.statusCode, 400, withCreator.body);
   assert.equal(withCreator.json().error.code, 'INVALID_REQUEST');
-  assert.equal(await database.client.group.count({ where: { name: legacyGroupName } }), 0);
+  assert.equal(await database.group.count({ where: { name: legacyGroupName } }), 0);
 });
 
 void test(
@@ -128,7 +128,7 @@ void test('rejects schedule settings in group creation', async () => {
   });
   assert.equal(invalid.statusCode, 400, invalid.body);
   assert.equal(invalid.json().error.code, 'INVALID_REQUEST');
-  assert.equal(await database.client.group.count({ where: { name: groupName } }), 0);
+  assert.equal(await database.group.count({ where: { name: groupName } }), 0);
 });
 
 void test('maps normalized-invalid participant input to INVALID_REQUEST', async () => {

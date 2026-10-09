@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import type { PrismaDatabase } from '#infrastructure/database/prisma-database';
+import type { Prisma } from '../generated/prisma/client.js';
 import { toPoll } from '#infrastructure/database/prisma-records';
 import { GroupService } from '#services/group/group.service';
 import { PollService } from '#services/poll/poll.service';
@@ -76,7 +76,7 @@ function mapPollCloseError(error: unknown): never {
 
 // Keep the route table together so all poll endpoints are visible in one place.
 // eslint-disable-next-line max-lines-per-function
-export function registerPollRoutes(app: FastifyInstance, database: PrismaDatabase): void {
+export function registerPollRoutes(app: FastifyInstance, database: Prisma.TransactionClient): void {
   app.get(
     '/api/groups/:inviteCode/polls',
     { schema: { params: inviteCodeParams } },
@@ -97,7 +97,7 @@ export function registerPollRoutes(app: FastifyInstance, database: PrismaDatabas
         (request.params as { pollId: string }).pollId,
       );
       if (!poll) throw new AppError('POLL_NOT_FOUND', 404, 'Poll not found');
-      const responses = await database.client.pollResponse.findMany({
+      const responses = await database.pollResponse.findMany({
         where: { pollId: poll.id },
         include: { participant: { select: { id: true, displayName: true } } },
       });

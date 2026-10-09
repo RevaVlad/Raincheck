@@ -24,7 +24,7 @@ void test('ignores extra input metadata when creating a poll', async () => {
     const group = await groups.create({ name: 'Team' });
     const input = { ...pollInput, title: '  Team meeting  ', uiState: 'expanded' };
     const poll = await polls.create(group.id, 1, input, null, now);
-    const saved = await database.client.poll.findUniqueOrThrow({ where: { id: poll.id } });
+    const saved = await database.poll.findUniqueOrThrow({ where: { id: poll.id } });
     assert.equal(poll.title, 'Team meeting');
     assert.equal(saved.title, 'Team meeting');
     assert.equal(poll.slotMinutes, 30);
@@ -88,7 +88,7 @@ void test(
         () => polls.close(group.id, poll.id, new Date('2026-10-02T12:00:00.000Z')),
         { message: 'Poll state conflict' },
       );
-      const saved = await database.client.poll.findUniqueOrThrow({ where: { id: poll.id } });
+      const saved = await database.poll.findUniqueOrThrow({ where: { id: poll.id } });
       assert.equal(saved.closedAt?.toISOString(), now.toISOString());
     });
   },
@@ -132,7 +132,7 @@ void test('creates the first poll without closing an active one', async () => {
       message: 'Poll state conflict',
     });
 
-    const stillOpen = await database.client.poll.findUniqueOrThrow({ where: { id: first.id } });
+    const stillOpen = await database.poll.findUniqueOrThrow({ where: { id: first.id } });
     assert.equal(stillOpen.status, 'OPEN');
     const closed = await polls.close(group.id, first.id, now);
     const next = await polls.createNext(group.id, pollInput, now);

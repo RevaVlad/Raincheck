@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import type { PrismaDatabase } from '#infrastructure/database/prisma-database';
+import type { Prisma } from '../generated/prisma/client.js';
 import { GroupService } from '#services/group/group.service';
 import { ParticipantService } from '#services/participant/participant.service';
 import { AVATAR_COLORS, type AvatarColor } from '#domain/participant/participant';
@@ -78,7 +78,7 @@ function throwParticipantNameConflict(error: unknown): void {
 }
 
 async function resolveOptionalParticipant(
-  database: PrismaDatabase,
+  database: Prisma.TransactionClient,
   token: string | undefined,
   groupId: string,
 ) {
@@ -91,9 +91,8 @@ async function resolveOptionalParticipant(
   }
 }
 
-// Keep the route table together so all group endpoints are visible in one place.
 // eslint-disable-next-line max-lines-per-function
-export function registerGroupRoutes(app: FastifyInstance, database: PrismaDatabase): void {
+export function registerGroupRoutes(app: FastifyInstance, database: Prisma.TransactionClient): void {
   app.post(
     '/api/groups',
     {
@@ -123,7 +122,7 @@ export function registerGroupRoutes(app: FastifyInstance, database: PrismaDataba
   app.get('/api/groups/:inviteCode', { schema: { params: inviteCodeParams } }, async (request) => {
     const group = await new GroupService(database).findByInviteCode(asCode(request.params));
     if (!group) throw new AppError('GROUP_NOT_FOUND', 404, 'Group not found');
-    const current = await database.client.poll.findFirst({
+    const current = await database.poll.findFirst({
       where: { groupId: group.id, status: 'OPEN' },
     });
     return {
@@ -191,15 +190,15 @@ export function registerGroupRoutes(app: FastifyInstance, database: PrismaDataba
     async (request) => {
       const group = await new GroupService(database).findByInviteCode(asCode(request.params));
       if (!group) throw new AppError('GROUP_NOT_FOUND', 404, 'Group not found');
-      const current = await database.client.poll.findFirst({
+      const current = await database.poll.findFirst({
         where: { groupId: group.id, status: 'OPEN' },
       });
       const [polls, participants] = await Promise.all([
-        database.client.poll.findMany({
+        database.poll.findMany({
           where: { groupId: group.id },
           orderBy: { createdAt: 'desc' },
         }),
-        database.client.participant.findMany({
+        database.participant.findMany({
           where: { groupId: group.id },
           include: {
             responses: {

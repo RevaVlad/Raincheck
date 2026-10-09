@@ -1,18 +1,19 @@
 import { after } from 'node:test';
 import { loadConfig } from '#config/config';
-import { PrismaDatabase } from '#infrastructure/database/prisma-database';
+import { createPrismaClient, withTransaction } from '#infrastructure/database/prisma-database';
+import type { Prisma } from '../../src/generated/prisma/client.js';
 import { PrismaProbe } from './prisma-probe.js';
 
-const database = PrismaDatabase.create(loadConfig());
-void after(() => database.close());
+const database = createPrismaClient(loadConfig());
+void after(() => database.$disconnect());
 const ROLLBACK = Symbol('successful Prisma test rollback');
 
 export interface PrismaTestContext {
-  database: PrismaDatabase;
+  database: Prisma.TransactionClient;
   probe: PrismaProbe;
 }
 
-export function sharedPrismaDatabase(): PrismaDatabase {
+export function sharedPrismaClient() {
   return database;
 }
 
@@ -20,7 +21,7 @@ export async function inPrismaTransaction(
   run: (context: PrismaTestContext) => Promise<void>,
 ): Promise<void> {
   try {
-    await database.transaction(async (transaction) => {
+    await withTransaction(database, async (transaction) => {
       await run({ database: transaction, probe: new PrismaProbe(transaction) });
       throw ROLLBACK;
     });

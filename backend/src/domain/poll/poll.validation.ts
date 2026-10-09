@@ -44,10 +44,11 @@ function validateDailyWindow(dayStart: string, dayEnd: string): number {
   return minutes;
 }
 
-function validateSlotMinutes(slotMinutes: number): void {
+export function validateSlotMinutes(slotMinutes: number): PollInput['slotMinutes'] {
   if (slotMinutes !== 30 && slotMinutes !== 60) {
     throw new RangeError('Poll slot must be 30 or 60 minutes');
   }
+  return slotMinutes;
 }
 
 function validateMeetingDuration(input: PollInput, windowMinutes: number): void {

@@ -3,9 +3,9 @@ import test from 'node:test';
 import { randomUUID } from 'node:crypto';
 import { buildApp } from '../../src/app.js';
 import { loadConfig } from '#config/config';
-import { sharedPrismaDatabase } from '../support/prisma-database.js';
+import { sharedPrismaClient } from '../support/prisma-database.js';
 
-const database = sharedPrismaDatabase();
+const database = sharedPrismaClient();
 const app = buildApp({ ...loadConfig(), logLevel: 'silent' }, database);
 const pollInput = {
   title: null,
@@ -103,10 +103,10 @@ async function expectClosedPollCanContinue(
   assert.equal(next.json().poll.sequenceNo, 2);
   assert.equal(next.json().poll.basedOnPollId, pollId);
   assert.equal(
-    await database.client.pollResponse.count({ where: { pollId: next.json().poll.id } }),
+    await database.pollResponse.count({ where: { pollId: next.json().poll.id } }),
     0,
   );
-  assert.equal(await database.client.poll.count({ where: { groupId } }), 2);
+  assert.equal(await database.poll.count({ where: { groupId } }), 2);
 }
 
 async function createSavedResponse() {
@@ -162,7 +162,7 @@ async function expectClosedWritesAreRejected(responseUrl: string, headers: Recor
 }
 
 async function expectArchivedResponse(pollId: string): Promise<void> {
-  const archived = await database.client.pollResponse.findFirstOrThrow({
+  const archived = await database.pollResponse.findFirstOrThrow({
     where: { pollId },
     include: { intervals: true },
   });
@@ -193,7 +193,7 @@ void test('creates a group without a poll and creates its first poll separately'
   const duplicate = await createPoll(created.group.inviteCode, member.participantEditToken);
   assert.equal(duplicate.statusCode, 409, duplicate.body);
   assert.equal(duplicate.json().error.code, 'POLL_STATE_CONFLICT');
-  const current = await database.client.poll.findFirstOrThrow({
+  const current = await database.poll.findFirstOrThrow({
     where: { groupId: created.group.id, status: 'OPEN' },
   });
   assert.equal(current.id, first.json().poll.id);
@@ -231,7 +231,7 @@ void test('requires a group participant to create a poll', async () => {
   });
 
   assert.equal(response.statusCode, 401, response.body);
-  assert.equal(await database.client.poll.count({ where: { groupId: created.group.id } }), 0);
+  assert.equal(await database.poll.count({ where: { groupId: created.group.id } }), 0);
 });
 
 void test('allows only one concurrent first poll creation', async () => {
@@ -244,7 +244,7 @@ void test('allows only one concurrent first poll creation', async () => {
   ]);
 
   assert.deepEqual(results.map((result) => result.statusCode).sort(), [201, 409]);
-  const polls = await database.client.poll.findMany({ where: { groupId: created.group.id } });
+  const polls = await database.poll.findMany({ where: { groupId: created.group.id } });
   assert.equal(polls.length, 1);
   assert.equal(polls[0]?.sequenceNo, 1);
 });
@@ -300,6 +300,6 @@ void test('serializes concurrent response deletion with poll closure', async () 
 
   assert.equal(closed.statusCode, 200, closed.body);
   assert.ok([204, 409].includes(deleted.statusCode));
-  const responseCount = await database.client.pollResponse.count({ where: { pollId: poll.id } });
+  const responseCount = await database.pollResponse.count({ where: { pollId: poll.id } });
   assert.equal(responseCount, deleted.statusCode === 204 ? 0 : 1);
 });

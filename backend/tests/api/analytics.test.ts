@@ -2,12 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { buildApp } from '../../src/app.js';
 import { loadConfig } from '#config/config';
-import { sharedPrismaDatabase } from '../support/prisma-database.js';
+import { sharedPrismaClient } from '../support/prisma-database.js';
 import { calculateResults } from '#services/analytics/analytics';
 import type { Poll } from '#domain/poll/poll';
 import type { AvailabilityInterval } from '#domain/interval/interval';
 
-const database = sharedPrismaDatabase();
+const database = sharedPrismaClient();
 const app = buildApp({ ...loadConfig(), logLevel: 'silent' }, database);
 const basePoll = {
   startsOn: '2026-10-05',

@@ -83,13 +83,11 @@ void test('requires a participant token and scopes it to the requested group', a
     avatarColor: 'green',
   };
   const database = {
-    client: {
-      participant: {
-        findUnique: async ({ where }: { where: { editTokenHash: string } }) =>
-          where.editTokenHash === createHash('sha256').update(token).digest('hex')
-            ? participant
-            : null,
-      },
+    participant: {
+      findUnique: async ({ where }: { where: { editTokenHash: string } }) =>
+        where.editTokenHash === createHash('sha256').update(token).digest('hex')
+          ? participant
+          : null,
     },
   };
 
