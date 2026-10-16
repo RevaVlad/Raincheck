@@ -68,6 +68,7 @@ async function expectScopedClose(inviteCode: string, pollId: string): Promise<vo
   const otherMember = await join(otherGroup.created.group.inviteCode);
   const unauthorized = await closePoll(inviteCode, pollId);
   assert.equal(unauthorized.statusCode, 401, unauthorized.body);
+  assert.equal(unauthorized.json().error.code, 'UNAUTHORIZED');
 
   const outOfScope = await closePoll(
     otherGroup.created.group.inviteCode,
@@ -228,7 +229,53 @@ void test('requires a group participant to create a poll', async () => {
   });
 
   assert.equal(response.statusCode, 401, response.body);
+  assert.equal(response.json().error.code, 'UNAUTHORIZED');
   assert.equal(await database.poll.count({ where: { groupId: created.group.id } }), 0);
+});
+
+void test('requires a participant token for every response endpoint', async () => {
+  const { group, poll } = await createPollScenario();
+  const url = `/api/groups/${group.inviteCode}/polls/${poll.id}/responses/me`;
+  for (const method of ['POST', 'GET', 'PUT', 'DELETE', 'confirm'] as const) {
+    const response = await app.inject({
+      method: method === 'confirm' ? 'POST' : method,
+      url: method === 'confirm' ? `${url}/confirm` : url,
+      ...(method === 'PUT' ? { payload: { intervals: [] } } : {}),
+    });
+    assert.equal(response.statusCode, 401, response.body);
+    assert.equal(response.json().error.code, 'UNAUTHORIZED');
+  }
+});
+
+void test('rejects malformed interval preferences without replacing saved data', async () => {
+  const { responseUrl, headers } = await createSavedResponse();
+  const before = await app.inject({ method: 'GET', url: responseUrl, headers });
+  for (const preference of [
+    {},
+    { preferenceDirection: 'INVALID' },
+    { kind: 'UNAVAILABLE', preferenceDirection: 'FLAT' },
+  ]) {
+    const response = await app.inject({
+      method: 'PUT',
+      url: responseUrl,
+      headers,
+      payload: {
+        intervals: [
+          {
+            startAt: '2026-10-07T16:00:00.000Z',
+            endAt: '2026-10-07T17:00:00.000Z',
+            kind: 'PREFERRED',
+            ...preference,
+          },
+        ],
+      },
+    });
+    assert.equal(response.statusCode, 400, response.body);
+    assert.equal(response.json().error.code, 'INVALID_REQUEST');
+  }
+  const after = await app.inject({ method: 'GET', url: responseUrl, headers });
+  assert.equal(after.statusCode, 200, after.body);
+  assert.deepEqual(after.json(), before.json());
 });
 
 void test('allows only one concurrent first poll creation', async () => {

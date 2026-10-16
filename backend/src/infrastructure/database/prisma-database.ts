@@ -1,5 +1,6 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import type { Config } from '#config/config';
+import { logger } from '#shared/logger';
 import { PrismaClient, type Prisma } from '../../generated/prisma/client.js';
 
 const MAX_NATIVE_TIMER_DELAY_MS = 2_147_483_647;
@@ -11,7 +12,8 @@ export function createPrismaClient(config: Config): PrismaClient {
   const adapter = new PrismaPg(
     { connectionString: config.databaseUrl },
     {
-      onPoolError: (error) => console.error('PostgreSQL pool error:', error.message),
+      onPoolError: (err) =>
+        logger.error({ event: 'database.pool_error', err }, 'PostgreSQL connection pool error'),
     },
   );
   return new PrismaClient({ adapter });
