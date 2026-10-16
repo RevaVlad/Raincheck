@@ -4,8 +4,15 @@ import { toPoll } from '#infrastructure/database/prisma-records';
 import { GroupService } from '#services/group/group.service';
 import { PollService } from '#services/poll/poll.service';
 import { AppError } from './errors.js';
+import { logEvent } from './log-event.js';
 import { inviteCodeParams, optionalParticipantTokenHeaders } from './schemas.js';
 import { resolveParticipant } from './participant-identity.js';
+import type {
+  CreatePollBodyDto,
+  InviteCodeParamsDto,
+  OptionalParticipantTokenHeadersDto,
+  PollParamsDto,
+} from './request-dtos.js';
 
 const pollBody = {
   type: 'object',
@@ -30,12 +37,14 @@ const pollBody = {
     timeZone: { type: 'string', minLength: 1, maxLength: 64 },
   },
 } as const;
+
 const pollParams = {
   type: 'object',
   additionalProperties: false,
   required: ['inviteCode', 'pollId'],
   properties: { ...inviteCodeParams.properties, pollId: { type: 'string' } },
 } as const;
+
 const dto = (poll: ReturnType<typeof toPoll>) => ({
   id: poll.id,
   sequenceNo: poll.sequenceNo,
@@ -52,18 +61,18 @@ const dto = (poll: ReturnType<typeof toPoll>) => ({
   createdAt: poll.createdAt.toISOString(),
   closedAt: poll.closedAt?.toISOString() ?? null,
 });
-const code = (params: unknown) => (params as { inviteCode: string }).inviteCode;
 
 function isUniqueConstraintError(error: unknown): boolean {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002';
 }
 
-function mapPollCreationError(error: unknown): void {
+function mapPollCreationError(error: unknown): never {
   if (error instanceof RangeError) throw new AppError('INVALID_SCHEDULE', 422, error.message);
   if (error instanceof Error && error.message === 'Poll state conflict')
     throw new AppError('POLL_STATE_CONFLICT', 409, error.message);
   if (isUniqueConstraintError(error))
     throw new AppError('POLL_STATE_CONFLICT', 409, 'Poll state conflict');
+  throw error;
 }
 
 function mapPollCloseError(error: unknown): never {
@@ -77,30 +86,34 @@ function mapPollCloseError(error: unknown): never {
 // Keep the route table together so all poll endpoints are visible in one place.
 // eslint-disable-next-line max-lines-per-function
 export function registerPollRoutes(app: FastifyInstance, database: Prisma.TransactionClient): void {
-  app.get(
+  app.get<{ Params: InviteCodeParamsDto }>(
     '/api/groups/:inviteCode/polls',
     { schema: { params: inviteCodeParams } },
     async (request) => {
-      const group = await new GroupService(database).findByInviteCode(code(request.params));
+      const group = await new GroupService(database).findByInviteCode(request.params.inviteCode);
       if (!group) throw new AppError('GROUP_NOT_FOUND', 404, 'Group not found');
-      return { polls: (await new PollService(database).list(group.id)).map(dto) };
+
+      const polls = await new PollService(database).list(group.id);
+
+      return { polls: polls.map(dto) };
     },
   );
-  app.get(
+
+  app.get<{ Params: PollParamsDto }>(
     '/api/groups/:inviteCode/polls/:pollId',
     { schema: { params: pollParams } },
     async (request) => {
-      const group = await new GroupService(database).findByInviteCode(code(request.params));
+      const group = await new GroupService(database).findByInviteCode(request.params.inviteCode);
       if (!group) throw new AppError('GROUP_NOT_FOUND', 404, 'Group not found');
-      const poll = await new PollService(database).findInGroup(
-        group.id,
-        (request.params as { pollId: string }).pollId,
-      );
+
+      const poll = await new PollService(database).findInGroup(group.id, request.params.pollId);
       if (!poll) throw new AppError('POLL_NOT_FOUND', 404, 'Poll not found');
+
       const responses = await database.pollResponse.findMany({
         where: { pollId: poll.id },
         include: { participant: { select: { id: true, displayName: true } } },
       });
+
       return {
         poll: dto(poll),
         participantStates: responses.map((response) => ({
@@ -110,52 +123,44 @@ export function registerPollRoutes(app: FastifyInstance, database: Prisma.Transa
       };
     },
   );
-  app.post(
+
+  app.post<{
+    Params: InviteCodeParamsDto;
+    Headers: OptionalParticipantTokenHeadersDto;
+    Body: CreatePollBodyDto;
+  }>(
     '/api/groups/:inviteCode/polls',
     { schema: { params: inviteCodeParams, body: pollBody } },
     async (request, reply) => {
-      const group = await new GroupService(database).findByInviteCode(code(request.params));
+      const input = request.body;
+      const group = await new GroupService(database).findByInviteCode(request.params.inviteCode);
       if (!group) throw new AppError('GROUP_NOT_FOUND', 404, 'Group not found');
-      await resolveParticipant(
-        database,
-        (request.headers as Record<string, string | undefined>)['x-participant-token'],
-        group.id,
-      );
-      try {
-        return reply.code(201).send({
-          poll: dto(
-            await new PollService(database).createNext(
-              group.id,
-              request.body as Parameters<PollService['createNext']>[1],
-            ),
-          ),
-        });
-      } catch (error) {
-        mapPollCreationError(error);
-        throw error;
-      }
+
+      await resolveParticipant(database, request.headers['x-participant-token'], group.id);
+
+      const poll = await new PollService(database)
+        .createNext(group.id, input)
+        .catch(mapPollCreationError);
+      logEvent(request, 'poll.created', { groupId: group.id, pollId: poll.id });
+
+      return reply.code(201).send({ poll: dto(poll) });
     },
   );
-  app.post(
+
+  app.post<{ Params: PollParamsDto; Headers: OptionalParticipantTokenHeadersDto }>(
     '/api/groups/:inviteCode/polls/:pollId/close',
     { schema: { params: pollParams, headers: optionalParticipantTokenHeaders } },
     async (request) => {
-      const group = await new GroupService(database).findByInviteCode(code(request.params));
+      const { pollId } = request.params;
+      const group = await new GroupService(database).findByInviteCode(request.params.inviteCode);
       if (!group) throw new AppError('GROUP_NOT_FOUND', 404, 'Group not found');
-      await resolveParticipant(
-        database,
-        (request.headers as Record<string, string | undefined>)['x-participant-token'],
-        group.id,
-      );
-      try {
-        const poll = await new PollService(database).close(
-          group.id,
-          (request.params as { pollId: string }).pollId,
-        );
-        return { poll: dto(poll) };
-      } catch (error) {
-        mapPollCloseError(error);
-      }
+
+      await resolveParticipant(database, request.headers['x-participant-token'], group.id);
+
+      const poll = await new PollService(database).close(group.id, pollId).catch(mapPollCloseError);
+      logEvent(request, 'poll.closed', { groupId: group.id, pollId: poll.id });
+
+      return { poll: dto(poll) };
     },
   );
 }
