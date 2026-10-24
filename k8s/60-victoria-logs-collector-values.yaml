@@ -1,0 +1,5 @@
+collector:
+  excludeFilter: "not (kubernetes.pod_namespace:=raincheck and kubernetes.pod_labels.app:=api)"
+
+remoteWrite:
+  - url: http://vls-victoria-logs-single-server:9428
