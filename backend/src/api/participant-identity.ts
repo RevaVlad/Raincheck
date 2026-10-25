@@ -1,29 +1,16 @@
-import { createHash } from 'node:crypto';
+import { requireParticipant } from '#services/access/require-participant';
+import { ApplicationError } from '#services/errors';
 import { AppError } from './errors.js';
+import { applicationErrorStatus } from './common/application-errors.js';
 
-interface ParticipantRecord {
-  id: string;
-  groupId: string;
-  displayName: string;
-  avatarColor: string;
-}
-
-interface ParticipantLookup {
-  participant: {
-    findUnique(input: { where: { editTokenHash: string } }): Promise<ParticipantRecord | null>;
-  };
-}
-
-export async function resolveParticipant(
-  database: ParticipantLookup,
-  token: string | undefined,
-  groupId: string,
-): Promise<ParticipantRecord> {
-  if (!token) throw new AppError('UNAUTHORIZED', 401, 'Participant token is required');
-  const editTokenHash = createHash('sha256').update(token).digest('hex');
-  const participant = await database.participant.findUnique({ where: { editTokenHash } });
-  if (!participant || participant.groupId !== groupId) {
-    throw new AppError('UNAUTHORIZED', 401, 'Invalid participant token');
+// Existing HTTP callers retain AppError; services use requireParticipant directly.
+export async function resolveParticipant(...args: Parameters<typeof requireParticipant>) {
+  try {
+    return await requireParticipant(...args);
+  } catch (error) {
+    if (error instanceof ApplicationError) {
+      throw new AppError(error.code, applicationErrorStatus[error.code], error.message);
+    }
+    throw error;
   }
-  return participant;
 }
