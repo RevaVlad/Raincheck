@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: postgres-exporter
-  namespace: raincheck
+  namespace: monitoring
 spec:
   replicas: 1
   selector:
@@ -26,11 +26,11 @@ spec:
               containerPort: 9187
           env:
             - name: DATA_SOURCE_URI
-              value: "postgres:5432/raincheck?sslmode=disable"
+              value: "postgres.raincheck.svc.cluster.local:5432/raincheck?sslmode=disable"
             - name: DATA_SOURCE_USER
               value: raincheck
             - name: DATA_SOURCE_PASS
               valueFrom:
                 secretKeyRef:
-                  name: raincheck-env
+                  name: postgres-exporter-env
                   key: POSTGRES_PASSWORD

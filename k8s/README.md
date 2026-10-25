@@ -63,3 +63,80 @@ kubectl delete namespace raincheck
 ```
 
 Откройте http://localhost:8080. Оставьте port-forward работающим.
+
+## Логи
+
+VictoriaLogs и collector используются для логов
+
+```sh
+helm upgrade --install vls vm/victoria-logs-single --version 0.13.10 -n raincheck -f k8s/50-victoria-logs-values.yaml --wait
+helm upgrade --install collector vm/victoria-logs-collector --version 0.3.8 -n raincheck -f k8s/60-victoria-logs-collector-values.yaml --wait
+```
+
+## Метрики
+
+Использованы готовые чарты из репозитория VictoriaMetrics:
+
+```sh
+helm repo add vm https://victoriametrics.github.io/helm-charts/
+helm repo update
+```
+
+2. Установите VictoriaMetrics с настройками из values-файла:
+
+```sh
+helm upgrade --install vm-single vm/victoria-metrics-single --version 0.49.0 -n monitoring --create-namespace -f k8s/70-victoria-metrics-values.yaml --wait
+```
+
+3. Установите [vmagent](https://docs.victoriametrics.com/helm/victoria-metrics-agent/) для сбора метрик и отправки в VictoriaMetrics:
+
+```sh
+helm upgrade --install vmagent vm/victoria-metrics-agent --version 0.50.0 -n monitoring -f k8s/70-victoria-metrics-values.yaml --wait
+```
+
+Один values-файл используется для обоих чартов: `server` настраивает VictoriaMetrics, `service`, `remoteWrite` и `config` — vmagent. Встроенный сборщик VictoriaMetrics отключён, метрики собирает только vmagent.
+
+4. Создание PostgreSQL exporter:
+
+```sh
+kubectl apply -f k8s/80-postgres-exporter.yaml
+```
+
+## Просмотр метрик в VictoriaMetrics
+
+VictoriaMetrics, vmagent и PostgreSQL exporter должны быть запущены в namespace `monitoring`, API — в `raincheck`:
+
+Каждый port-forward запускайте в отдельном терминале и оставьте работающим.
+
+```powershell
+kubectl port-forward -n raincheck deployment/web 8080:80
+kubectl port-forward -n monitoring service/vm-single-victoria-metrics-single-server 8428:8428
+kubectl port-forward -n monitoring service/vmagent-victoria-metrics-agent 8429:8429
+
+kubectl get pods -n monitoring
+kubectl get pods -n raincheck
+```
+
+- http://localhost:8428/vmui/ — интерфейс запросов и графиков.
+- http://localhost:8429/targets — состояние сбора метрик в vmagent.
+- http://localhost:8429/metrics — собственные метрики vmagent.
+
+Бизнес метрики:
+
+```
+{__name__=~"raincheck_.*"}
+```
+
+Количество учтённых закрытий опросов:
+
+```promql
+sum(raincheck_poll_lifetime_seconds_count)
+```
+
+Среднее время до закрытия за последний час, в секундах:
+
+```promql
+sum(increase(raincheck_poll_lifetime_seconds_sum[1h])) / sum(increase(raincheck_poll_lifetime_seconds_count[1h]))
+```
+
+Если за выбранное время закрытий не было, среднее не определено.
