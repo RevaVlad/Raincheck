@@ -1,12 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import Fastify from 'fastify';
+import { Histogram } from '@prometheus-io/client';
 import { GroupService } from '#services/group/group.service';
 import { ParticipantService } from '#services/participant/participant.service';
 import { PollService } from '#services/poll/poll.service';
 import { ResponseService } from '#services/response/response.service';
 import {
   groupsCreated,
+  metricsRegistry,
   participantsCreated,
   pollsCreated,
   responsesCreated,
@@ -16,6 +18,49 @@ import { registerGroupRoutes } from '../src/api/group-routes.js';
 import { registerPollRoutes } from '../src/api/poll-routes.js';
 import { registerResponseRoutes } from '../src/api/response-routes.js';
 import { routeFixtures } from './support/route-fixtures.js';
+
+void test('poll lifetime records seconds only after a successful close', async (t) => {
+  const fixture = routeFixtures();
+  const app = Fastify();
+  registerApiErrorHandler(app);
+  registerPollRoutes(app, fixture.database);
+  t.after(() => app.close());
+  const url = `/api/groups/${fixture.group.inviteCode}/polls/poll-1/close`;
+  const headers = { 'x-participant-token': fixture.token };
+  let failure: Error | undefined;
+  t.mock.method(PollService.prototype, 'close', async () => {
+    if (failure) throw failure;
+    return {
+      ...fixture.poll,
+      status: 'CLOSED',
+      closedAt: new Date('2026-10-01T10:01:30Z'),
+    };
+  });
+  const histogram = metricsRegistry.getSingleMetric('raincheck_poll_lifetime_seconds');
+  assert.ok(histogram instanceof Histogram, 'poll lifetime histogram must be registered');
+  histogram.reset();
+  histogram.zero({});
+  t.after(() => histogram.reset());
+  const samples = async () => (await histogram.get()).values;
+  const unauthorized = await app.inject({ method: 'POST', url });
+  assert.equal(unauthorized.statusCode, 401, unauthorized.body);
+  failure = new Error('database unavailable');
+  const failed = await app.inject({ method: 'POST', url, headers });
+  assert.equal(failed.statusCode, 500, failed.body);
+  assert.equal((await samples()).find((sample) => sample.metricName?.endsWith('_count'))?.value, 0);
+  failure = undefined;
+  const closed = await app.inject({ method: 'POST', url, headers });
+  assert.equal(closed.statusCode, 200, closed.body);
+  const observed = await samples();
+  assert.equal(observed.find((sample) => sample.metricName?.endsWith('_count'))?.value, 1);
+  assert.equal(observed.find((sample) => sample.metricName?.endsWith('_sum'))?.value, 90);
+  assert.equal(observed.find((sample) => sample.labels.le === 60)?.value, 0);
+  assert.equal(observed.find((sample) => sample.labels.le === 300)?.value, 1);
+  failure = new Error('Poll state conflict');
+  const repeated = await app.inject({ method: 'POST', url, headers });
+  assert.equal(repeated.statusCode, 409, repeated.body);
+  assert.deepEqual(await samples(), observed);
+});
 
 void test('creation routes count committed writes and preserve response DTOs', async (t) => {
   const fixture = routeFixtures();

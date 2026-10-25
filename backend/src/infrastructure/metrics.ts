@@ -1,4 +1,4 @@
-import { collectDefaultMetrics, Counter, Registry } from '@prometheus-io/client';
+import { collectDefaultMetrics, Counter, Histogram, Registry } from '@prometheus-io/client';
 
 export const metricsRegistry = new Registry();
 
@@ -29,5 +29,12 @@ export const pollsCreated = new Counter({
 export const responsesCreated = new Counter({
   name: 'raincheck_responses_created_total',
   help: 'Number of successfully created poll responses',
+  registers: [metricsRegistry],
+});
+
+export const pollLifetime = new Histogram({
+  name: 'raincheck_poll_lifetime_seconds',
+  help: 'Time from poll creation to successful closure in seconds',
+  buckets: [60, 300, 1800, 3600, 86400],
   registers: [metricsRegistry],
 });
