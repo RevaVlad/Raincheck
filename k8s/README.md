@@ -31,23 +31,24 @@ kubectl apply -f k8s/10-postgres.yaml
 kubectl get pods -n raincheck
 ```
 
-3. Запустите миграции и дождитесь их успешaного завершения:
+3. Миграции выполняются initContainer API. Для отдельного запуска:
 
 ```sh
 kubectl apply -f k8s/20-migrate.yaml
 kubectl get jobs -n raincheck
 ```
 
-4. Запустите API, затем frontend:
+4. Запустите API, затем frontend. Команду `minikube tunnel` выполняйте в отдельном терминале:
 
 ```sh
 kubectl apply -f k8s/30-api.yaml
 kubectl get pods -n raincheck
 
+minikube addons enable ingress
 kubectl apply -f k8s/40-web.yaml
 kubectl get pods -n raincheck
 
-kubectl port-forward service/web 8080:80 -n raincheck
+minikube tunnel --bind-address=127.0.0.1
 ```
 
 5. Масштабирование бэкэнда:
@@ -56,13 +57,13 @@ kubectl port-forward service/web 8080:80 -n raincheck
 kubectl scale deployment api --replicas=3 -n raincheck
 ```
 
-6. Удаление ns:
+6. Удаление ns (включая PVC и данные):
 
 ```sh
 kubectl delete namespace raincheck
 ```
 
-Откройте http://localhost:8080. Оставьте port-forward работающим.
+Откройте http://localhost. В Minikube с Docker на Windows оставьте `minikube tunnel` работающим.
 
 ## Логи
 
@@ -106,10 +107,9 @@ kubectl apply -f k8s/80-postgres-exporter.yaml
 
 VictoriaMetrics, vmagent и PostgreSQL exporter должны быть запущены в namespace `monitoring`, API — в `raincheck`:
 
-Каждый port-forward запускайте в отдельном терминале и оставьте работающим.
+Каждый port-forward для метрик запускайте в отдельном терминале и оставьте работающим.
 
 ```powershell
-kubectl port-forward -n raincheck deployment/web 8080:80
 kubectl port-forward -n monitoring service/vm-single-victoria-metrics-single-server 8428:8428
 kubectl port-forward -n monitoring service/vmagent-victoria-metrics-agent 8429:8429
 
@@ -126,17 +126,3 @@ kubectl get pods -n raincheck
 ```
 {__name__=~"raincheck_.*"}
 ```
-
-Количество учтённых закрытий опросов:
-
-```promql
-sum(raincheck_poll_lifetime_seconds_count)
-```
-
-Среднее время до закрытия за последний час, в секундах:
-
-```promql
-sum(increase(raincheck_poll_lifetime_seconds_sum[1h])) / sum(increase(raincheck_poll_lifetime_seconds_count[1h]))
-```
-
-Если за выбранное время закрытий не было, среднее не определено.
