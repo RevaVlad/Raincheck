@@ -1,4 +1,6 @@
 import type { FastifyInstance } from 'fastify';
+import { ApplicationError } from '#services/errors';
+import { applicationErrorStatus } from './common/application-errors.js';
 
 export type ApiErrorCode =
   | 'INVALID_REQUEST'
@@ -30,6 +32,9 @@ function isValidationError(error: unknown): boolean {
 
 function normalizeError(error: unknown): AppError {
   if (error instanceof AppError) return error;
+  if (error instanceof ApplicationError) {
+    return new AppError(error.code, applicationErrorStatus[error.code], error.message);
+  }
   if (error instanceof RangeError) return new AppError('INVALID_REQUEST', 400, error.message);
   if (isValidationError(error)) return new AppError('INVALID_REQUEST', 400, 'Invalid request');
   return new AppError('INTERNAL_ERROR', 500, 'Internal server error');

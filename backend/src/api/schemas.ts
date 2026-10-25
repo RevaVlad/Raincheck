@@ -1,28 +1,8 @@
-export const participantTokenHeaders = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['x-participant-token'],
-  properties: {
-    'x-participant-token': { type: 'string', minLength: 32, maxLength: 128 },
-  },
-} as const;
-
-export const optionalParticipantTokenHeaders = {
-  type: 'object',
-  additionalProperties: false,
-  properties: {
-    'x-participant-token': { type: 'string', maxLength: 128 },
-  },
-} as const;
-
-export const inviteCodeParams = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['inviteCode'],
-  properties: {
-    inviteCode: { type: 'string', minLength: 32, maxLength: 64, pattern: '^[A-Za-z0-9_-]+$' },
-  },
-} as const;
+export {
+  participantTokenHeaders,
+  optionalParticipantTokenHeaders,
+} from './common/token.schemas.js';
+export { inviteCodeParams } from './common/params.schemas.js';
 
 export const apiErrorResponse = {
   type: 'object',
