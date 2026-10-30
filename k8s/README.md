@@ -70,8 +70,8 @@ kubectl delete namespace raincheck
 VictoriaLogs и collector используются для логов
 
 ```sh
-helm upgrade --install vls vm/victoria-logs-single --version 0.13.10 -n raincheck -f k8s/50-victoria-logs-values.yaml --wait
-helm upgrade --install collector vm/victoria-logs-collector --version 0.3.8 -n raincheck -f k8s/60-victoria-logs-collector-values.yaml --wait
+helm upgrade --install vls vm/logs screenshots-single --version 0.13.10 -n raincheck -f k8s/50-logs screenshots-values.yaml --wait
+helm upgrade --install collector vm/logs screenshots-collector --version 0.3.8 -n raincheck -f k8s/60-logs screenshots-collector-values.yaml --wait
 ```
 
 ## Метрики
