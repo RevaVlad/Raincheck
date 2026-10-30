@@ -102,12 +102,13 @@ export default tseslint.config(
       '.worktrees/**',
       'output/**',
     ],
-    files: ['backend/{src,tests}/**/*.ts', 'frontend/src/**/*.ts'],
+    files: ['backend/{src,tests}/**/*.ts', 'frontend/src/**/*.ts', 'prober/{src,tests}/**/*.ts'],
     languageOptions: {
       parser: tseslint.parser,
       parserOptions: {
         project: [
           './backend/tsconfig.test.json',
+          './prober/tsconfig.test.json',
           './frontend/tsconfig.app.json',
           './frontend/tsconfig.spec.json',
         ],
@@ -133,7 +134,12 @@ export default tseslint.config(
     },
   },
   {
-    files: ['backend/tests/**/*.ts', 'frontend/src/**/*.spec.ts', 'frontend/src/**/*.test.ts'],
+    files: [
+      'backend/tests/**/*.ts',
+      'frontend/src/**/*.spec.ts',
+      'frontend/src/**/*.test.ts',
+      'prober/tests/**/*.ts',
+    ],
     rules: {
       'max-lines-per-function': ['error', { max: 400, skipBlankLines: true, skipComments: true }],
       complexity: ['error', { max: 16, variant: 'modified' }],

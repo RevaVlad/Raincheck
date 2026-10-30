@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prober
+  namespace: raincheck
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: prober
+  template:
+    metadata:
+      labels:
+        app: prober
+      annotations:
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: '9091'
+        prometheus.io/path: '/metrics'
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: prober
+          image: raincheck-prober:dev
+          imagePullPolicy: Never
+          ports:
+            - name: metrics
+              containerPort: 9091
+          env:
+            - name: RAINCHECK_API_URL
+              value: http://api.raincheck.svc.cluster.local:3000
+            - name: PROBER_INTERVAL_MS
+              value: '15000'
+            - name: PORT
+              value: '9091'
+            - name: PROBER_INVITE_CODE
+              valueFrom:
+                secretKeyRef:
+                  name: raincheck-env
+                  key: PROBER_INVITE_CODE
+            - name: PROBER_POLL_ID
+              valueFrom:
+                secretKeyRef:
+                  name: raincheck-env
+                  key: PROBER_POLL_ID
+            - name: PROBER_PARTICIPANT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: raincheck-env
+                  key: PROBER_PARTICIPANT_TOKEN
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            periodSeconds: 15
+            timeoutSeconds: 3
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 192Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prober
+  namespace: raincheck
+spec:
+  type: ClusterIP
+  selector:
+    app: prober
+  ports:
+    - name: metrics
+      port: 9091
+      targetPort: metrics

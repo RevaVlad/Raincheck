@@ -1,4 +1,5 @@
 import { buildApp } from './app.js';
+import { Registry } from '@prometheus-io/client';
 import { buildMetricsApp } from './metrics-app.js';
 import { loadConfig } from '#config/config';
 import { createPrismaClient } from '#infrastructure/database/prisma-database';
@@ -8,13 +9,17 @@ let shuttingDown = false;
 let app: ReturnType<typeof buildApp> | undefined;
 let metricsApp: ReturnType<typeof buildMetricsApp> | undefined;
 
+async function closeApps() {
+  const results = await Promise.allSettled([metricsApp?.close(), app?.close()]);
+  const failure = results.find((result) => result.status === 'rejected');
+  if (failure) throw failure.reason;
+}
+
 async function shutdown(signal?: string) {
   if (shuttingDown) return;
   shuttingDown = true;
   try {
-    const results = await Promise.allSettled([metricsApp?.close(), app?.close()]);
-    const failure = results.find((result) => result.status === 'rejected');
-    if (failure?.status === 'rejected') throw failure.reason;
+    await closeApps();
     if (signal) logger.info({ event: 'process.stopped', signal }, 'Raincheck API stopped');
   } catch (err) {
     logger.error({ event: 'process.shutdown_failed', err }, 'API shutdown failed');
@@ -29,8 +34,10 @@ try {
   const config = loadConfig();
   logger.level = config.logLevel;
   const database = createPrismaClient(config);
-  app = buildApp(config, database);
-  metricsApp = buildMetricsApp();
+  const httpMetricsRegistry = new Registry();
+  app = buildApp(config, database, httpMetricsRegistry);
+  await app.ready();
+  metricsApp = buildMetricsApp(httpMetricsRegistry);
   await metricsApp.listen({ host: config.host, port: 9464 });
   await app.listen({ host: config.host, port: config.port });
   logger.info(

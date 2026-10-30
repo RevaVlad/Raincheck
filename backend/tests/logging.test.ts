@@ -17,7 +17,9 @@ const config: Config = {
   logLevel: 'info',
 };
 
-type LogRecord = Record<string, unknown> & { err?: { stack?: string; code?: string } };
+type LogRecord = Record<string, unknown> & {
+  err?: { message?: string; stack?: string; code?: string };
+};
 
 function captureLogs(context: TestContext): LogRecord[] {
   const records: LogRecord[] = [];
@@ -64,7 +66,7 @@ function createApp() {
     throw new AppError('GROUP_NOT_FOUND', 404, 'Group not found');
   });
   app.get('/api/probe/failure', async () => {
-    throw new Error('Operation failed\nparticipant-secret-and-invite-code-must-not-be-logged');
+    throw new Error('Operation failed\nAdditional diagnostic details');
   });
   return app;
 }
@@ -105,7 +107,7 @@ void test('generates a UUID request ID without logging path or query secrets', a
   }
 });
 
-void test('preserves request IDs and safe errors for API failures', async (t) => {
+void test('logs API failures while keeping client errors generic', async (t) => {
   const records = captureLogs(t);
   const app = createApp();
   try {
@@ -135,7 +137,9 @@ void test('preserves request IDs and safe errors for API failures', async (t) =>
     assert.equal(errors.at(-1)?.level, 'error');
     assert.equal(records.filter((record) => record.err?.stack).length, 1);
     assert.match(errors.at(-1)?.err?.stack ?? '', /\n\s+at /);
-    assert.doesNotMatch(JSON.stringify(records), /participant-secret|invite-code-must/);
+    assert.equal(errors.at(-1)?.err?.message, 'Operation failed\nAdditional diagnostic details');
+    assert.match(errors.at(-1)?.err?.stack ?? '', /^Error: Operation failed\n/);
+    assert.doesNotMatch(failure.body, /Operation failed|Additional diagnostic details/);
     assert.equal(records.filter((record) => record.event === 'probe.business').length, 0);
   } finally {
     await app.close();
@@ -156,7 +160,7 @@ void test('successful health checks produce no logs', async (t) => {
   }
 });
 
-void test('PostgreSQL pool errors emit a sanitized pool log', async (t) => {
+void test('PostgreSQL pool errors preserve diagnostic details in logs', async (t) => {
   const records = captureLogs(t);
   const poolPrototype = pg.Pool.prototype as unknown as {
     on: (event: string, listener: (error: Error) => void) => unknown;
@@ -175,7 +179,7 @@ void test('PostgreSQL pool errors emit a sanitized pool log', async (t) => {
     await database.$connect();
     assert.ok(poolErrorListener);
     poolErrorListener(
-      Object.assign(new Error('Pool failed\nparticipant-secret-and-database-url-secret'), {
+      Object.assign(new Error('Pool failed\nConnection was reset'), {
         code: 'ECONNRESET',
       }),
     );
@@ -183,7 +187,8 @@ void test('PostgreSQL pool errors emit a sanitized pool log', async (t) => {
     assert.equal(records[0]?.event, 'database.pool_error');
     assert.equal(records[0]?.level, 'error');
     assert.equal(records[0]?.err?.code, 'ECONNRESET');
-    assert.doesNotMatch(JSON.stringify(records), /participant-secret|database-url-secret/);
+    assert.equal(records[0]?.err?.message, 'Pool failed\nConnection was reset');
+    assert.match(records[0]?.err?.stack ?? '', /^Error: Pool failed\n/);
   } finally {
     poolPrototype.on = originalOn;
     await database.$disconnect();
