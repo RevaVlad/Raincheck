@@ -1,4 +1,5 @@
 **/node_modules/
+**/.npm-cache/
 backend/src/generated/prisma/
 **/dist/
 **/coverage/

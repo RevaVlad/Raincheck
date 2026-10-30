@@ -5,6 +5,7 @@
 **/dist
 **/.angular
 **/coverage
+**/.npm-cache
 **/.env
 **/.env.*
 !**/.env.example

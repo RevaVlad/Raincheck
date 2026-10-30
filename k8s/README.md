@@ -1,17 +1,22 @@
 ﻿# Raincheck в Minikube
 
-Команды выполняйте из корня проекта. Перед запуском Minikube должен быть активен, а образы `raincheck-api:dev`, `raincheck-web:dev` и `raincheck-migrate:dev` загружены в него.
+Команды выполняйте из корня проекта. Minikube должен быть активен; используются образы `raincheck-api:dev`, `raincheck-web:dev`, `raincheck-migrate:dev` и `raincheck-prober:dev`.
 
 ## Секреты
 
-Создайте `k8s/.env`:
+Создайте `k8s/.env` по образцу `k8s/.env.example`:
 
 ```env
 POSTGRES_PASSWORD=ваш-пароль
 K8S_DATABASE_URL=postgresql://raincheck:<url-кодированный-пароль>@postgres:5432/raincheck
+PROBER_INVITE_CODE=код-тестовой-группы
+PROBER_POLL_ID=uuid-открытого-опроса
+PROBER_PARTICIPANT_TOKEN=токен-тестового-участника
 ```
 
 Укажите один и тот же пароль: обычный в `POSTGRES_PASSWORD`, URL-кодированный — в `K8S_DATABASE_URL`. Замените текст вместе с угловыми скобками. Не берите значения в кавычки. Файл `k8s/.env` исключён из Git.
+
+Данные пробера создаются один раз через API или UI: отдельная группа, один участник и открытый текущий опрос. При первой установке БД сначала запустите API, создайте эти данные, затем заполните три `PROBER_*` и обновите Secret той же командой ниже.
 
 ## Запуск
 
@@ -21,7 +26,7 @@ K8S_DATABASE_URL=postgresql://raincheck:<url-кодированный-парол
 
 ```sh
 kubectl apply -f k8s/00-namespace.yaml
-kubectl create secret generic raincheck-env --from-env-file=k8s/.env -n raincheck
+kubectl create secret generic raincheck-env --from-env-file=k8s/.env -n raincheck --dry-run=client -o yaml | kubectl apply -f -
 ```
 
 2. Запустите PostgreSQL. Продолжайте, когда база принимает подключения:
@@ -51,13 +56,19 @@ kubectl get pods -n raincheck
 minikube tunnel --bind-address=127.0.0.1
 ```
 
-5. Масштабирование бэкэнда:
+5. Запуск пробера:
+
+```sh
+kubectl apply -f k8s/90-prober.yaml
+```
+
+6. Масштабирование бэкэнда:
 
 ```sh
 kubectl scale deployment api --replicas=3 -n raincheck
 ```
 
-6. Удаление ns (включая PVC и данные):
+7. Удаление ns (включая PVC и данные):
 
 ```sh
 kubectl delete namespace raincheck
@@ -104,6 +115,8 @@ kubectl apply -f k8s/80-postgres-exporter.yaml
 ```
 
 ## Просмотр метрик в VictoriaMetrics
+
+Для синтетических проверок основного сценария запустите пробер. Его метрики обнаруживается vmagent по аннотациям.
 
 VictoriaMetrics, vmagent и PostgreSQL exporter должны быть запущены в namespace `monitoring`, API — в `raincheck`:
 
