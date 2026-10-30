@@ -12,13 +12,48 @@ spec:
     metadata:
       labels:
         app: api
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9464"
+        prometheus.io/path: "/metrics"
     spec:
+      initContainers:
+        - name: migrate
+          image: raincheck-migrate:dev
+          imagePullPolicy: Never
+          command: ["npm", "run", "prisma:deploy"]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: raincheck-env
+                  key: K8S_DATABASE_URL
       containers:
         - name: api
           image: raincheck-api:dev
           imagePullPolicy: Never
           ports:
             - containerPort: 3000
+            - name: metrics
+              containerPort: 9464
+          startupProbe:
+            httpGet:
+              path: /health/live
+              port: 3000
+            periodSeconds: 2
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 3000
+            periodSeconds: 5
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 3000
+            periodSeconds: 10
+            timeoutSeconds: 3
           env:
             - name: DATABASE_URL
               valueFrom:

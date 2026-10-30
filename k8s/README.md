@@ -31,23 +31,24 @@ kubectl apply -f k8s/10-postgres.yaml
 kubectl get pods -n raincheck
 ```
 
-3. Запустите миграции и дождитесь их успешaного завершения:
+3. Миграции выполняются initContainer API. Для отдельного запуска:
 
 ```sh
 kubectl apply -f k8s/20-migrate.yaml
 kubectl get jobs -n raincheck
 ```
 
-4. Запустите API, затем frontend:
+4. Запустите API, затем frontend. Команду `minikube tunnel` выполняйте в отдельном терминале:
 
 ```sh
 kubectl apply -f k8s/30-api.yaml
 kubectl get pods -n raincheck
 
+minikube addons enable ingress
 kubectl apply -f k8s/40-web.yaml
 kubectl get pods -n raincheck
 
-kubectl port-forward service/web 8080:80 -n raincheck
+minikube tunnel --bind-address=127.0.0.1
 ```
 
 5. Масштабирование бэкэнда:
@@ -56,10 +57,71 @@ kubectl port-forward service/web 8080:80 -n raincheck
 kubectl scale deployment api --replicas=3 -n raincheck
 ```
 
-6. Удаление ns:
+6. Удаление ns (включая PVC и данные):
 
 ```sh
 kubectl delete namespace raincheck
 ```
 
-Откройте http://localhost:8080. Оставьте port-forward работающим.
+Откройте http://localhost. В Minikube с Docker на Windows оставьте `minikube tunnel` работающим.
+
+## Логи
+
+VictoriaLogs и collector используются для логов
+
+```sh
+helm upgrade --install vls vm/victoria-logs-single --version 0.13.10 -n raincheck -f k8s/50-victoria-logs-values.yaml --wait
+helm upgrade --install collector vm/victoria-logs-collector --version 0.3.8 -n raincheck -f k8s/60-victoria-logs-collector-values.yaml --wait
+```
+
+## Метрики
+
+Использованы готовые чарты из репозитория VictoriaMetrics:
+
+```sh
+helm repo add vm https://victoriametrics.github.io/helm-charts/
+helm repo update
+```
+
+2. Установите VictoriaMetrics с настройками из values-файла:
+
+```sh
+helm upgrade --install vm-single vm/victoria-metrics-single --version 0.49.0 -n monitoring --create-namespace -f k8s/70-victoria-metrics-values.yaml --wait
+```
+
+3. Установите [vmagent](https://docs.victoriametrics.com/helm/victoria-metrics-agent/) для сбора метрик и отправки в VictoriaMetrics:
+
+```sh
+helm upgrade --install vmagent vm/victoria-metrics-agent --version 0.50.0 -n monitoring -f k8s/70-victoria-metrics-values.yaml --wait
+```
+
+Один values-файл используется для обоих чартов: `server` настраивает VictoriaMetrics, `service`, `remoteWrite` и `config` — vmagent. Встроенный сборщик VictoriaMetrics отключён, метрики собирает только vmagent.
+
+4. Создание PostgreSQL exporter:
+
+```sh
+kubectl apply -f k8s/80-postgres-exporter.yaml
+```
+
+## Просмотр метрик в VictoriaMetrics
+
+VictoriaMetrics, vmagent и PostgreSQL exporter должны быть запущены в namespace `monitoring`, API — в `raincheck`:
+
+Каждый port-forward для метрик запускайте в отдельном терминале и оставьте работающим.
+
+```powershell
+kubectl port-forward -n monitoring service/vm-single-victoria-metrics-single-server 8428:8428
+
+kubectl get pods -n monitoring
+kubectl get pods -n raincheck
+```
+
+- http://localhost:8428/vmui/ — интерфейс запросов и графиков.
+- http://localhost:8429/targets — состояние сбора метрик в vmagent.
+- http://localhost:8429/metrics — собственные метрики vmagent.
+
+Бизнес метрики:
+
+```
+{__name__=~"raincheck_.*"}
+```

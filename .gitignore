@@ -11,3 +11,4 @@ backend/src/generated/prisma/
 output/
 docs/
 manifests/
+.idea/
