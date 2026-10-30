@@ -111,7 +111,6 @@ VictoriaMetrics, vmagent и PostgreSQL exporter должны быть запущ
 
 ```powershell
 kubectl port-forward -n monitoring service/vm-single-victoria-metrics-single-server 8428:8428
-kubectl port-forward -n monitoring service/vmagent-victoria-metrics-agent 8429:8429
 
 kubectl get pods -n monitoring
 kubectl get pods -n raincheck
