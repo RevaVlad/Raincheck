@@ -1,8 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import Fastify from 'fastify';
+import type { Registry } from '@prometheus-io/client';
 import type { FastifyBaseLogger, FastifyInstance } from 'fastify';
 import type { Config } from '#config/config';
 import { isDatabaseAvailable } from '#infrastructure/database/prisma-database';
+import { configureHttpRequestDurationMetrics } from '#infrastructure/http-request-duration-metrics';
 import type { PrismaClient } from './generated/prisma/client.js';
 import { logger } from '#shared/logger';
 import { registerApiErrorHandler } from './api/errors.js';
@@ -16,7 +18,11 @@ type HealthDatabase = {
   close(): Promise<void>;
 };
 
-export function buildApp(config: Config, database: PrismaClient | HealthDatabase) {
+export function buildApp(
+  config: Config,
+  database: PrismaClient | HealthDatabase,
+  httpMetricsRegistry?: Registry,
+) {
   logger.level = config.logLevel;
   const app = Fastify({
     loggerInstance: logger as unknown as FastifyBaseLogger,
@@ -28,6 +34,7 @@ export function buildApp(config: Config, database: PrismaClient | HealthDatabase
     }),
   });
 
+  configureHttpRequestDurationMetrics(app, httpMetricsRegistry);
   registerRequestLogging(app);
   app.addHook('onClose', () => {
     if ('close' in database) return database.close();
