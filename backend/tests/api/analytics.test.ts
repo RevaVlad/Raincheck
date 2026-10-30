@@ -145,9 +145,20 @@ void test('requires a valid viewer time zone for results and suggestions', async
     const baseUrl = `/api/groups/${group.inviteCode}/polls/${poll.id}/${path}`;
     const missing = await app.inject(baseUrl);
     assert.equal(missing.statusCode, 400, missing.body);
+    assert.equal(missing.json().error.code, 'INVALID_REQUEST');
     const invalid = await app.inject(`${baseUrl}?timeZone=No%2FSuchZone`);
     assert.equal(invalid.statusCode, 400, invalid.body);
+    assert.equal(invalid.json().error.code, 'INVALID_REQUEST');
   }
+});
+
+void test('requires a participant token for suggestions with a valid time zone', async () => {
+  const { group, poll } = await createScenario();
+  const response = await app.inject(
+    `/api/groups/${group.inviteCode}/polls/${poll.id}/suggestions/me?timeZone=UTC`,
+  );
+  assert.equal(response.statusCode, 401, response.body);
+  assert.equal(response.json().error.code, 'UNAUTHORIZED');
 });
 
 void test(

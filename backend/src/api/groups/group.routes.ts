@@ -3,6 +3,7 @@ import type { Prisma } from '../../generated/prisma/client.js';
 import { groupsCreated } from '#infrastructure/metrics';
 import { GroupService } from '#services/group/group.service';
 import { getGroupPreview } from '#services/group/get-group-preview';
+import { logEvent } from '../log-event.js';
 import { inviteCodeParams } from '../common/params.schemas.js';
 import { groupBody } from './group.schema.js';
 import { toGroupDto, toGroupPreviewDto } from './group.mapper.js';
@@ -16,7 +17,7 @@ export function registerGroupEndpoints(app: FastifyInstance, database: Prisma.Tr
     async (request, reply) => {
       const group = await new GroupService(database).create(request.body);
       groupsCreated.inc();
-
+      logEvent(request, 'group.created', { groupId: group.id });
       return reply.code(201).send({ group: toGroupDto(group), currentPoll: null });
     },
   );

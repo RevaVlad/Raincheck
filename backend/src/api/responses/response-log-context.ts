@@ -13,5 +13,10 @@ export async function resolveResponseRequest(
     request.params.pollId,
     request.headers['x-participant-token'],
   );
+  request.log = request.log.child({
+    groupId: context.group.id,
+    pollId: context.poll.id,
+    participantId: context.participant.id,
+  });
   return context;
 }

@@ -7,6 +7,7 @@ import {
   getResponseDetails,
   replaceResponseIntervals,
 } from '#services/response/response.scenarios';
+import { logEvent } from '../log-event.js';
 import { toResponseDto } from './response.mapper.js';
 import { responseParams, replaceIntervalsBody } from './response.schemas.js';
 import type { ReplaceResponseRoute, ResponseRoute } from './response.types.js';
@@ -23,7 +24,7 @@ export function registerResponseWriteRoutes(
       const context = await resolveResponseRequest(database, request);
       const response = await createDraft(database, context);
       responsesCreated.inc();
-
+      logEvent(request, 'response.created', { responseId: response.id });
       const details = await getResponseDetails(database, response);
       return reply.code(201).send(toResponseDto(details));
     },
@@ -36,7 +37,10 @@ export function registerResponseWriteRoutes(
       const context = await resolveResponseRequest(database, request);
       const response = await getResponse(database, context);
       await replaceResponseIntervals(database, response, request.body.intervals);
-
+      logEvent(request, 'response.intervals_saved', {
+        responseId: response.id,
+        intervalCount: request.body.intervals.length,
+      });
       const updated = await getResponse(database, context);
       return toResponseDto(await getResponseDetails(database, updated));
     },

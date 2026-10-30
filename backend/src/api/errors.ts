@@ -43,7 +43,19 @@ function normalizeError(error: unknown): AppError {
 export function registerApiErrorHandler(app: FastifyInstance): void {
   app.setErrorHandler((error, request, reply) => {
     const appError = normalizeError(error);
-    if (appError.statusCode >= 500) request.log.error({ err: error }, 'Unhandled API error');
+    const fields = {
+      event: 'http.request.error',
+      errorCode: appError.code,
+      description: appError.statusCode >= 500 ? 'Internal server error' : appError.code,
+      method: request.method,
+      route: request.routeOptions.url ?? 'unmatched',
+      statusCode: appError.statusCode,
+      duration_ms: reply.elapsedTime,
+      ...(appError.statusCode >= 500 ? { err: error } : {}),
+    };
+    if (appError.statusCode >= 500) request.log.error(fields, 'API request failed');
+    else if (appError.statusCode === 404) request.log.info(fields, 'API request not found');
+    else request.log.warn(fields, 'API request rejected');
     return reply.code(appError.statusCode).send({
       error: { code: appError.code, message: appError.message, requestId: request.id },
     });

@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { deleteResponse } from '#services/response/response.scenarios';
+import { logEvent } from '../log-event.js';
 import { responseParams } from './response.schemas.js';
 import type { ResponseRoute } from './response.types.js';
 import { resolveResponseRequest } from './response-log-context.js';
@@ -15,7 +16,7 @@ export function registerResponseDeleteRoutes(
     async (request, reply) => {
       const context = await resolveResponseRequest(database, request);
       await deleteResponse(database, context);
-
+      logEvent(request, 'response.deleted');
       return reply.code(204).send();
     },
   );

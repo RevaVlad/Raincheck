@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { closePoll, createPoll } from '#services/poll/poll.scenarios';
 import { pollsCreated } from '#infrastructure/metrics';
+import { logEvent } from '../log-event.js';
 import { inviteCodeParams, pollParams } from '../common/params.schemas.js';
 import { optionalParticipantTokenHeaders } from '../common/token.schemas.js';
 import { toPollDto } from './poll.mapper.js';
@@ -26,7 +27,7 @@ export function registerPollWriteRoutes(
         input: request.body,
       });
       pollsCreated.inc();
-
+      logEvent(request, 'poll.created', { groupId: poll.groupId, pollId: poll.id });
       return reply.code(201).send({ poll: toPollDto(poll) });
     },
   );
@@ -40,7 +41,7 @@ export function registerPollWriteRoutes(
         pollId: request.params.pollId,
         token: request.headers['x-participant-token'],
       });
-
+      logEvent(request, 'poll.closed', { groupId: poll.groupId, pollId: poll.id });
       return { poll: toPollDto(poll) };
     },
   );
