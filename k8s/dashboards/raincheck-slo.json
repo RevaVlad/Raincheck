@@ -1,0 +1,60 @@
+{
+  "title": "Raincheck SLI / SLO",
+  "rows": [
+    {
+      "title": "Фактическая доступность за последние 5 минут",
+      "panels": [
+        {
+          "title": "Доступность операций и цели SLO (%)",
+          "description": "Три линии показывают долю правильных и своевременных проверок за последние 5 минут (SLI). Единая цель SLO для всех операций: 99%. Фактическая линия ниже цели означает нарушение SLO на этом окне. Чтение должно занимать не более 0,5 с, остальные операции не более 1 с. Если проверок нет, фактического значения нет.",
+          "width": 6,
+          "unit": "%",
+          "showLegend": true,
+          "expr": [
+            "100 * (sum by (operation) (increase(raincheck_probe_checks_total{operation=\"poll_read\",result=\"success\"}[5m])) or on (operation) (0 * sum by (operation) (increase(raincheck_probe_checks_total{operation=\"poll_read\"}[5m])))) / (sum by (operation) (increase(raincheck_probe_checks_total{operation=\"poll_read\"}[5m])) > 0)",
+            "100 * (sum by (operation) (increase(raincheck_probe_checks_total{operation=\"availability_save\",result=\"success\"}[5m])) or on (operation) (0 * sum by (operation) (increase(raincheck_probe_checks_total{operation=\"availability_save\"}[5m])))) / (sum by (operation) (increase(raincheck_probe_checks_total{operation=\"availability_save\"}[5m])) > 0)",
+            "100 * (sum by (operation) (increase(raincheck_probe_checks_total{operation=\"common_slots\",result=\"success\"}[5m])) or on (operation) (0 * sum by (operation) (increase(raincheck_probe_checks_total{operation=\"common_slots\"}[5m])))) / (sum by (operation) (increase(raincheck_probe_checks_total{operation=\"common_slots\"}[5m])) > 0)",
+            "vector(99)"
+          ],
+          "alias": [
+            "Чтение опроса",
+            "Сохранение доступности",
+            "Просмотр результатов",
+            "SLO 99% для всех операций"
+          ]
+        },
+        {
+          "title": "Общая доступность (демо SLA, %)",
+          "description": "Наименьший из трёх SLI за последние 5 минут, рядом с требованием 99%. Например, при 100%, 95% и 100% здесь будет 95%. Это демонстрация расчёта: SLA требует не менее 99% для каждой операции за 30 дней. Пять минут измерений не подтверждают выполнение SLA за 30 дней. Если хотя бы у одной операции нет проверок, оценка отсутствует.",
+          "width": 6,
+          "unit": "%",
+          "showLegend": true,
+          "expr": [
+            "WITH (sli = 100 * (sum by (operation) (increase(raincheck_probe_checks_total{operation=~\"poll_read|availability_save|common_slots\",result=\"success\"}[5m])) or on (operation) (0 * sum by (operation) (increase(raincheck_probe_checks_total{operation=~\"poll_read|availability_save|common_slots\"}[5m])))) / (sum by (operation) (increase(raincheck_probe_checks_total{operation=~\"poll_read|availability_save|common_slots\"}[5m])) > 0)) min(sli) and on () (count(sli) == 3)",
+            "vector(99)"
+          ],
+          "alias": ["Худшая доступность за 5 минут", "Требование SLA 99%"]
+        },
+        {
+          "title": "Успешность создания сущностей (backend SLI)",
+          "description": "Доля POST-запросов за последние 5 минут, приведших к созданию группы, опроса или ответа. Единая цель SLO: 99%. Числитель берётся из соответствующего бизнес-счётчика, знаменатель из http_request_duration_seconds_count по method=POST и шаблону route, без фильтра по статусу. Ожидаемые ошибки валидации и конфликты тоже снижают показатель. Это успешность создания сущностей, а не чистая доступность API. Если POST-запросов не было или HTTP-метрика отсутствует, значения нет.",
+          "width": 12,
+          "unit": "%",
+          "showLegend": true,
+          "expr": [
+            "100 * sum(increase(raincheck_groups_created_total[5m])) / (sum(increase(http_request_duration_seconds_count{method=\"POST\",route=\"/api/groups\"}[5m])) > 0)",
+            "100 * sum(increase(raincheck_polls_created_total[5m])) / (sum(increase(http_request_duration_seconds_count{method=\"POST\",route=\"/api/groups/:inviteCode/polls\"}[5m])) > 0)",
+            "100 * sum(increase(raincheck_responses_created_total[5m])) / (sum(increase(http_request_duration_seconds_count{method=\"POST\",route=\"/api/groups/:inviteCode/polls/:pollId/responses/me\"}[5m])) > 0)",
+            "vector(99)"
+          ],
+          "alias": [
+            "Создание групп",
+            "Создание опросов",
+            "Создание ответов",
+            "SLO 99% для всех операций"
+          ]
+        }
+      ]
+    }
+  ]
+}
