@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: raincheck-alert-rules
+  namespace: monitoring
+data:
+  rules.yaml: |
+    groups:
+      - name: raincheck
+        interval: 15s
+        rules:
+          # 1. Повторяющиеся ошибки пробера
+          - alert: RaincheckProbeFailures
+            expr: sum by (operation) (increase(raincheck_probe_checks_total{result!="success"}[30s])) > 0
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: 'Повторяющиеся ошибки пробера: {{ $labels.operation }}'
+
+          # 2. Медленные пользовательские операции
+          - alert: RaincheckProbeHighLatency
+            expr: |
+              (
+                histogram_quantile(0.95,
+                  sum by (operation, le) (rate(raincheck_probe_duration_seconds_bucket{operation="poll_read",result=~"success|slow"}[5m]))
+                ) > 0.5
+              ) or (
+                histogram_quantile(0.95,
+                  sum by (operation, le) (rate(raincheck_probe_duration_seconds_bucket{operation=~"availability_save|common_slots",result=~"success|slow"}[5m]))
+                ) > 1
+              )
+            for: 3m
+            labels:
+              severity: warning
+            annotations:
+              summary: 'Высокий p95 пробера: {{ $labels.operation }}'
+
+          # 3. Высокая загрузка CPU у конкретного экземпляра API
+          - alert: RaincheckHighCPU
+            expr: rate(process_cpu_seconds_total{job="kubernetes-pods",instance=~".*:9464"}[5m]) > 0.8
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: 'Высокая загрузка CPU API: {{ $labels.instance }}'

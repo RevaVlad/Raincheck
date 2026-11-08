@@ -1,0 +1,26 @@
+fullnameOverride: raincheck-alertmanager
+
+persistence:
+  size: 1Gi
+
+extraSecretMounts:
+  - name: telegram
+    mountPath: /etc/alertmanager/secrets
+    secretName: raincheck-alertmanager-telegram
+    readOnly: true
+
+config:
+  route:
+    receiver: telegram
+    group_by: [alertname, operation, instance]
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 4h
+  receivers:
+    - name: telegram
+      telegram_configs:
+        - bot_token_file: /etc/alertmanager/secrets/TELEGRAM_BOT_TOKEN
+          chat_id_file: /etc/alertmanager/secrets/TELEGRAM_CHAT_ID
+          parse_mode: ''
+          send_resolved: true
+          message: '{{ range .Alerts }}{{ if eq .Status "firing" }}🔴 Проблема{{ else }}🟢 Восстановлено{{ end }}{{ "\n" }}{{ .Annotations.summary }}{{ "\n\n" }}{{ end }}'

@@ -138,6 +138,41 @@ helm upgrade --install vmagent vm/victoria-metrics-agent --version 0.50.0 -n mon
 kubectl apply -f k8s/80-postgres-exporter.yaml
 ```
 
+## Уведомления в Telegram
+
+Создайте `k8s/alerting.env` по образцу `k8s/alerting.env.example`.
+
+После запуска метрик создайте Secret из файла, установите Alertmanager через Helm и запустите vmalert:
+
+```powershell
+kubectl create secret generic raincheck-alertmanager-telegram --from-env-file=k8s/alerting.env -n monitoring --dry-run=client -o yaml | kubectl apply -f -
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update prometheus-community
+helm upgrade --install raincheck-alertmanager prometheus-community/alertmanager --version 2.3.0 -n monitoring -f k8s/92-alertmanager-values.yaml --wait
+kubectl apply -f k8s/91-alert-rules.yaml -f k8s/93-vmalert.yaml
+kubectl get pvc storage-raincheck-alertmanager-0 -n monitoring
+```
+
+Проверка логов:
+
+```powershell
+kubectl logs -n monitoring statefulset/raincheck-alertmanager -c alertmanager --tail=50
+kubectl logs -n monitoring deployment/raincheck-vmalert --tail=50
+```
+
+После изменения `92-alertmanager-values.yaml` повторите `helm upgrade --install` выше. После изменения `alerting.env` повторите создание Secret и перезапустите Alertmanager:
+
+```powershell
+kubectl rollout restart statefulset/raincheck-alertmanager -n monitoring
+```
+
+После изменения правил или манифеста vmalert:
+
+```powershell
+kubectl apply -f k8s/91-alert-rules.yaml -f k8s/93-vmalert.yaml
+kubectl rollout restart deployment/raincheck-vmalert -n monitoring
+```
+
 ## Просмотр метрик в VictoriaMetrics
 
 Для синтетических проверок основного сценария запустите пробер. Его метрики обнаруживается vmagent по аннотациям.

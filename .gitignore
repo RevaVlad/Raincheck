@@ -4,6 +4,7 @@ node_modules/
 dist/
 .angular/
 .env
+alerting.env
 !.env.example
 .DS_Store
 .playwright-cli/
