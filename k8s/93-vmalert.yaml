@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: raincheck-vmalert
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: raincheck-vmalert
+  template:
+    metadata:
+      labels:
+        app: raincheck-vmalert
+    spec:
+      containers:
+        - name: vmalert
+          image: victoriametrics/vmalert:v1.155.0
+          args:
+            - '-rule=/etc/vmalert/rules.yaml'
+            - '-datasource.url=http://vm-single-victoria-metrics-single-server.monitoring.svc.cluster.local:8428'
+            - '-notifier.url=http://raincheck-alertmanager.monitoring.svc.cluster.local:9093'
+          ports:
+            - containerPort: 8880
+          volumeMounts:
+            - name: rules
+              mountPath: /etc/vmalert
+              readOnly: true
+      volumes:
+        - name: rules
+          configMap:
+            name: raincheck-alert-rules
