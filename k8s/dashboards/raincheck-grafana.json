@@ -1,0 +1,275 @@
+{
+  "description": "Состояние API, RED, метрики Node.js и три SLI пробера. SLO ≥99,5%, учебное SLA ≥99% за 30 дней.",
+  "panels": [
+    {
+      "datasource": {"type": "prometheus", "uid": "victoria-metrics"},
+      "description": "Показывает, удаётся ли vmagent собирать метрики приложения. Значение up равно 1 при успешном сборе со всех наблюдаемых экземпляров API и 0 при ошибке хотя бы одного. Панель нужна для контроля сбора данных.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "decimals": 0,
+          "max": 1,
+          "min": 0,
+          "noValue": "No data",
+          "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]},
+          "unit": "none"
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+      "id": 1,
+      "options": {"colorMode": "value", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "targets": [
+        {
+          "expr": "min(up{job=\"kubernetes-pods\",instance=~\".*:9464\"})",
+          "instant": true,
+          "legendFormat": "API",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Сбор метрик API",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "victoria-metrics"},
+      "description": "Число HTTP-запросов в секунду, среднее за 5 минут. Показывает нагрузку: Rate в RED и Traffic в Golden Signals.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "decimals": 2,
+          "noValue": "No data",
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]},
+          "unit": "reqps"
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+      "id": 2,
+      "options": {"colorMode": "value", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "targets": [
+        {
+          "expr": "sum(rate(http_request_duration_seconds_count{job=\"kubernetes-pods\",instance=~\".*:9464\"}[5m]))",
+          "instant": true,
+          "legendFormat": "RPS",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP RPS",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "victoria-metrics"},
+      "description": "Доля ответов с серверной ошибкой за 5 минут. Соответствует Errors в RED и Golden Signals. Без запросов значение отсутствует.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "decimals": 2,
+          "max": 100,
+          "min": 0,
+          "noValue": "No data",
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]},
+          "unit": "percent"
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+      "id": 3,
+      "options": {"colorMode": "value", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "targets": [
+        {
+          "expr": "100 * (sum(rate(http_request_duration_seconds_count{job=\"kubernetes-pods\",instance=~\".*:9464\",status_code=~\"5..\"}[5m])) or (0 * sum(rate(http_request_duration_seconds_count{job=\"kubernetes-pods\",instance=~\".*:9464\"}[5m])))) / (sum(rate(http_request_duration_seconds_count{job=\"kubernetes-pods\",instance=~\".*:9464\"}[5m])) > 0)",
+          "instant": true,
+          "legendFormat": "5xx",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP 5xx",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "victoria-metrics"},
+      "description": "Оценка 95-го перцентиля времени HTTP-ответа по гистограмме за 5 минут. Показывает задержку: Duration в RED и Latency в Golden Signals.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "decimals": 3,
+          "noValue": "No data",
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]},
+          "unit": "s"
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+      "id": 4,
+      "options": {"colorMode": "value", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{job=\"kubernetes-pods\",instance=~\".*:9464\"}[5m])))",
+          "instant": true,
+          "legendFormat": "p95",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP p95",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "victoria-metrics"},
+      "description": "Использование CPU процессами API в ядрах. Показывает загрузку процессора, Utilization в USE.",
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "noValue": "No data", "unit": "cores"}},
+      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 4},
+      "id": 6,
+      "targets": [
+        {
+          "expr": "sum(rate(process_cpu_seconds_total{job=\"kubernetes-pods\",instance=~\".*:9464\"}[5m]))",
+          "instant": false,
+          "legendFormat": "CPU",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "CPU API",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "victoria-metrics"},
+      "description": "RSS и используемая память JS heap. Позволяет следить за потреблением памяти, Utilization в USE. Saturation и ресурсные Errors этими панелями не измеряются.",
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "noValue": "No data", "unit": "bytes"}},
+      "gridPos": {"h": 6, "w": 12, "x": 12, "y": 4},
+      "id": 7,
+      "targets": [
+        {
+          "expr": "sum(process_resident_memory_bytes{job=\"kubernetes-pods\",instance=~\".*:9464\"})",
+          "instant": false,
+          "legendFormat": "RSS",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "expr": "sum(nodejs_heap_size_used_bytes{job=\"kubernetes-pods\",instance=~\".*:9464\"})",
+          "instant": false,
+          "legendFormat": "JS heap used",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "title": "Память API",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "victoria-metrics"},
+      "description": "Пробер запрашивает тестовый опрос и проверяет его идентификатор и статус OPEN: опрос открыт для ответов. Доля корректных чтений: (success + slow) / все проверки × 100%. Медленный, но правильный ответ учитывается как успешный.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "decimals": 2,
+          "max": 100,
+          "min": 0,
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{"color": "red", "value": null}, {"color": "orange", "value": 99}, {"color": "green", "value": 99.5}]
+          },
+          "unit": "percent"
+        }
+      },
+      "gridPos": {"h": 5, "w": 8, "x": 0, "y": 10},
+      "id": 8,
+      "options": {"colorMode": "value", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "targets": [
+        {
+          "expr": "100 * (sum(increase(raincheck_probe_checks_total{job=\"kubernetes-pods\",instance=~\".*:9091\",operation=\"poll_read\",result=~\"success|slow\"}[$sli_window])) or (0 * sum(increase(raincheck_probe_checks_total{job=\"kubernetes-pods\",instance=~\".*:9091\",operation=\"poll_read\"}[$sli_window])))) / (sum(increase(raincheck_probe_checks_total{job=\"kubernetes-pods\",instance=~\".*:9091\",operation=\"poll_read\"}[$sli_window])) > 0)",
+          "instant": true,
+          "legendFormat": "Чтение",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "SLI 1: чтение опроса ($sli_window)",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "victoria-metrics"},
+      "description": "Пробер удаляет предыдущий тестовый ответ, читает данные участника и интервалы опроса, создаёт черновик и сохраняет первый интервал с отметкой «при необходимости». Затем читает ответ и сверяет интервал, идентификатор и статус черновика. Доля корректных проверок, завершённых целиком за ≤1 с: success / все проверки × 100%.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "decimals": 2,
+          "max": 100,
+          "min": 0,
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{"color": "red", "value": null}, {"color": "orange", "value": 99}, {"color": "green", "value": 99.5}]
+          },
+          "unit": "percent"
+        }
+      },
+      "gridPos": {"h": 5, "w": 8, "x": 8, "y": 10},
+      "id": 9,
+      "options": {"colorMode": "value", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "targets": [
+        {
+          "expr": "100 * (sum(increase(raincheck_probe_checks_total{job=\"kubernetes-pods\",instance=~\".*:9091\",operation=\"availability_save\",result=\"success\"}[$sli_window])) or (0 * sum(increase(raincheck_probe_checks_total{job=\"kubernetes-pods\",instance=~\".*:9091\",operation=\"availability_save\"}[$sli_window])))) / (sum(increase(raincheck_probe_checks_total{job=\"kubernetes-pods\",instance=~\".*:9091\",operation=\"availability_save\"}[$sli_window])) > 0)",
+          "instant": true,
+          "legendFormat": "Сохранение",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "SLI 2: сохранение доступности ≤1 с ($sli_window)",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "victoria-metrics"},
+      "description": "Пробер запрашивает результаты тестового опроса. Проверяет участника со статусом черновика, отсутствие подтверждённых ответов и подходящих интервалов, нулевые значения тепловой карты. Доля корректных результатов: (success + slow) / все проверки × 100%. Ошибка подготовки ответа или чтения опроса также делает эту проверку неуспешной.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "decimals": 2,
+          "max": 100,
+          "min": 0,
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{"color": "red", "value": null}, {"color": "orange", "value": 99}, {"color": "green", "value": 99.5}]
+          },
+          "unit": "percent"
+        }
+      },
+      "gridPos": {"h": 5, "w": 8, "x": 16, "y": 10},
+      "id": 10,
+      "options": {"colorMode": "value", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "targets": [
+        {
+          "expr": "100 * (sum(increase(raincheck_probe_checks_total{job=\"kubernetes-pods\",instance=~\".*:9091\",operation=\"common_slots\",result=~\"success|slow\"}[$sli_window])) or (0 * sum(increase(raincheck_probe_checks_total{job=\"kubernetes-pods\",instance=~\".*:9091\",operation=\"common_slots\"}[$sli_window])))) / (sum(increase(raincheck_probe_checks_total{job=\"kubernetes-pods\",instance=~\".*:9091\",operation=\"common_slots\"}[$sli_window])) > 0)",
+          "instant": true,
+          "legendFormat": "Результаты",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "SLI 3: получение результатов ($sli_window)",
+      "type": "stat"
+    }
+  ],
+  "refresh": "15s",
+  "schemaVersion": 39,
+  "tags": ["raincheck", "sre"],
+  "templating": {
+    "list": [
+      {
+        "current": {"text": "5m", "value": "5m"},
+        "label": "Окно SLI",
+        "name": "sli_window",
+        "options": [{"selected": true, "text": "5m", "value": "5m"}, {"selected": false, "text": "30d", "value": "30d"}],
+        "query": "5m,30d",
+        "type": "custom"
+      }
+    ]
+  },
+  "time": {"from": "now-15m", "to": "now"},
+  "timezone": "browser",
+  "title": "Raincheck - приложение и SLI",
+  "uid": "raincheck-grafana"
+}
