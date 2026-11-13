@@ -281,3 +281,14 @@ kubectl get pvc -n monitoring
 ```
 
 Если port-forward завершился при перезапуске Pod, запустите его снова. Перезагрузите VMUI, убедитесь, что дашборд доступен, история графиков сохранилась, PVC остался прежним и `up` / `pg_up` снова равны 1.
+
+## Grafana
+
+Настройка графаны
+
+```sh
+helm repo add grafana-community https://grafana-community.github.io/helm-charts
+helm repo update
+helm install raincheck-grafana grafana-community/grafana --namespace monitoring -f k8s/95-grafana-values.yaml --set-file dashboards.default.raincheck.json=k8s/dashboards/raincheck-grafana.json --set-file dashboards.default.postgres-overview.json=k8s/dashboards/postgres-overview.json
+kubectl port-forward svc/raincheck-grafana 3000:80 -n monitoring
+```
