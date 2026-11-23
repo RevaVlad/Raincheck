@@ -38,9 +38,13 @@ data:
 
           # 3. Высокая загрузка CPU у конкретного экземпляра API
           - alert: RaincheckHighCPU
-            expr: rate(process_cpu_seconds_total{job="kubernetes-pods",instance=~".*:9464"}[5m]) > 0.8
+            expr: |
+              WITH (
+                cpu = process_cpu_seconds_total{job="kubernetes-pods",cpu_limit_cores!=""}
+              )
+              100 * rate(cpu[5m]) / (label_value(cpu, "cpu_limit_cores") > 0) > 80
             for: 5m
             labels:
               severity: warning
             annotations:
-              summary: 'Высокая загрузка CPU API: {{ $labels.instance }}'
+              summary: 'Загрузка CPU API выше 80% лимита: {{ $labels.instance }}'

@@ -15,11 +15,22 @@ spec:
       labels:
         app: postgres
         component: database
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9187"
+        prometheus.io/path: "/metrics"
     spec:
       containers:
         - name: postgres
           image: postgres:17-alpine
           imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
           ports:
             - containerPort: 5432
           startupProbe:
@@ -46,6 +57,38 @@ spec:
             - name: POSTGRES_USER
               value: raincheck
             - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: raincheck-env
+                  key: POSTGRES_PASSWORD
+      initContainers:
+        - name: postgres-exporter
+          image: docker.io/prometheuscommunity/postgres-exporter:v0.18.1
+          restartPolicy: Always
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+
+          ports:
+            - name: metrics
+              containerPort: 9187
+          livenessProbe:
+            httpGet:
+              path: /
+              port: metrics
+            periodSeconds: 15
+            timeoutSeconds: 5
+          env:
+            - name: DATA_SOURCE_URI
+              value: "127.0.0.1:5432/raincheck?sslmode=disable"
+            - name: DATA_SOURCE_USER
+              value: raincheck
+            - name: DATA_SOURCE_PASS
               valueFrom:
                 secretKeyRef:
                   name: raincheck-env

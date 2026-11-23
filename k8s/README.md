@@ -91,8 +91,6 @@ kubectl rollout status deployment/api -n raincheck --timeout=240s
 
 Выполняйте следующую команду только после успешного завершения предыдущей. При `imagePullPolicy: Never` простой перезапуск использует образ из Minikube: без загрузки нового образа изменения кода, включая HTTP-метрики, не появятся. Число реплик при таком обновлении сохраняется.
 
-При первом включении HTTP-метрик дождитесь полного окна 5 минут. До этого старые бизнес-счётчики без соответствующих HTTP-счётчиков могут временно дать backend SLI выше 100%. Для демонстрации выбирайте интервал после накопления полного окна.
-
 ## Логи
 
 VictoriaLogs и collector используются для логов
@@ -132,11 +130,9 @@ helm upgrade --install vmagent vm/victoria-metrics-agent --version 0.50.0 -n mon
 
 Один values-файл используется для обоих чартов: `server` настраивает VictoriaMetrics, `service`, `remoteWrite` и `config` — vmagent. Встроенный сборщик VictoriaMetrics отключён, метрики собирает только vmagent.
 
-4. Создание PostgreSQL exporter:
+Для CPU-алерта примените `k8s/30-api.yaml`, обновите vmagent и перезапустите vmalert после применения правил. Лимит задаётся в ядрах в аннотации `cpu-limit-cores` и подставляется в `resources.limits.cpu` через YAML-ссылку. В VMUI проверьте `process_cpu_seconds_total{job="kubernetes-pods",cpu_limit_cores!=""}`.
 
-```sh
-kubectl apply -f k8s/80-postgres-exporter.yaml
-```
+4. PostgreSQL exporter запускается в Pod базы при применении `k8s/10-postgres.yaml`. Для обновления существующей установки:
 
 ## Уведомления в Telegram
 
@@ -177,7 +173,7 @@ kubectl rollout restart deployment/raincheck-vmalert -n monitoring
 
 Для синтетических проверок основного сценария запустите пробер. Его метрики обнаруживается vmagent по аннотациям.
 
-VictoriaMetrics, vmagent и PostgreSQL exporter должны быть запущены в namespace `monitoring`, API — в `raincheck`:
+VictoriaMetrics и vmagent должны быть запущены в namespace `monitoring`, API и PostgreSQL exporter — в `raincheck`.
 
 Каждый port-forward для метрик запускайте в отдельном терминале и оставьте работающим.
 
@@ -202,7 +198,7 @@ kubectl get pods -n raincheck
 
 Конфигурация хранится в `k8s/dashboards/raincheck-slo.json`. Команда `kubectl create configmap --from-file` генерирует из JSON манифест ConfigMap `raincheck-vmui-dashboards` в `monitoring`, а `kubectl apply -f -` создаёт или обновляет его в кластере. Values монтируют каталог целиком, без `subPath`, и передают `-vmui.customDashboardsPath=/etc/victoria-metrics/dashboards`. Grafana не требуется.
 
-Проверено с чартом `victoria-metrics-single 0.49.0` и VictoriaMetrics `v1.154.0`. Используется [формат VMUI этой версии](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/v1.154.0/app/vmui/README.md#predefined-dashboards): `title`, `rows`, `panels`, массивы `expr` и `alias`. Для загрузки через флаг `index.js` не нужен. Единый порог SLO 99% для всех операций показан запросом `vector(99)` на графиках пробера и backend.
+Используется [формат VMUI VictoriaMetrics v1.154.0](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/v1.154.0/app/vmui/README.md#predefined-dashboards): `title`, `rows`, `panels`, массивы `expr` и `alias`. Для загрузки через флаг `index.js` не нужен.
 
 Для подключения дашборда к уже работающему release или обновления его конфигурации выполните из корня репозитория:
 
@@ -226,15 +222,9 @@ kubectl create configmap raincheck-vmui-dashboards --from-file=k8s/dashboards/ra
 kubectl port-forward -n monitoring service/vm-single-victoria-metrics-single-server 8428:8428
 ```
 
-Перейдите на http://localhost:8428/vmui/ → **Dashboards** → **Raincheck SLI / SLO**. Для демонстрации удобно выбрать последние 15 минут и автообновление 15 секунд. Каждая точка графика использует фиксированное скользящее окно **5 минут**, независимо от выбранного диапазона времени.
+Перейдите на http://localhost:8428/vmui/ → **Dashboards** → **Raincheck SLI / SLO**. Для демонстрации удобно выбрать последние 15 минут и автообновление 15 секунд. Каждая точка использует скользящее окно **30 дней** по имеющимся измерениям. SLO — 99,5%, SLA — 99%.
 
-На дашборде три графика:
-
-- **Доступность операций и цели SLO (%)** — три SLI (доли `result="success"` в `raincheck_probe_checks_total`) и единая целевая линия SLO 99% для всех операций. Пробер проверяет содержимое ответа и время: `poll_read` ≤ 0,5 с, `availability_save` и `common_slots` ≤ 1 с. Все остальные результаты (`slow`, `timeout`, `error`, `invalid_result`) считаются неуспешными. Фактическая линия ниже цели означает нарушение SLO на этом окне.
-- **Общая доступность (демо SLA, %)** — минимум SLI трёх операций за 5 минут и линия требования 99%. Это **демонстрационная оценка**. Договорный период составляет **30 дней**; этот график не рассчитывает договорную SLA.
-- **Успешность создания сущностей (backend SLI)** — три доли созданных групп, опросов и ответов относительно всех POST-запросов к соответствующим маршрутам за 5 минут и единая цель SLO 99%. Используются бизнес-счётчики и `http_request_duration_seconds_count` с метками `method="POST"` и `route` (шаблон маршрута). Фильтра по `status_code` нет: ошибки валидации и конфликты тоже снижают показатель. Это успешность создания, а не чистая доступность API. Без POST-запросов или HTTP-метрики линия отсутствует.
-
-Если есть провалы, но серия `success` ещё не появилась, числитель SLI принимается равным нулю на основе реально наблюдаемой серии проверок. При отсутствии проверок значение не показывается; подстановки 100% нет. SLA показывается только при наличии измерений всех трёх операций. Для краткого переиспользования формулы SLI запрос SLA использует `WITH` из MetricsQL, поддерживаемый VictoriaMetrics.
+- **Успешность операций** — три доли `result="success"` в `raincheck_probe_checks_total`. Пробер проверяет содержимое ответа и время: `poll_read` ≤ 0,5 с, `availability_save` и `common_slots` ≤ 1 с. Без проверок значение SLI отсутствует.
 
 ### Проверка на реальных метриках
 
@@ -247,13 +237,11 @@ raincheck_probe_checks_total
 Должны присутствовать `operation="poll_read"`, `"availability_save"`, `"common_slots"`, а также `result`. Сравните SLI дашборда с исходной формулой (когда есть серия `success`):
 
 ```promql
-100 * sum by (operation) (increase(raincheck_probe_checks_total{result="success"}[5m]))
-/ sum by (operation) (increase(raincheck_probe_checks_total[5m]))
+100 * sum by (operation) (increase(raincheck_probe_checks_total{result="success"}[30d]))
+/ sum by (operation) (increase(raincheck_probe_checks_total[30d]))
 ```
 
 Проверьте состояние `up` и `pg_up`: backend, prober и PostgreSQL exporter должны продолжать собираться. Конфигурацию, которую получает VMUI, можно проверить на http://localhost:8428/vmui/custom-dashboards.
-
-При отключении PostgreSQL readiness API становится неуспешной, и Kubernetes исключает Pod из Service. Для проверки именно HTTP 500 и их влияния на backend SLI отправляйте диагностические POST-запросы напрямую на IP Pod API: так запрос доходит до приложения. Обращение через Service без готовых Pod не учитывается в HTTP-гистограмме backend; такую недоступность фиксирует пробер.
 
 Для проверки сбоя в тестовом Minikube временно остановите API на 60–90 секунд, оставив prober и vmagent работающими. Пример для PowerShell сохраняет исходное число реплик и восстанавливает его в `finally`:
 
@@ -262,14 +250,14 @@ $apiReplicas = kubectl get deployment api -n raincheck -o jsonpath='{.spec.repli
 try {
   kubectl scale deployment api -n raincheck --replicas=0
   Start-Sleep -Seconds 90
-  # Фактическая доступность падает ниже целевых линий.
+  # В метриках пробера появляются неуспешные проверки.
 } finally {
   kubectl scale deployment api -n raincheck --replicas=$apiReplicas
   kubectl rollout status deployment/api -n raincheck --timeout=180s
 }
 ```
 
-После восстановления SLI растёт по мере вытеснения ошибок из окна; через 5 минут успешных проверок возвращается к 100%. Данные в VictoriaMetrics не подмешиваются: используются только реальные проверки пробера.
+После восстановления пробер снова успешно выполняет проверки. Ошибки учитываются, пока остаются в 30-дневном окне.
 
 Для проверки сохранности после перезапуска:
 
@@ -289,6 +277,6 @@ kubectl get pvc -n monitoring
 ```sh
 helm repo add grafana-community https://grafana-community.github.io/helm-charts
 helm repo update
-helm install raincheck-grafana grafana-community/grafana --namespace monitoring -f k8s/95-grafana-values.yaml --set-file dashboards.default.raincheck.json=k8s/dashboards/raincheck-grafana.json --set-file dashboards.default.postgres-overview.json=k8s/dashboards/postgres-overview.json
+helm upgrade --install raincheck-grafana grafana-community/grafana --namespace monitoring -f k8s/95-grafana-values.yaml --set-file dashboards.default.raincheck.json=k8s/dashboards/raincheck-grafana.json --set-file dashboards.default.postgres-overview.json=k8s/dashboards/postgres-overview.json
 kubectl port-forward svc/raincheck-grafana 3000:80 -n monitoring
 ```

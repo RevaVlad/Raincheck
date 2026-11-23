@@ -17,6 +17,13 @@ spec:
         - name: web
           image: raincheck-web:dev
           imagePullPolicy: Never
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 64Mi
           ports:
             - containerPort: 80
           readinessProbe:

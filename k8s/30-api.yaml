@@ -16,12 +16,21 @@ spec:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9464"
         prometheus.io/path: "/metrics"
+        # Значение в ядрах. 0.5 соответствует 500m.
+        cpu-limit-cores: &api_cpu_limit_cores "0.5"
     spec:
       initContainers:
         - name: migrate
           image: raincheck-migrate:dev
           imagePullPolicy: Never
           command: ["npm", "run", "prisma:deploy"]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 384Mi
           env:
             - name: DATABASE_URL
               valueFrom:
@@ -32,6 +41,13 @@ spec:
         - name: api
           image: raincheck-api:dev
           imagePullPolicy: Never
+          resources:
+            requests:
+              cpu: 100m
+              memory: 192Mi
+            limits:
+              cpu: *api_cpu_limit_cores
+              memory: 384Mi
           ports:
             - containerPort: 3000
             - name: metrics
