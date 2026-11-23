@@ -11,5 +11,6 @@ void test('loads valid defaults and rejects invalid port', () => {
   const config = loadConfig({ DATABASE_URL: 'postgres://localhost/raincheck' });
   assert.equal(config.port, 3000);
   assert.equal(config.host, '127.0.0.1');
+  assert.equal(config.appVersion, 'v1');
   assert.throws(() => loadConfig({ DATABASE_URL: config.databaseUrl, PORT: '0' }), /PORT/);
 });
