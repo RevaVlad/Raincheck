@@ -24,6 +24,13 @@ spec:
         - name: postgres
           image: postgres:17-alpine
           imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
           ports:
             - containerPort: 5432
           startupProbe:
@@ -59,6 +66,13 @@ spec:
           image: docker.io/prometheuscommunity/postgres-exporter:v0.18.1
           restartPolicy: Always
           imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
 
           ports:
             - name: metrics
