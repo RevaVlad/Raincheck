@@ -2,15 +2,38 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { buildApp } from '../src/app.js';
 import { AppError } from '../src/api/errors.js';
-import type { Config } from '#config/config';
+import { loadConfig, type Config } from '#config/config';
 
 const config: Config = {
   nodeEnv: 'test',
+  appVersion: 'v1',
   host: '127.0.0.1',
   port: 3000,
   databaseUrl: 'postgres://localhost/raincheck',
   logLevel: 'silent',
 };
+
+void test('version endpoint returns APP_VERSION without querying PostgreSQL', async () => {
+  const versionConfig = loadConfig({
+    NODE_ENV: 'test',
+    DATABASE_URL: config.databaseUrl,
+    LOG_LEVEL: 'silent',
+    APP_VERSION: 'v2',
+  });
+  const app = buildApp(versionConfig, {
+    isAvailable: async () => assert.fail('Version endpoint must not query PostgreSQL'),
+    close: async () => {},
+  });
+
+  try {
+    const response = await app.inject('/api/version');
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.headers['x-app-version'], 'v2');
+    assert.deepEqual(response.json(), { version: 'v2' });
+  } finally {
+    await app.close();
+  }
+});
 
 void test('liveness does not depend on PostgreSQL', async () => {
   const db = { isAvailable: async () => false, close: async () => {} };

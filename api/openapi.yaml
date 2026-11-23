@@ -4,6 +4,22 @@ info:
   version: 0.1.0
   description: Poll schedules use the creator's local calendar and fixed creation offset. Intervals and generated slots use exact UTC instants; viewer results use the requesting device's IANA time zone. Raw participant edit tokens occur only in successful join responses.
 paths:
+  /api/version:
+    get:
+      summary: Version of the API instance that handled the request
+      responses:
+        '200':
+          description: Application version
+          headers:
+            X-App-Version:
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [version]
+                properties:
+                  version: { type: string }
   /api/groups:
     post:
       summary: Create a UTC group without a poll

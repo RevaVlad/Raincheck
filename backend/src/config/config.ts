@@ -1,5 +1,6 @@
 export interface Config {
   nodeEnv: 'development' | 'test' | 'production';
+  appVersion: string;
   host: string;
   port: number;
   databaseUrl: string;
@@ -12,6 +13,7 @@ const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   return {
     nodeEnv: parseNodeEnv(env['NODE_ENV']),
+    appVersion: env['APP_VERSION']?.trim() || 'v1',
     host: env['HOST'] ?? '127.0.0.1',
     port: parsePort(env['PORT']),
     databaseUrl: parseDatabaseUrl(env['DATABASE_URL']),

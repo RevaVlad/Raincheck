@@ -48,6 +48,10 @@ export function buildApp(
     registerAnalyticsRoutes(app, database);
   }
 
+  app.get('/api/version', async (_request, reply) =>
+    reply.header('X-App-Version', config.appVersion).send({ version: config.appVersion }),
+  );
+
   app.get('/health/live', async () => ({ status: 'ok' }));
 
   app.get('/health/ready', async (_request, reply) => {
