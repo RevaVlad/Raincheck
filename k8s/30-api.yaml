@@ -16,6 +16,8 @@ spec:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9464"
         prometheus.io/path: "/metrics"
+        # Значение в ядрах. 0.5 соответствует 500m.
+        cpu-limit-cores: &api_cpu_limit_cores "0.5"
     spec:
       initContainers:
         - name: migrate
@@ -32,6 +34,11 @@ spec:
         - name: api
           image: raincheck-api:dev
           imagePullPolicy: Never
+          resources:
+            requests:
+              cpu: 100m
+            limits:
+              cpu: *api_cpu_limit_cores
           ports:
             - containerPort: 3000
             - name: metrics

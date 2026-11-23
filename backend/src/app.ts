@@ -4,7 +4,7 @@ import type { Registry } from '@prometheus-io/client';
 import type { FastifyBaseLogger, FastifyInstance } from 'fastify';
 import type { Config } from '#config/config';
 import { isDatabaseAvailable } from '#infrastructure/database/prisma-database';
-import { configureHttpRequestDurationMetrics } from '#infrastructure/http-request-duration-metrics';
+import { configureHttpRequestMetrics } from '#infrastructure/http-request-metrics';
 import type { PrismaClient } from './generated/prisma/client.js';
 import { logger } from '#shared/logger';
 import { registerApiErrorHandler } from './api/errors.js';
@@ -34,7 +34,7 @@ export function buildApp(
     }),
   });
 
-  configureHttpRequestDurationMetrics(app, httpMetricsRegistry);
+  configureHttpRequestMetrics(app, httpMetricsRegistry);
   registerRequestLogging(app);
   app.addHook('onClose', () => {
     if ('close' in database) return database.close();

@@ -17,6 +17,10 @@ service:
 
 remoteWrite:
   - url: http://vm-single-victoria-metrics-single-server:8428/api/v1/write
+    urlRelabelConfig:
+      - if: '{__name__!="process_cpu_seconds_total",cpu_limit_cores!=""}'
+        action: labeldrop
+        regex: cpu_limit_cores
 
 config:
   global:
@@ -33,3 +37,10 @@ config:
             - __meta_kubernetes_pod_annotation_prometheus_io_port
             - __meta_kubernetes_pod_container_port_number
           action: keep_if_equal
+        - source_labels:
+            - __meta_kubernetes_namespace
+            - __meta_kubernetes_pod_container_name
+            - __meta_kubernetes_pod_annotation_cpu_limit_cores
+          action: replace
+          regex: 'raincheck;api;(.+)'
+          target_label: cpu_limit_cores

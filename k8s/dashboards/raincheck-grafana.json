@@ -115,15 +115,24 @@
     },
     {
       "datasource": {"type": "prometheus", "uid": "victoria-metrics"},
-      "description": "Использование CPU процессами API в ядрах. Показывает загрузку процессора, Utilization в USE.",
-      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "noValue": "No data", "unit": "cores"}},
+      "description": "Среднее потребление CPU процессом API за 5 минут в процентах от лимита каждой реплики. Порог алерта — 80%.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {"thresholdsStyle": {"mode": "line"}},
+          "min": 0,
+          "noValue": "No data",
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 80}]},
+          "unit": "percent"
+        }
+      },
       "gridPos": {"h": 6, "w": 12, "x": 0, "y": 4},
       "id": 6,
       "targets": [
         {
-          "expr": "sum(rate(process_cpu_seconds_total{job=\"kubernetes-pods\",instance=~\".*:9464\"}[5m]))",
+          "expr": "WITH (\n  cpu = process_cpu_seconds_total{job=\"kubernetes-pods\",cpu_limit_cores!=\"\"}\n)\n100 * rate(cpu[5m]) / (label_value(cpu, \"cpu_limit_cores\") > 0)",
           "instant": false,
-          "legendFormat": "CPU",
+          "legendFormat": "{{instance}}",
           "range": true,
           "refId": "A"
         }
@@ -251,6 +260,22 @@
       ],
       "title": "SLI 3: получение результатов ($sli_window)",
       "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "victoria-metrics"},
+      "description": "Число запросов к API в обработке",
+      "fieldConfig": {"defaults": {"min": 0, "decimals": 0, "unit": "short"}},
+      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 15},
+      "id": 12,
+      "targets": [
+        {
+          "expr": "raincheck_http_requests_in_flight{job=\"kubernetes-pods\"}",
+          "legendFormat": "{{instance}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Запросы API в обработке",
+      "type": "timeseries"
     }
   ],
   "refresh": "15s",
