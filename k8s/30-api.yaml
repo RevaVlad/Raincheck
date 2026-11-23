@@ -4,7 +4,13 @@ metadata:
   name: api
   namespace: raincheck
 spec:
-  replicas: 1
+  replicas: 2
+  minReadySeconds: 20
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
       app: api
@@ -12,34 +18,16 @@ spec:
     metadata:
       labels:
         app: api
+        version: v1
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9464"
         prometheus.io/path: "/metrics"
-        # Значение в ядрах. 0.5 соответствует 500m.
         cpu-limit-cores: &api_cpu_limit_cores "0.5"
     spec:
-      initContainers:
-        - name: migrate
-          image: raincheck-migrate:dev
-          imagePullPolicy: Never
-          command: ["npm", "run", "prisma:deploy"]
-          resources:
-            requests:
-              cpu: 100m
-              memory: 128Mi
-            limits:
-              cpu: 500m
-              memory: 384Mi
-          env:
-            - name: DATABASE_URL
-              valueFrom:
-                secretKeyRef:
-                  name: raincheck-env
-                  key: K8S_DATABASE_URL
       containers:
         - name: api
-          image: raincheck-api:dev
+          image: raincheck-api:v1
           imagePullPolicy: Never
           resources:
             requests:
@@ -71,6 +59,8 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 3
           env:
+            - name: APP_VERSION
+              value: v1
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:

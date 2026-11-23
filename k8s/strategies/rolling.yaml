@@ -1,0 +1,12 @@
+spec:
+  template:
+    metadata:
+      labels:
+        version: v2
+    spec:
+      containers:
+        - name: api
+          image: raincheck-api:v2
+          env:
+            - name: APP_VERSION
+              value: v2

@@ -1,6 +1,6 @@
 ﻿# Raincheck в Minikube
 
-Команды выполняйте из корня проекта. Minikube должен быть активен; используются образы `raincheck-api:dev`, `raincheck-web:dev`, `raincheck-migrate:dev` и `raincheck-prober:dev`.
+Команды выполняйте из корня проекта. Minikube должен быть активен; используются образы `raincheck-api:v1`, `raincheck-web:dev`, `raincheck-migrate:dev` и `raincheck-prober:dev`.
 
 ## Секреты
 
@@ -36,7 +36,7 @@ kubectl apply -f k8s/10-postgres.yaml
 kubectl get pods -n raincheck
 ```
 
-3. Миграции выполняются initContainer API. Для отдельного запуска:
+3. Перед запуском API дождитесь завершения Job миграций.
 
 ```sh
 kubectl apply -f k8s/20-migrate.yaml
@@ -81,9 +81,9 @@ kubectl delete namespace raincheck
 После изменения backend пересоберите образ и загрузите его в Minikube через архив, затем обновите API. Команды для PowerShell:
 
 ```powershell
-docker build -f backend/Dockerfile -t raincheck-api:dev .
+docker build -f backend/Dockerfile -t raincheck-api:v1 .
 New-Item -ItemType Directory -Force output | Out-Null
-docker image save --platform=linux/amd64 --output output/raincheck-api.tar raincheck-api:dev
+docker image save --platform=linux/amd64 --output output/raincheck-api.tar raincheck-api:v1
 minikube image load output/raincheck-api.tar --overwrite
 kubectl rollout restart deployment/api -n raincheck
 kubectl rollout status deployment/api -n raincheck --timeout=240s
